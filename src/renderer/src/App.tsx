@@ -1,0 +1,399 @@
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { api, ApiError } from './api'
+import { initialState, loadHistory, newChat, reducer } from './state'
+import { baseName, cn } from './util'
+import Sidebar from './components/Sidebar'
+import Chat from './components/Chat'
+import Composer from './components/Composer'
+import StatusBar from './components/StatusBar'
+import Home from './components/Home'
+import ChatHeader from './components/ChatHeader'
+import Settings from './components/Settings'
+import WindowControls from './components/WindowControls'
+import { applyTheme, loadPreferences, normalizeAppName, savePreferences, type Preferences } from './preferences'
+import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
+// debug-panel: see debug-panel/README.md for what this is and how to remove it
+import DebugPanel from './debug-panel/DebugPanel'
+import type { CommandName } from './commands'
+import CommandModal from './components/CommandModal'
+
+export default function App(): JSX.Element {
+  const [state, dispatch] = useReducer(reducer, initialState)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [view, setView] = useState<'content' | 'settings'>('content')
+  // debug-panel: drawer open/closed state
+  const [debugOpen, setDebugOpen] = useState(false)
+  const [preferences, setPreferences] = useState<Preferences>(loadPreferences)
+  const [queuedFollowUps, setQueuedFollowUps] = useState<string[]>([])
+  const [sessionPreferences, setSessionPreferences] = useState<SessionPreferences>(loadSessionPreferences)
+  const [modal, setModal] = useState<'help' | null>(null)
+  const activeSession = useRef<string | null>(null)
+  const queuedFollowUpsRef = useRef<string[]>([])
+  const conn = useRef(state.conn)
+  activeSession.current = state.chat?.sessionId ?? null
+
+  useEffect(() => {
+    queuedFollowUpsRef.current = queuedFollowUps
+  }, [queuedFollowUps])
+
+  useEffect(() => {
+    applyTheme(preferences.theme)
+    savePreferences(preferences)
+    const query = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = (): void => {
+      if (preferences.theme === 'system') applyTheme('system')
+    }
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [preferences])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('reduce-motion', preferences.reducedMotion)
+  }, [preferences.reducedMotion])
+
+  useEffect(() => {
+    saveSessionPreferences(sessionPreferences)
+  }, [sessionPreferences])
+
+  const refreshSessions = useCallback(async () => {
+    try {
+      const sessions = await api.listSessions()
+      sessions.sort((a, b) => (a.modified < b.modified ? 1 : -1))
+      dispatch({ type: 'sessions', sessions })
+    } catch {
+      // transient; status bar reflects connection problems
+    }
+  }, [])
+
+  const bootstrap = useCallback(async () => {
+    dispatch({ type: 'fatal', message: null })
+    try {
+      await api.connect()
+      dispatch({ type: 'providers', providers: await api.providers() })
+      await refreshSessions()
+    } catch (err) {
+      dispatch({ type: 'fatal', message: err instanceof Error ? err.message : String(err) })
+    }
+  }, [refreshSessions])
+
+  useEffect(() => {
+    const off = api.onPush((push) => {
+      switch (push.kind) {
+        case 'hello':
+          dispatch({ type: 'hello', version: push.version })
+          break
+        case 'status': {
+          const prev = conn.current
+          conn.current = push.state
+          dispatch({ type: 'conn', state: push.state, detail: push.detail })
+          // Ownership is dropped server-side on disconnect; re-claim the open
+          // session after a successful reconnect.
+          if (push.state === 'connected' && prev !== 'connected' && activeSession.current) {
+            const id = activeSession.current
+            api
+              .resumeSession(id)
+              .then((info) =>
+                dispatch({
+                  type: 'openChat',
+                  chat: loadHistory(newChat(info.sessionId, info.cwd, info.model), info.messages)
+                })
+              )
+              .catch(() => {})
+          }
+          break
+        }
+        case 'event':
+          if (push.event.type === 'message_end' && push.event.message?.role === 'user') {
+            const text = push.event.message.content.map((block) => block.text ?? '').join('')
+            setQueuedFollowUps((current) => {
+              const index = current.indexOf(text)
+              const next = index < 0 ? current : current.filter((_, itemIndex) => itemIndex !== index)
+              queuedFollowUpsRef.current = next
+              return next
+            })
+          }
+          dispatch({ type: 'event', sessionId: push.sessionId, event: push.event })
+          break
+        case 'done':
+          for (const text of queuedFollowUpsRef.current) {
+            dispatch({ type: 'localUser', text })
+          }
+          queuedFollowUpsRef.current = []
+          setQueuedFollowUps([])
+          dispatch({ type: 'done', sessionId: push.sessionId, error: push.error })
+          refreshSessions()
+          break
+      }
+    })
+    bootstrap()
+    return off
+  }, [bootstrap, refreshSessions])
+
+  const openSession = useCallback(async (id: string) => {
+    setView('content')
+    dispatch({ type: 'loading', value: true })
+    try {
+      const info = await api.resumeSession(id)
+      dispatch({
+        type: 'openChat',
+        chat: loadHistory(newChat(info.sessionId, info.cwd, info.model), info.messages)
+      })
+    } catch (err) {
+      dispatch({ type: 'loading', value: false })
+      dispatch({ type: 'fatal', message: err instanceof Error ? err.message : String(err) })
+    }
+  }, [])
+
+  // Explicit projects first (insertion order), then any session cwds not
+  // already covered — the single ordered list used by sidebar + home dropdown.
+  const projectList = useMemo(() => {
+    const seen = new Set<string>()
+    const out: { cwd: string; name: string }[] = []
+    for (const cwd of state.projects) {
+      if (!seen.has(cwd)) {
+        seen.add(cwd)
+        out.push({ cwd, name: baseName(cwd) })
+      }
+    }
+    for (const s of state.sessions) {
+      if (!seen.has(s.cwd)) {
+        seen.add(s.cwd)
+        out.push({ cwd: s.cwd, name: baseName(s.cwd) })
+      }
+    }
+    return out
+  }, [state.projects, state.sessions])
+
+  // "+" next to the Projects title: pick a folder, register it as a project,
+  // land on the home screen with it preselected.
+  const addProject = useCallback(async () => {
+    const cwd = await api.pickFolder()
+    if (!cwd) return
+    dispatch({ type: 'addProject', cwd })
+    dispatch({ type: 'home', cwd })
+  }, [])
+
+  // Per-project "+": go to the home/compose screen with that project selected.
+  const composeIn = useCallback((cwd: string) => {
+    setView('content')
+    dispatch({ type: 'addProject', cwd })
+    dispatch({ type: 'home', cwd })
+  }, [])
+
+  const goHome = useCallback(() => {
+    setView('content')
+    dispatch({ type: 'home' })
+  }, [])
+
+  const selectHomeCwd = useCallback((cwd: string) => dispatch({ type: 'home', cwd }), [])
+
+  // Home composer: create a session in the selected project, then prompt.
+  const homeSend = useCallback(
+    async (text: string, modelRef?: string) => {
+      const cwd = state.homeCwd ?? projectList[0]?.cwd
+      if (!cwd) return
+      dispatch({ type: 'loading', value: true })
+      try {
+        const divider = modelRef?.indexOf('/') ?? -1
+        const provider = divider > 0 ? modelRef?.slice(0, divider) : undefined
+        const model = divider > 0 ? modelRef?.slice(divider + 1) : undefined
+        const info = await api.createSession(cwd, provider, model)
+        dispatch({ type: 'openChat', chat: newChat(info.sessionId, info.cwd, info.model) })
+        dispatch({ type: 'localUser', text })
+        await api.prompt(info.sessionId, text)
+        refreshSessions()
+      } catch (err) {
+        dispatch({ type: 'loading', value: false })
+        dispatch({ type: 'fatal', message: err instanceof Error ? err.message : String(err) })
+      }
+    },
+    [state.homeCwd, projectList, refreshSessions]
+  )
+
+  const send = useCallback(
+    async (text: string, queue: boolean) => {
+      const chat = state.chat
+      if (!chat) return
+      try {
+        if (chat.running) {
+          if (queue) {
+            await api.followUp(chat.sessionId, text)
+            setQueuedFollowUps((current) => [...current, text])
+          } else {
+            await api.steer(chat.sessionId, text)
+            dispatch({ type: 'localUser', text })
+          }
+        } else {
+          dispatch({ type: 'localUser', text })
+          await api.prompt(chat.sessionId, text)
+        }
+      } catch (err) {
+        dispatch({
+          type: 'notice',
+          text: err instanceof ApiError ? err.message : String(err)
+        })
+      }
+    },
+    [state.chat]
+  )
+
+  const stop = useCallback(() => {
+    if (state.chat) api.abort(state.chat.sessionId).catch(() => {})
+  }, [state.chat])
+
+  const compact = useCallback(() => {
+    if (!state.chat) return
+    api.compact(state.chat.sessionId).catch((err) => {
+      dispatch({ type: 'notice', text: err instanceof Error ? err.message : String(err) })
+    })
+  }, [state.chat])
+
+  const changeModel = useCallback(
+    async (provider: string, model: string) => {
+      if (!state.chat) return
+      try {
+        await api.setModel(state.chat.sessionId, provider, model)
+        dispatch({ type: 'model', model: `${provider}/${model}` })
+      } catch (err) {
+        dispatch({ type: 'notice', text: err instanceof Error ? err.message : String(err) })
+      }
+    },
+    [state.chat]
+  )
+
+  const handleCommand = useCallback(async (name: CommandName, argument: string) => {
+    const chat = state.chat
+    if (name === 'help') {
+      if (argument) dispatch({ type: 'notice', text: argument })
+      setModal('help')
+      return
+    }
+    if (!chat) return
+    if (name === 'clear') { dispatch({ type: 'clearVisible' }); return }
+    if (name === 'compact') {
+      if (chat.running) dispatch({ type: 'notice', text: 'Stop the active run before compacting context.' })
+      else compact()
+    }
+  }, [compact, state.chat])
+
+  const renameSession = useCallback((id: string, currentTitle: string) => {
+    const title = window.prompt('Rename session', currentTitle)?.trim()
+    if (title === undefined) return
+    setSessionPreferences((current) => ({ ...current, [id]: { ...current[id], title } }))
+  }, [])
+
+  const archiveSession = useCallback((id: string) => {
+    setSessionPreferences((current) => ({ ...current, [id]: { ...current[id], archived: true } }))
+    if (state.chat?.sessionId === id) dispatch({ type: 'home' })
+  }, [state.chat?.sessionId])
+
+  const restoreSession = useCallback((id: string) => {
+    setSessionPreferences((current) => ({ ...current, [id]: { ...current[id], archived: false } }))
+  }, [])
+
+  const archivedSessions = useMemo(
+    () => state.sessions.filter((session) => sessionPreferences[session.id]?.archived),
+    [sessionPreferences, state.sessions]
+  )
+  const sessionTitles = useMemo(
+    () => Object.fromEntries(Object.entries(sessionPreferences).map(([id, value]) => [id, value.title])),
+    [sessionPreferences]
+  )
+
+  return (
+    <div className="flex h-screen w-full overflow-hidden">
+      <div
+        className={cn(
+          'drag-region fixed right-[138px] top-0 z-[5] h-11 transition-[left] duration-200',
+          sidebarCollapsed ? 'left-14' : 'left-[260px]'
+        )}
+      />
+      <Sidebar
+        sessions={state.sessions}
+        projects={projectList}
+        activeId={state.chat?.sessionId ?? null}
+        onOpen={openSession}
+        onCompose={composeIn}
+        onAddProject={addProject}
+        onHome={goHome}
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed((value) => !value)}
+        settingsOpen={view === 'settings'}
+        onSettings={() => setView('settings')}
+        sessionTitles={sessionTitles}
+        archivedSessionIds={new Set(archivedSessions.map((session) => session.id))}
+        onRename={renameSession}
+        onArchive={archiveSession}
+        appName={normalizeAppName(preferences.appName)}
+      />
+      <main className="main-panel surface-grain relative flex min-w-0 flex-1 flex-col overflow-hidden">
+        {view === 'settings' ? (
+          <Settings
+            preferences={preferences}
+            onChange={(patch) => setPreferences((current) => ({ ...current, ...patch }))}
+            conn={state.conn}
+            detail={state.connDetail}
+            serverVersion={state.serverVersion}
+            onReconnect={bootstrap}
+            archivedSessions={archivedSessions}
+            sessionTitles={sessionTitles}
+            onOpenArchived={openSession}
+            onRestore={restoreSession}
+            providers={state.providers}
+            onSaveProvider={async (input) => { const providers = await api.saveProvider(input); dispatch({ type: 'providers', providers }) }}
+            onDeleteProvider={async (name) => { const providers = await api.deleteProvider(name); dispatch({ type: 'providers', providers }) }}
+            onDefaultProvider={async (name, model) => { const providers = await api.setDefaultProvider(name, model); dispatch({ type: 'providers', providers }) }}
+            onDiscoverProvider={async (name, apiKey) => { const models = await api.discoverProviderModels(name, apiKey); const providers = await api.providers(); dispatch({ type: 'providers', providers }); return models }}
+          />
+        ) : state.chat ? (
+          <>
+            <ChatHeader
+              chat={state.chat}
+              onCompact={compact}
+              onToggleDebug={() => setDebugOpen((v) => !v)}
+              debugOpen={debugOpen}
+            />
+            <Chat chat={state.chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} />
+            <div className="shrink-0 px-4 pb-4 pt-2 sm:px-7">
+              <Composer
+                running={state.chat.running}
+                onSend={send}
+                onStop={stop}
+                model={state.chat.model}
+                providers={state.providers}
+                onModel={changeModel}
+                sendOnEnter={preferences.sendOnEnter}
+                queuedFollowUps={queuedFollowUps}
+                onCommand={handleCommand}
+              />
+            </div>
+            {/* debug-panel: LLM request/retry timeline drawer */}
+            <DebugPanel sessionId={state.chat.sessionId} open={debugOpen} onClose={() => setDebugOpen(false)} />
+          </>
+        ) : (
+          <Home
+            loading={state.loading || state.conn === 'starting'}
+            fatal={state.fatal}
+            projects={projectList}
+            selected={state.homeCwd}
+            onSelect={selectHomeCwd}
+            onAddProject={addProject}
+            onSend={homeSend}
+            onRetry={bootstrap}
+            providers={state.providers}
+            sendOnEnter={preferences.sendOnEnter}
+            onCommand={handleCommand}
+          />
+        )}
+        <StatusBar
+          conn={state.conn}
+          detail={state.connDetail}
+          version={state.serverVersion}
+          chat={state.chat}
+        />
+      </main>
+      <WindowControls />
+      {modal === 'help' && <CommandModal onClose={() => setModal(null)} />}
+    </div>
+  )
+}

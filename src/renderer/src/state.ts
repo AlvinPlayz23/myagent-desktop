@@ -1,0 +1,401 @@
+import type {
+  AgentEvent,
+  CompactionInfo,
+  Message,
+  ProvidersInfo,
+  SessionMeta,
+  ToolResult
+} from '../../shared/protocol'
+
+export interface ToolRun {
+  id: string
+  name: string
+  args: Record<string, unknown>
+  status: 'running' | 'done' | 'error'
+  result?: ToolResult
+  partial?: ToolResult
+}
+
+export interface TurnSummary {
+  id: string
+  startedAt: number
+  endedAt?: number
+}
+
+export type ChatItem =
+  | { kind: 'msg'; msg: Message }
+  | { kind: 'compaction'; info: CompactionInfo }
+  | { kind: 'turn'; summary: TurnSummary }
+
+export interface ChatState {
+  sessionId: string
+  cwd: string
+  model: string
+  items: ChatItem[]
+  streaming: Message | null
+  toolRuns: Record<string, ToolRun>
+  running: boolean
+  notice: string | null
+  cost: number
+  lastTokens: number
+}
+
+export type ConnState = 'starting' | 'connected' | 'reconnecting' | 'disconnected'
+
+export interface AppState {
+  conn: ConnState
+  connDetail?: string
+  serverVersion?: string
+  sessions: SessionMeta[]
+  providers: ProvidersInfo
+  chat: ChatState | null
+  loading: boolean
+  fatal: string | null
+  // Project cwd preselected in the home screen's dropdown.
+  homeCwd: string | null
+  // Projects added explicitly (folder picker) — kept even with zero sessions,
+  // persisted so they survive restarts. Session cwds are merged in at render.
+  projects: string[]
+}
+
+const PROJECTS_KEY = 'myagent.projects'
+
+function loadProjects(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(PROJECTS_KEY) ?? '[]')
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function persistProjects(projects: string[]): void {
+  try {
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects))
+  } catch {
+    // storage unavailable; projects just won't survive restarts
+  }
+}
+
+export const initialState: AppState = {
+  conn: 'starting',
+  sessions: [],
+  providers: { providers: [], defaultModel: '' },
+  chat: null,
+  loading: false,
+  fatal: null,
+  homeCwd: null,
+  projects: loadProjects()
+}
+
+export function messageText(msg: Message): string {
+  return msg.content
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text ?? '')
+    .join('')
+}
+
+export function newChat(sessionId: string, cwd: string, model: string): ChatState {
+  return {
+    sessionId,
+    cwd,
+    model,
+    items: [],
+    streaming: null,
+    toolRuns: {},
+    running: false,
+    notice: null,
+    cost: 0,
+    lastTokens: 0
+  }
+}
+
+// Rebuild items + tool runs from a persisted history (session.resume).
+export function loadHistory(chat: ChatState, messages: Message[]): ChatState {
+  const items: ChatItem[] = []
+  const toolRuns: Record<string, ToolRun> = {}
+  let cost = 0
+  let lastTokens = 0
+  for (const msg of messages) {
+    if (msg.role === 'toolResult') {
+      const id = msg.toolCallId ?? ''
+      toolRuns[id] = {
+        id,
+        name: msg.toolName ?? toolRuns[id]?.name ?? 'tool',
+        args: toolRuns[id]?.args ?? {},
+        status: msg.isError ? 'error' : 'done',
+        result: { content: msg.content, details: msg.details }
+      }
+      continue
+    }
+    if (msg.role === 'assistant') {
+      for (const block of msg.content) {
+        if (block.type === 'toolCall' && block.id) {
+          toolRuns[block.id] = {
+            id: block.id,
+            name: block.name ?? 'tool',
+            args: block.arguments ?? {},
+            status: toolRuns[block.id]?.status ?? 'done',
+            result: toolRuns[block.id]?.result
+          }
+        }
+      }
+      if (msg.usage) {
+        cost += msg.usage.cost?.total ?? 0
+        lastTokens = msg.usage.totalTokens
+      }
+    }
+    items.push({ kind: 'msg', msg })
+  }
+  return { ...chat, items, toolRuns, cost, lastTokens, streaming: null }
+}
+
+function sameUserText(items: ChatItem[], text: string): boolean {
+  for (let i = items.length - 1; i >= 0 && i >= items.length - 3; i--) {
+    const it = items[i]
+    if (it.kind === 'msg' && it.msg.role === 'user' && messageText(it.msg) === text) return true
+  }
+  return false
+}
+
+export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
+  switch (ev.type) {
+    case 'agent_start': {
+      const startedAt = Date.now()
+      return {
+        ...chat,
+        running: true,
+        notice: null,
+        items: [
+          ...chat.items,
+          { kind: 'turn', summary: { id: `${startedAt}-${Math.random()}`, startedAt } }
+        ]
+      }
+    }
+
+    case 'agent_end':
+      return finishTurn({ ...chat, running: false, streaming: null })
+
+    case 'retry':
+      return {
+        ...chat,
+        notice: `Provider error, retrying (attempt ${ev.attempt ?? '?'}/${ev.maxAttempts ?? '?'})...`
+      }
+
+    case 'message_start':
+      if (ev.message?.role === 'assistant') return { ...chat, streaming: ev.message }
+      return chat
+
+    case 'message_update': {
+      const partial = ev.assistantMessageEvent?.partial
+      return partial ? { ...chat, streaming: partial } : chat
+    }
+
+    case 'message_end': {
+      const msg = ev.message
+      if (!msg) return chat
+      if (msg.role === 'toolResult') {
+        const id = msg.toolCallId ?? ''
+        const prev = chat.toolRuns[id]
+        return {
+          ...chat,
+          toolRuns: {
+            ...chat.toolRuns,
+            [id]: {
+              id,
+              name: msg.toolName ?? prev?.name ?? 'tool',
+              args: prev?.args ?? {},
+              status: msg.isError ? 'error' : 'done',
+              result: { content: msg.content, details: msg.details }
+            }
+          }
+        }
+      }
+      if (msg.role === 'user') {
+        if (sameUserText(chat.items, messageText(msg))) return chat
+        return { ...chat, items: [...chat.items, { kind: 'msg', msg }] }
+      }
+      // assistant
+      const toolRuns = { ...chat.toolRuns }
+      for (const block of msg.content) {
+        if (block.type === 'toolCall' && block.id && !toolRuns[block.id]) {
+          toolRuns[block.id] = {
+            id: block.id,
+            name: block.name ?? 'tool',
+            args: block.arguments ?? {},
+            status: 'running'
+          }
+        }
+      }
+      return {
+        ...chat,
+        items: [...chat.items, { kind: 'msg', msg }],
+        streaming: null,
+        toolRuns,
+        cost: chat.cost + (msg.usage?.cost?.total ?? 0),
+        lastTokens: msg.usage?.totalTokens ?? chat.lastTokens
+      }
+    }
+
+    case 'tool_execution_start': {
+      const id = ev.toolCallId ?? ''
+      const startedAt = Date.now()
+      return {
+        ...chat,
+        toolRuns: {
+          ...chat.toolRuns,
+          [id]: {
+            id,
+            name: ev.toolName ?? 'tool',
+            args: ev.args ?? chat.toolRuns[id]?.args ?? {},
+            status: 'running'
+          }
+        }
+      }
+    }
+
+    case 'tool_execution_update': {
+      const id = ev.toolCallId ?? ''
+      const prev = chat.toolRuns[id]
+      if (!prev) return chat
+      return {
+        ...chat,
+        toolRuns: { ...chat.toolRuns, [id]: { ...prev, partial: ev.partialResult ?? prev.partial } }
+      }
+    }
+
+    case 'tool_execution_end': {
+      const id = ev.toolCallId ?? ''
+      const prev = chat.toolRuns[id]
+      return {
+        ...chat,
+        toolRuns: {
+          ...chat.toolRuns,
+          [id]: {
+            id,
+            name: ev.toolName ?? prev?.name ?? 'tool',
+            args: prev?.args ?? ev.args ?? {},
+            status: ev.isError ? 'error' : 'done',
+            result: ev.result ?? prev?.result,
+            partial: undefined
+          }
+        }
+      }
+    }
+
+    case 'compaction_end':
+      return ev.compaction
+        ? { ...chat, items: [...chat.items, { kind: 'compaction', info: ev.compaction }] }
+        : chat
+
+    default:
+      return chat
+  }
+}
+
+function updateLatestTurn(items: ChatItem[], update: (summary: TurnSummary) => TurnSummary): ChatItem[] {
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (items[i].kind === 'turn') {
+      return items.map((item, index) =>
+        index === i && item.kind === 'turn' ? { ...item, summary: update(item.summary) } : item
+      )
+    }
+  }
+  return items
+}
+
+function finishTurn(chat: ChatState): ChatState {
+  const endedAt = Date.now()
+  return {
+    ...chat,
+    items: updateLatestTurn(chat.items, (summary) =>
+      summary.endedAt ? summary : { ...summary, endedAt }
+    )
+  }
+}
+
+export type Action =
+  | { type: 'conn'; state: ConnState; detail?: string }
+  | { type: 'hello'; version: string }
+  | { type: 'sessions'; sessions: SessionMeta[] }
+  | { type: 'providers'; providers: ProvidersInfo }
+  | { type: 'openChat'; chat: ChatState }
+  | { type: 'closeChat' }
+  | { type: 'loading'; value: boolean }
+  | { type: 'fatal'; message: string | null }
+  | { type: 'event'; sessionId: string; event: AgentEvent }
+  | { type: 'done'; sessionId: string; error?: string }
+  | { type: 'localUser'; text: string }
+  | { type: 'model'; model: string }
+  | { type: 'notice'; text: string | null }
+  | { type: 'home'; cwd?: string }
+  | { type: 'addProject'; cwd: string }
+  | { type: 'clearVisible' }
+
+export function reducer(state: AppState, action: Action): AppState {
+  switch (action.type) {
+    case 'conn':
+      return { ...state, conn: action.state, connDetail: action.detail }
+    case 'hello':
+      return { ...state, serverVersion: action.version }
+    case 'sessions':
+      return { ...state, sessions: action.sessions }
+    case 'providers':
+      return { ...state, providers: action.providers }
+    case 'openChat':
+      return { ...state, chat: action.chat, loading: false }
+    case 'closeChat':
+      return { ...state, chat: null }
+    case 'loading':
+      return { ...state, loading: action.value }
+    case 'fatal':
+      return { ...state, fatal: action.message }
+    case 'event':
+      if (!state.chat || state.chat.sessionId !== action.sessionId) return state
+      return { ...state, chat: applyEvent(state.chat, action.event) }
+    case 'done': {
+      if (!state.chat || state.chat.sessionId !== action.sessionId) return state
+      const aborted = action.error?.toLowerCase().includes('abort')
+      return {
+        ...state,
+        chat: {
+          ...state.chat,
+          running: false,
+          streaming: null,
+          notice: action.error ? (aborted ? 'Run stopped.' : action.error) : null,
+          items: finishTurn(state.chat).items
+        }
+      }
+    }
+    case 'localUser': {
+      if (!state.chat) return state
+      const msg: Message = {
+        role: 'user',
+        content: [{ type: 'text', text: action.text }],
+        timestamp: Date.now()
+      }
+      return {
+        ...state,
+        chat: { ...state.chat, items: [...state.chat.items, { kind: 'msg', msg }], notice: null }
+      }
+    }
+    case 'model':
+      if (!state.chat) return state
+      return { ...state, chat: { ...state.chat, model: action.model } }
+    case 'notice':
+      if (!state.chat) return state
+      return { ...state, chat: { ...state.chat, notice: action.text } }
+    case 'home':
+      return { ...state, chat: null, loading: false, homeCwd: action.cwd ?? state.homeCwd }
+    case 'addProject': {
+      const projects = [action.cwd, ...state.projects.filter((c) => c !== action.cwd)]
+      persistProjects(projects)
+      return { ...state, projects }
+    }
+    case 'clearVisible':
+      if (!state.chat) return state
+      return { ...state, chat: { ...state.chat, items: [], streaming: null, toolRuns: {}, notice: null } }
+    default:
+      return state
+  }
+}
