@@ -2,14 +2,6 @@ import { useEffect, useRef } from 'react'
 import { Sparkles } from './ui/icons'
 import type { ChatItem, ChatState } from '../state'
 import MessageView from './MessageView'
-import TurnSummary from './TurnSummary'
-
-function isFinalAnswer(item: ChatItem): boolean {
-  return item.kind === 'msg' &&
-    item.msg.role === 'assistant' &&
-    item.msg.content.some((block) => block.type === 'text' && block.text) &&
-    !item.msg.content.some((block) => block.type === 'toolCall')
-}
 
 export default function Chat({
   chat,
@@ -34,11 +26,11 @@ export default function Chat({
     pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }
 
-  const renderItem = (item: ChatItem, key: string, showThinking = true, compact = false): JSX.Element | null => {
+  const renderItem = (item: ChatItem, key: string): JSX.Element | null => {
     if (item.kind === 'msg') {
       return (
-        <div key={key} className={compact ? 'mt-0.5' : 'mt-5'}>
-          <MessageView msg={item.msg} toolRuns={chat.toolRuns} messageSize={messageSize} showThinking={showThinking} />
+        <div key={key} className="mt-5">
+          <MessageView msg={item.msg} toolRuns={chat.toolRuns} messageSize={messageSize} />
         </div>
       )
     }
@@ -52,65 +44,9 @@ export default function Chat({
         </div>
       )
     }
+    // Turn markers only describe agent lifecycle. They must never decide
+    // whether a timeline message is visible.
     return null
-  }
-
-  const content: JSX.Element[] = []
-  for (let index = 0; index < chat.items.length;) {
-    const item = chat.items[index]
-    if (item.kind !== 'turn' || !item.summary.endedAt) {
-      const rendered = item.kind === 'turn' ? null : renderItem(item, `item-${index}`)
-      if (rendered) content.push(rendered)
-      index++
-      continue
-    }
-
-    const end = chat.items.findIndex((candidate, candidateIndex) => candidateIndex > index && candidate.kind === 'turn')
-    const turnItems = chat.items.slice(index + 1, end === -1 ? undefined : end)
-    let finalIndex = -1
-    for (let i = turnItems.length - 1; i >= 0; i--) {
-      if (isFinalAnswer(turnItems[i])) {
-        finalIndex = i
-        break
-      }
-    }
-    const workItems = finalIndex === -1 ? turnItems : turnItems.slice(0, finalIndex)
-    const finalItem = finalIndex === -1 ? null : turnItems[finalIndex]
-    const finalThinking = finalItem?.kind === 'msg'
-      ? { ...finalItem, msg: { ...finalItem.msg, content: finalItem.msg.content.filter((block) => block.type === 'thinking') } }
-      : null
-    const hasFinalThinking = finalThinking?.kind === 'msg' && finalThinking.msg.content.length > 0
-    const collapsibleItems = hasFinalThinking ? [...workItems, finalThinking] : workItems
-
-    // A steering or queued follow-up arrives inside the active agent turn.
-    // Keep it visible in the timeline instead of folding it into the closed
-    // work summary with tool calls and reasoning.
-    let workSegment: ChatItem[] = []
-    let segmentIndex = 0
-    const flushWorkSegment = (): void => {
-      if (workSegment.length === 0) return
-      const segment = workSegment
-      workSegment = []
-      content.push(
-        <TurnSummary key={`${item.summary.id}-work-${segmentIndex++}`} startedAt={item.summary.startedAt} endedAt={item.summary.endedAt}>
-          {segment.map((work, workIndex) => renderItem(work, `${item.summary.id}-work-${segmentIndex}-${workIndex}`, true, true))}
-        </TurnSummary>
-      )
-    }
-
-    for (let workIndex = 0; workIndex < collapsibleItems.length; workIndex++) {
-      const work = collapsibleItems[workIndex]
-      if (work.kind === 'msg' && work.msg.role === 'user') {
-        flushWorkSegment()
-        const rendered = renderItem(work, `${item.summary.id}-user-${workIndex}`)
-        if (rendered) content.push(rendered)
-      } else {
-        workSegment.push(work)
-      }
-    }
-    flushWorkSegment()
-    if (finalItem) content.push(renderItem(finalItem, `${item.summary.id}-final`, false)!)
-    index = end === -1 ? chat.items.length : end
   }
 
   return (
@@ -122,7 +58,7 @@ export default function Chat({
             <p className="m-0 leading-relaxed">Fresh session in <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[12px] text-foreground">{chat.cwd}</code>. Describe what you want built, fixed, or explained.</p>
           </div>
         )}
-        {content}
+        {chat.items.map((item, index) => renderItem(item, `item-${index}`))}
         {chat.streaming && <div className="mt-5"><MessageView msg={chat.streaming} toolRuns={chat.toolRuns} streaming messageSize={messageSize} /></div>}
         {chat.running && !chat.streaming && (
           <div className="flex gap-1.5 px-0.5 py-1.5">
