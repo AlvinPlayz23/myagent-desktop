@@ -38,6 +38,10 @@ export interface ChatState {
   notice: string | null
   cost: number
   lastTokens: number
+  // Optimistic user bubbles awaiting their matching server message_end event.
+  // Text is retained rather than used as a global deduplication key: identical
+  // prompts are valid and each must remain visible.
+  pendingUserTexts: string[]
 }
 
 export type ConnState = 'starting' | 'connected' | 'reconnecting' | 'disconnected'
@@ -106,7 +110,8 @@ export function newChat(sessionId: string, cwd: string, model: string): ChatStat
     running: false,
     notice: null,
     cost: 0,
-    lastTokens: 0
+    lastTokens: 0,
+    pendingUserTexts: []
   }
 }
 
@@ -147,15 +152,7 @@ export function loadHistory(chat: ChatState, messages: Message[]): ChatState {
     }
     items.push({ kind: 'msg', msg })
   }
-  return { ...chat, items, toolRuns, cost, lastTokens, streaming: null }
-}
-
-function sameUserText(items: ChatItem[], text: string): boolean {
-  for (let i = items.length - 1; i >= 0 && i >= items.length - 3; i--) {
-    const it = items[i]
-    if (it.kind === 'msg' && it.msg.role === 'user' && messageText(it.msg) === text) return true
-  }
-  return false
+  return { ...chat, items, toolRuns, cost, lastTokens, streaming: null, pendingUserTexts: [] }
 }
 
 export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
@@ -212,7 +209,18 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
         }
       }
       if (msg.role === 'user') {
-        if (sameUserText(chat.items, messageText(msg))) return chat
+        // A local bubble was already rendered for a prompt, steer, or queued
+        // follow-up. Consume only its corresponding pending entry. Do not
+        // deduplicate by looking at nearby message text: identical prompts are
+        // legitimate and previously caused queued bubbles to disappear.
+        const text = messageText(msg)
+        const pendingIndex = chat.pendingUserTexts.indexOf(text)
+        if (pendingIndex >= 0) {
+          return {
+            ...chat,
+            pendingUserTexts: chat.pendingUserTexts.filter((_, index) => index !== pendingIndex)
+          }
+        }
         return { ...chat, items: [...chat.items, { kind: 'msg', msg }] }
       }
       // assistant
@@ -376,7 +384,12 @@ export function reducer(state: AppState, action: Action): AppState {
       }
       return {
         ...state,
-        chat: { ...state.chat, items: [...state.chat.items, { kind: 'msg', msg }], notice: null }
+        chat: {
+          ...state.chat,
+          items: [...state.chat.items, { kind: 'msg', msg }],
+          pendingUserTexts: [...state.chat.pendingUserTexts, action.text],
+          notice: null
+        }
       }
     }
     case 'model':

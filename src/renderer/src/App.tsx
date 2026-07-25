@@ -28,13 +28,8 @@ export default function App(): JSX.Element {
   const [sessionPreferences, setSessionPreferences] = useState<SessionPreferences>(loadSessionPreferences)
   const [modal, setModal] = useState<'help' | null>(null)
   const activeSession = useRef<string | null>(null)
-  const queuedFollowUpsRef = useRef<string[]>([])
   const conn = useRef(state.conn)
   activeSession.current = state.chat?.sessionId ?? null
-
-  useEffect(() => {
-    queuedFollowUpsRef.current = queuedFollowUps
-  }, [queuedFollowUps])
 
   useEffect(() => {
     applyTheme(preferences.theme)
@@ -108,17 +103,12 @@ export default function App(): JSX.Element {
             setQueuedFollowUps((current) => {
               const index = current.indexOf(text)
               const next = index < 0 ? current : current.filter((_, itemIndex) => itemIndex !== index)
-              queuedFollowUpsRef.current = next
               return next
             })
           }
           dispatch({ type: 'event', sessionId: push.sessionId, event: push.event })
           break
         case 'done':
-          for (const text of queuedFollowUpsRef.current) {
-            dispatch({ type: 'localUser', text })
-          }
-          queuedFollowUpsRef.current = []
           setQueuedFollowUps([])
           dispatch({ type: 'done', sessionId: push.sessionId, error: push.error })
           refreshSessions()
@@ -217,6 +207,10 @@ export default function App(): JSX.Element {
       try {
         if (chat.running) {
           if (queue) {
+            // Render the queued message before the RPC can emit its echoed
+            // message_end event. This preserves ordering and gives the user
+            // immediate confirmation that the follow-up was accepted.
+            dispatch({ type: 'localUser', text })
             await api.followUp(chat.sessionId, text)
             setQueuedFollowUps((current) => [...current, text])
           } else {
