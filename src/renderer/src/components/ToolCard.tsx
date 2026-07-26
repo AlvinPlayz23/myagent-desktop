@@ -12,6 +12,8 @@ import {
   type IconComponent
 } from './ui/icons'
 import type { ToolRun } from '../state'
+import { buildToolDiff } from '../diff'
+import DiffView from './DiffView'
 import { cn } from '../util'
 
 const ICONS: Record<string, IconComponent> = {
@@ -51,10 +53,13 @@ export default function ToolCard({ run }: { run: ToolRun }): JSX.Element {
   const [full, setFull] = useState(false)
   const Icon = ICONS[run.name] ?? Wrench01
   const text = resultText(run)
-  const isDiff = useMemo(
-    () => /^(\+|-|@@)/m.test(text) && (run.name === 'edit' || /^@@/m.test(text)),
-    [text, run.name]
+  // GitHub-style diff for edit/write, derived from the tool-call args. A
+  // failed run falls back to the error text — the change never applied.
+  const diff = useMemo(
+    () => (run.status === 'error' ? null : buildToolDiff(run)),
+    [run.name, run.args, run.status]
   )
+  const isDiff = useMemo(() => !diff && /^(\+|-|@@)/m.test(text) && /^@@/m.test(text), [text, diff])
   const shown = full || text.length <= MAX_PREVIEW ? text : text.slice(0, MAX_PREVIEW)
 
   return (
@@ -80,6 +85,14 @@ export default function ToolCard({ run }: { run: ToolRun }): JSX.Element {
         <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted-foreground/90">
           {summaryOf(run)}
         </span>
+        {diff && (
+          <span className="flex shrink-0 items-center gap-1 font-mono text-[10.5px]">
+            {diff.additions > 0 && <span className="text-success-foreground">+{diff.additions}</span>}
+            {diff.deletions > 0 && (
+              <span className="text-destructive-foreground">−{diff.deletions}</span>
+            )}
+          </span>
+        )}
         <span
           className={cn(
             'ml-auto flex shrink-0 items-center gap-1 text-[11px]',
@@ -114,7 +127,9 @@ export default function ToolCard({ run }: { run: ToolRun }): JSX.Element {
                   <span className="font-bold text-foreground">$</span> {run.args.command}
                 </div>
               )}
-              {text ? (
+              {diff ? (
+                <DiffView diff={diff} />
+              ) : text ? (
                 <pre className="m-0 max-h-[360px] overflow-auto whitespace-pre-wrap break-words leading-relaxed text-muted-foreground">
                   {isDiff
                     ? shown.split('\n').map((line, i) => (

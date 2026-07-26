@@ -65,6 +65,10 @@ async function attemptReconnect(): Promise<void> {
 
 async function ensureConnected(): Promise<RpcResult<{ name: string; version: string }>> {
   if (rpc.connected) {
+    // A reloaded renderer boots in 'starting' and only learns state from
+    // pushes; re-emit what it missed while the connection stayed up.
+    push({ kind: 'status', state: 'connected' })
+    if (hello) push({ kind: 'hello', ...hello })
     return { ok: true, result: { name: hello?.name ?? 'myagent', version: hello?.version ?? '' } }
   }
   if (connecting) return connecting
