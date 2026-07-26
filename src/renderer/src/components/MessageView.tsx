@@ -1,45 +1,16 @@
-import { useState } from 'react'
-import { BrainCircuit, ChevronRight } from './ui/icons'
 import type { Message } from '../../../shared/protocol'
-import type { ToolRun } from '../state'
 import Markdown from './Markdown'
-import ToolCard from './ToolCard'
+import Thinking from './Thinking'
 import { cn } from '../util'
-
-function Thinking({ text }: { text: string }): JSX.Element {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="my-0 flex flex-col font-sans">
-      <button
-        className="group flex w-full items-center gap-2 rounded-md px-1.5 py-0.5 text-left text-[12px] font-medium transition-colors hover:bg-hover/60 hover:text-foreground"
-        onClick={() => setOpen(!open)}
-      >
-        <span className="grid w-3.5 place-items-center shrink-0">
-          <ChevronRight size={12} strokeWidth={1.8} className={cn('text-muted-foreground/70 transition-transform', open && 'rotate-90')} />
-        </span>
-        <span className="grid w-4 place-items-center shrink-0">
-          <BrainCircuit size={14} strokeWidth={1.8} className="text-muted-foreground" />
-        </span>
-        <span className="text-muted-foreground font-medium">thinking</span>
-      </button>
-      {open && (
-        <div className="ml-7 mt-1 border-l-2 border-border/50 pl-3 py-1 font-sans text-[12.5px] italic leading-relaxed text-muted-foreground/90 whitespace-pre-wrap">
-          {text}
-        </div>
-      )}
-    </div>
-  )
-}
 
 interface Props {
   msg: Message
-  toolRuns: Record<string, ToolRun>
   streaming?: boolean
   messageSize?: 'compact' | 'default' | 'large'
   showThinking?: boolean
 }
 
-export default function MessageView({ msg, toolRuns, streaming, messageSize = 'default', showThinking = true }: Props): JSX.Element | null {
+export default function MessageView({ msg, streaming, messageSize = 'default', showThinking = true }: Props): JSX.Element | null {
   const messageClass = messageSize === 'compact' ? 'text-[12px]' : messageSize === 'large' ? 'text-[15px]' : 'text-[13.5px]'
   if (msg.role === 'user') {
     const text = msg.content.map((b) => b.text ?? '').join('')
@@ -72,15 +43,8 @@ export default function MessageView({ msg, toolRuns, streaming, messageSize = 'd
               />
             )
           }
-          if (block.type === 'toolCall' && block.id) {
-            const run = toolRuns[block.id] ?? {
-              id: block.id,
-              name: block.name ?? 'tool',
-              args: block.arguments ?? {},
-              status: 'running' as const
-            }
-            return <ToolCard key={block.id} run={run} />
-          }
+          // Tool calls are rendered as first-class timeline rows (see
+          // ToolGroup), not inline inside the assistant message.
           return null
         })}
         {streaming && (

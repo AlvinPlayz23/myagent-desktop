@@ -1,5 +1,6 @@
 export type ThemePreference = 'system' | 'dark' | 'light'
 export type MessageSize = 'compact' | 'default' | 'large'
+export type ToolActivityDisplay = 'expanded' | 'compact' | 'hidden'
 
 export interface Preferences {
   theme: ThemePreference
@@ -7,6 +8,7 @@ export interface Preferences {
   reducedMotion: boolean
   autoScroll: boolean
   sendOnEnter: boolean
+  toolActivityDisplay: ToolActivityDisplay
   /** Display name shown at the top of the sidebar. */
   appName: string
 }
@@ -21,6 +23,7 @@ export const defaults: Preferences = {
   reducedMotion: false,
   autoScroll: true,
   sendOnEnter: true,
+  toolActivityDisplay: 'compact',
   appName: DEFAULT_APP_NAME
 }
 
@@ -36,6 +39,7 @@ export function loadPreferences(): Preferences {
     return {
       ...defaults,
       ...stored,
+      toolActivityDisplay: stored.toolActivityDisplay === 'expanded' || stored.toolActivityDisplay === 'hidden' ? stored.toolActivityDisplay : 'compact',
       appName: normalizeAppName(stored.appName ?? defaults.appName)
     }
   } catch {

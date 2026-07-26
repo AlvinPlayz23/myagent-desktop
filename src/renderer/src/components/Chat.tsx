@@ -1,16 +1,21 @@
 import { useEffect, useRef } from 'react'
 import { Sparkles } from './ui/icons'
 import type { ChatItem, ChatState } from '../state'
+import type { Message } from '../../../shared/protocol'
+import type { ToolActivityDisplay } from '../preferences'
 import MessageView from './MessageView'
+import ToolGroup, { type WorkEntry } from './ToolGroup'
 
 export default function Chat({
   chat,
   autoScroll = true,
-  messageSize = 'default'
+  messageSize = 'default',
+  toolActivityDisplay = 'compact'
 }: {
   chat: ChatState
   autoScroll?: boolean
   messageSize?: 'compact' | 'default' | 'large'
+  toolActivityDisplay?: ToolActivityDisplay
 }): JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
   const pinned = useRef(true)
@@ -28,9 +33,11 @@ export default function Chat({
 
   const renderItem = (item: ChatItem, key: string): JSX.Element | null => {
     if (item.kind === 'msg') {
+      // Finalized reasoning is shown as a foldable work item (see ToolGroup),
+      // so the message body row itself never re-renders thinking.
       return (
         <div key={key} className="mt-5">
-          <MessageView msg={item.msg} toolRuns={chat.toolRuns} messageSize={messageSize} />
+          <MessageView msg={item.msg} messageSize={messageSize} showThinking={false} />
         </div>
       )
     }
@@ -49,6 +56,86 @@ export default function Chat({
     return null
   }
 
+  // A single agent run can contain several assistant/tool cycles. Do not let
+  // each cycle create its own fold: after a user message, collect all work and
+  // assistant messages until the next user message, then render the work once
+  // before the assistant text. This gives one stable transcript shape:
+  //
+  //   user
+  //   Worked for ... · N tools
+  //   assistant response
+  //
+  // Lifecycle markers are intentionally ignored here; agent_start is emitted
+  // before the user message and turn markers are not display boundaries.
+  const isWork = (item: ChatItem): boolean => item.kind === 'tool' || item.kind === 'thinking'
+  const rows: JSX.Element[] = []
+  let workEntries: WorkEntry[] = []
+  let finalAssistant: JSX.Element | null = null
+  let finalAssistantMsg: Message | null = null
+  let segment = 0
+
+  const flushSegment = (): void => {
+    if (workEntries.length > 0) {
+      rows.push(<ToolGroup key={`work-${segment}`} entries={workEntries} display={toolActivityDisplay} />)
+    }
+    if (finalAssistant) rows.push(finalAssistant)
+    workEntries = []
+    finalAssistant = null
+    finalAssistantMsg = null
+    segment++
+  }
+
+  for (let i = 0; i < chat.items.length; i++) {
+    const item = chat.items[i]
+    if (item.kind === 'msg' && item.msg.role === 'user') {
+      flushSegment()
+      const node = renderItem(item, `item-${i}`)
+      if (node) rows.push(node)
+      continue
+    }
+    if (isWork(item)) {
+      // An assistant message is only final if no more work follows it before
+      // the next user message. The instant a work item arrives, move the
+      // pending commentary into the activity list *before* that item. This is
+      // what preserves: commentary → tool → commentary → tool.
+      if (finalAssistantMsg) {
+        workEntries.push({ kind: 'message', id: `message-before-${i}`, msg: finalAssistantMsg })
+        finalAssistant = null
+        finalAssistantMsg = null
+      }
+      if (item.kind === 'tool') {
+        const run = chat.toolRuns[item.toolCallId]
+        if (run && !workEntries.some((entry) => entry.kind === 'tool' && entry.run.id === run.id)) {
+          workEntries.push({ kind: 'tool', run })
+        }
+      } else if (item.kind === 'thinking') {
+        workEntries.push({ kind: 'thinking', id: item.id, text: item.text, redacted: item.redacted })
+      }
+      continue
+    }
+    const node = renderItem(item, `item-${i}`)
+    if (node) {
+      if (item.kind === 'msg' && item.msg.role === 'assistant') {
+        // No work followed the previous response. This is unusual but it
+        // still cannot be the final response once another assistant body has
+        // arrived, so retain it in chronological activity order.
+        if (finalAssistantMsg) {
+          workEntries.push({ kind: 'message', id: `message-before-${i}`, msg: finalAssistantMsg })
+        }
+        finalAssistant = node
+        finalAssistantMsg = item.msg
+      } else if (item.kind === 'compaction') {
+        // Compaction is not agent commentary; keep its existing visible marker
+        // in the transcript and do not absorb it into the work log.
+        flushSegment()
+        rows.push(node)
+      } else if (item.kind === 'msg') {
+        workEntries.push({ kind: 'message', id: `activity-${i}`, msg: item.msg })
+      }
+    }
+  }
+  flushSegment()
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto" ref={scroller} onScroll={onScroll}>
       <div className="mx-auto flex max-w-3xl flex-col px-5 pb-6 pt-7 sm:px-8">
@@ -58,8 +145,8 @@ export default function Chat({
             <p className="m-0 leading-relaxed">Fresh session in <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[12px] text-foreground">{chat.cwd}</code>. Describe what you want built, fixed, or explained.</p>
           </div>
         )}
-        {chat.items.map((item, index) => renderItem(item, `item-${index}`))}
-        {chat.streaming && <div className="mt-5"><MessageView msg={chat.streaming} toolRuns={chat.toolRuns} streaming messageSize={messageSize} /></div>}
+        {rows}
+        {chat.streaming && <div className="mt-5"><MessageView msg={chat.streaming} streaming messageSize={messageSize} /></div>}
         {chat.running && !chat.streaming && (
           <div className="flex gap-1.5 px-0.5 py-1.5">
             <span className="size-[7px] rounded-full bg-foreground/70 [animation:work-pulse_1.2s_ease-in-out_infinite]" />

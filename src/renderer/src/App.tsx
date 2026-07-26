@@ -347,7 +347,7 @@ export default function App(): JSX.Element {
               onToggleDebug={() => setDebugOpen((v) => !v)}
               debugOpen={debugOpen}
             />
-            <Chat chat={state.chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} />
+            <Chat chat={state.chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} />
             <div className="shrink-0 px-4 pb-4 pt-2 sm:px-7">
               <Composer
                 running={state.chat.running}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Archive01, ArchiveRestore, Check, ComputerTerminal, Globe02, Message01, Settings01 } from './ui/icons'
 import type { ConnState } from '../state'
-import { normalizeAppName, type Preferences, type ThemePreference, type MessageSize } from '../preferences'
+import { normalizeAppName, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
 import { cn } from '../util'
 import ProviderManager from './ProviderManager'
@@ -34,6 +34,12 @@ const sizes: Array<{ value: MessageSize; title: string; detail: string }> = [
   { value: 'compact', title: 'Compact', detail: 'More conversation in view' },
   { value: 'default', title: 'Default', detail: 'Balanced reading size' },
   { value: 'large', title: 'Large', detail: 'More comfortable reading' }
+]
+
+const toolDisplays: Array<{ value: ToolActivityDisplay; title: string; detail: string }> = [
+  { value: 'expanded', title: 'Expanded', detail: 'Every tool call as its own card' },
+  { value: 'compact', title: 'Compact', detail: 'Fold tool work behind “Worked for …”' },
+  { value: 'hidden', title: 'Hidden', detail: 'Quiet chat; only failures show' }
 ]
 
 function Choice<T extends string>({ value, current, title, detail, onSelect }: {
@@ -145,6 +151,7 @@ export default function Settings({ preferences, onChange, conn, detail, serverVe
             <h1 className="m-0 text-[24px] font-semibold tracking-tight text-foreground">Chat</h1>
             <p className="mt-2 text-[13px] text-muted-foreground">Control reading density and composer behavior.</p>
             <section className="mt-9"><h2 className="settings-heading">Message size</h2><div className="grid gap-2 sm:grid-cols-3">{sizes.map((item) => <Choice key={item.value} {...item} current={preferences.messageSize} onSelect={(messageSize) => onChange({ messageSize })} />)}</div></section>
+            <section className="mt-8"><h2 className="settings-heading">Tool activity</h2><div className="grid gap-2 sm:grid-cols-3">{toolDisplays.map((item) => <Choice key={item.value} {...item} current={preferences.toolActivityDisplay} onSelect={(toolActivityDisplay) => onChange({ toolActivityDisplay })} />)}</div></section>
             <section className="settings-card mt-8 divide-y divide-border"><Toggle checked={preferences.autoScroll} title="Keep chat pinned to latest" detail="Follow streaming responses while you are at the bottom of a conversation." onChange={(autoScroll) => onChange({ autoScroll })} /><Toggle checked={preferences.sendOnEnter} title="Enter sends messages" detail="Use Shift+Enter for a new line when enabled." onChange={(sendOnEnter) => onChange({ sendOnEnter })} /></section>
           </>}
           {section === 'archive' && <>

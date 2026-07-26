@@ -7,11 +7,16 @@ import type {
   ToolResult
 } from '../../shared/protocol'
 
+// Tool execution is a first-class timeline activity. It is deliberately
+// separate from assistant messages so the presentation can be expanded,
+// compact, or hidden without changing conversation history.
 export interface ToolRun {
   id: string
   name: string
   args: Record<string, unknown>
   status: 'running' | 'done' | 'error'
+  createdAt: number
+  updatedAt: number
   result?: ToolResult
   partial?: ToolResult
 }
@@ -24,6 +29,8 @@ export interface TurnSummary {
 
 export type ChatItem =
   | { kind: 'msg'; msg: Message }
+  | { kind: 'tool'; toolCallId: string }
+  | { kind: 'thinking'; id: string; text: string; redacted: boolean }
   | { kind: 'compaction'; info: CompactionInfo }
   | { kind: 'turn'; summary: TurnSummary }
 
@@ -99,6 +106,54 @@ export function messageText(msg: Message): string {
     .join('')
 }
 
+// Preserve the provider's block order inside an assistant turn. A response can
+// contain commentary before and between tool calls, so it must not be reduced
+// to "all work, then all text".
+function assistantTimelineItems(msg: Message): ChatItem[] {
+  const out: ChatItem[] = []
+  let body: Message['content'] = []
+
+  const flushBody = (): void => {
+    const hasBody = body.some(
+      (block) => (block.type === 'text' && !!block.text?.trim()) || (block.type === 'image' && !!block.data)
+    )
+    if (hasBody) out.push({ kind: 'msg', msg: { ...msg, content: body } })
+    body = []
+  }
+
+  msg.content.forEach((block, i) => {
+    if (block.type === 'thinking' && (block.thinking || block.redacted)) {
+      flushBody()
+      out.push({ kind: 'thinking', id: `${msg.timestamp}-${i}`, text: block.thinking ?? '', redacted: !!block.redacted })
+    } else if (block.type === 'toolCall' && block.id) {
+      flushBody()
+      out.push({ kind: 'tool', toolCallId: block.id })
+    } else {
+      body.push(block)
+    }
+  })
+  flushBody()
+
+  if (out.length === 0 && msg.stopReason === 'error' && msg.errorMessage) {
+    out.push({ kind: 'msg', msg })
+  }
+  return out
+}
+
+// Reconcile a completed assistant message with tool placeholders created by
+// tool_execution_start. The placeholders are removed and rebuilt in the exact
+// assistant content order, preventing a live placeholder from permanently
+// appearing before commentary that preceded its tool call.
+function appendAssistantTimeline(items: ChatItem[], msg: Message): ChatItem[] {
+  const toolIDs = new Set(
+    msg.content.flatMap((block) => (block.type === 'toolCall' && block.id ? [block.id] : []))
+  )
+  const withoutPlaceholders = items.filter(
+    (item) => item.kind !== 'tool' || !toolIDs.has(item.toolCallId)
+  )
+  return [...withoutPlaceholders, ...assistantTimelineItems(msg)]
+}
+
 export function newChat(sessionId: string, cwd: string, model: string): ChatState {
   return {
     sessionId,
@@ -129,6 +184,8 @@ export function loadHistory(chat: ChatState, messages: Message[]): ChatState {
         name: msg.toolName ?? toolRuns[id]?.name ?? 'tool',
         args: toolRuns[id]?.args ?? {},
         status: msg.isError ? 'error' : 'done',
+        createdAt: msg.timestamp,
+        updatedAt: msg.timestamp,
         result: { content: msg.content, details: msg.details }
       }
       continue
@@ -141,6 +198,8 @@ export function loadHistory(chat: ChatState, messages: Message[]): ChatState {
             name: block.name ?? 'tool',
             args: block.arguments ?? {},
             status: toolRuns[block.id]?.status ?? 'done',
+            createdAt: toolRuns[block.id]?.createdAt ?? msg.timestamp,
+            updatedAt: toolRuns[block.id]?.updatedAt ?? msg.timestamp,
             result: toolRuns[block.id]?.result
           }
         }
@@ -150,7 +209,11 @@ export function loadHistory(chat: ChatState, messages: Message[]): ChatState {
         lastTokens = msg.usage.totalTokens
       }
     }
-    items.push({ kind: 'msg', msg })
+    if (msg.role === 'assistant') {
+      items.push(...assistantTimelineItems(msg))
+    } else {
+      items.push({ kind: 'msg', msg })
+    }
   }
   return { ...chat, items, toolRuns, cost, lastTokens, streaming: null, pendingUserTexts: [] }
 }
@@ -203,6 +266,8 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
               name: msg.toolName ?? prev?.name ?? 'tool',
               args: prev?.args ?? {},
               status: msg.isError ? 'error' : 'done',
+              createdAt: prev?.createdAt ?? msg.timestamp,
+              updatedAt: msg.timestamp,
               result: { content: msg.content, details: msg.details }
             }
           }
@@ -231,13 +296,15 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
             id: block.id,
             name: block.name ?? 'tool',
             args: block.arguments ?? {},
-            status: 'running'
+            status: 'running',
+            createdAt: msg.timestamp,
+            updatedAt: msg.timestamp
           }
         }
       }
       return {
         ...chat,
-        items: [...chat.items, { kind: 'msg', msg }],
+        items: appendAssistantTimeline(chat.items, msg),
         streaming: null,
         toolRuns,
         cost: chat.cost + (msg.usage?.cost?.total ?? 0),
@@ -256,9 +323,14 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
             id,
             name: ev.toolName ?? 'tool',
             args: ev.args ?? chat.toolRuns[id]?.args ?? {},
-            status: 'running'
+            status: 'running',
+            createdAt: chat.toolRuns[id]?.createdAt ?? startedAt,
+            updatedAt: startedAt
           }
-        }
+        },
+        items: chat.items.some((item) => item.kind === 'tool' && item.toolCallId === id)
+          ? chat.items
+          : [...chat.items, { kind: 'tool', toolCallId: id }]
       }
     }
 
@@ -268,7 +340,7 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
       if (!prev) return chat
       return {
         ...chat,
-        toolRuns: { ...chat.toolRuns, [id]: { ...prev, partial: ev.partialResult ?? prev.partial } }
+        toolRuns: { ...chat.toolRuns, [id]: { ...prev, partial: ev.partialResult ?? prev.partial, updatedAt: Date.now() } }
       }
     }
 
@@ -284,6 +356,8 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
             name: ev.toolName ?? prev?.name ?? 'tool',
             args: prev?.args ?? ev.args ?? {},
             status: ev.isError ? 'error' : 'done',
+            createdAt: prev?.createdAt ?? Date.now(),
+            updatedAt: Date.now(),
             result: ev.result ?? prev?.result,
             partial: undefined
           }
