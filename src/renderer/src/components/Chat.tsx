@@ -1,10 +1,26 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { motion } from 'motion/react'
 import { Sparkles } from './ui/icons'
 import type { ChatItem, ChatState } from '../state'
 import type { Message } from '../../../shared/protocol'
 import type { ToolActivityDisplay } from '../preferences'
 import MessageView from './MessageView'
 import ToolGroup, { type WorkEntry } from './ToolGroup'
+
+// Rises a timeline entry in as it appends to a live conversation. Rows that
+// are part of the first render (history load / session resume) pass
+// animate=false so an entire transcript never replays its entrance.
+function Entrance({ animate, children }: { animate: boolean; children: ReactNode }): JSX.Element {
+  return (
+    <motion.div
+      initial={animate ? { opacity: 0, y: 10 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+    >
+      {children}
+    </motion.div>
+  )
+}
 
 export default function Chat({
   chat,
@@ -19,6 +35,11 @@ export default function Chat({
 }): JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
   const pinned = useRef(true)
+  // False during the first render only: anything present then is history.
+  const liveRegion = useRef(false)
+  useEffect(() => {
+    liveRegion.current = true
+  }, [])
 
   useEffect(() => {
     const el = scroller.current
@@ -76,7 +97,11 @@ export default function Chat({
 
   const flushSegment = (): void => {
     if (workEntries.length > 0) {
-      rows.push(<ToolGroup key={`work-${segment}`} entries={workEntries} display={toolActivityDisplay} />)
+      rows.push(
+        <Entrance key={`work-${segment}`} animate={liveRegion.current}>
+          <ToolGroup entries={workEntries} display={toolActivityDisplay} />
+        </Entrance>
+      )
     }
     if (finalAssistant) rows.push(finalAssistant)
     workEntries = []
@@ -90,7 +115,7 @@ export default function Chat({
     if (item.kind === 'msg' && item.msg.role === 'user') {
       flushSegment()
       const node = renderItem(item, `item-${i}`)
-      if (node) rows.push(node)
+      if (node) rows.push(<Entrance key={`enter-${i}`} animate={liveRegion.current}>{node}</Entrance>)
       continue
     }
     if (isWork(item)) {
@@ -128,7 +153,7 @@ export default function Chat({
         // Compaction is not agent commentary; keep its existing visible marker
         // in the transcript and do not absorb it into the work log.
         flushSegment()
-        rows.push(node)
+        rows.push(<Entrance key={`enter-${i}`} animate={liveRegion.current}>{node}</Entrance>)
       } else if (item.kind === 'msg') {
         workEntries.push({ kind: 'message', id: `activity-${i}`, msg: item.msg })
       }
@@ -146,7 +171,11 @@ export default function Chat({
           </div>
         )}
         {rows}
-        {chat.streaming && <div className="mt-5"><MessageView msg={chat.streaming} streaming messageSize={messageSize} /></div>}
+        {chat.streaming && (
+          <Entrance animate={liveRegion.current}>
+            <div className="mt-5"><MessageView msg={chat.streaming} streaming messageSize={messageSize} /></div>
+          </Entrance>
+        )}
         {chat.running && !chat.streaming && (
           <div className="flex gap-1.5 px-0.5 py-1.5">
             <span className="size-[7px] rounded-full bg-foreground/70 [animation:work-pulse_1.2s_ease-in-out_infinite]" />

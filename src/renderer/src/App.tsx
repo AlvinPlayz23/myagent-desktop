@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { AnimatePresence, MotionConfig } from 'motion/react'
 import { api, ApiError } from './api'
-import { initialState, loadHistory, newChat, reducer } from './state'
+import { activeChat, initialState, loadHistory, newChat, reducer } from './state'
 import { baseName, cn } from './util'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
@@ -16,6 +17,7 @@ import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences
 import DebugPanel from './debug-panel/DebugPanel'
 import type { CommandName } from './commands'
 import CommandModal from './components/CommandModal'
+import RenameSessionModal from './components/RenameSessionModal'
 
 export default function App(): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -27,9 +29,13 @@ export default function App(): JSX.Element {
   const [queuedFollowUps, setQueuedFollowUps] = useState<string[]>([])
   const [sessionPreferences, setSessionPreferences] = useState<SessionPreferences>(loadSessionPreferences)
   const [modal, setModal] = useState<'help' | null>(null)
+  const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
+  const chat = activeChat(state)
   const activeSession = useRef<string | null>(null)
   const conn = useRef(state.conn)
-  activeSession.current = state.chat?.sessionId ?? null
+  const chats = useRef(state.chats)
+  activeSession.current = chat?.sessionId ?? null
+  chats.current = state.chats
 
   useEffect(() => {
     applyTheme(preferences.theme)
@@ -98,7 +104,9 @@ export default function App(): JSX.Element {
           break
         }
         case 'event':
-          if (push.event.type === 'message_end' && push.event.message?.role === 'user') {
+          // Queued-follow-up bookkeeping belongs to the visible composer only;
+          // background sessions must not consume its entries.
+          if (push.sessionId === activeSession.current && push.event.type === 'message_end' && push.event.message?.role === 'user') {
             const text = push.event.message.content.map((block) => block.text ?? '').join('')
             setQueuedFollowUps((current) => {
               const index = current.indexOf(text)
@@ -109,7 +117,7 @@ export default function App(): JSX.Element {
           dispatch({ type: 'event', sessionId: push.sessionId, event: push.event })
           break
         case 'done':
-          setQueuedFollowUps([])
+          if (push.sessionId === activeSession.current) setQueuedFollowUps([])
           dispatch({ type: 'done', sessionId: push.sessionId, error: push.error })
           refreshSessions()
           break
@@ -121,6 +129,12 @@ export default function App(): JSX.Element {
 
   const openSession = useCallback(async (id: string) => {
     setView('content')
+    // Already tracked live on this connection (possibly mid-run in the
+    // background): its state is fresher than disk, just switch to it.
+    if (chats.current[id]) {
+      dispatch({ type: 'focusChat', sessionId: id })
+      return
+    }
     dispatch({ type: 'loading', value: true })
     try {
       const info = await api.resumeSession(id)
@@ -202,7 +216,6 @@ export default function App(): JSX.Element {
 
   const send = useCallback(
     async (text: string, queue: boolean) => {
-      const chat = state.chat
       if (!chat) return
       try {
         if (chat.running) {
@@ -228,35 +241,34 @@ export default function App(): JSX.Element {
         })
       }
     },
-    [state.chat]
+    [chat]
   )
 
   const stop = useCallback(() => {
-    if (state.chat) api.abort(state.chat.sessionId).catch(() => {})
-  }, [state.chat])
+    if (chat) api.abort(chat.sessionId).catch(() => {})
+  }, [chat])
 
   const compact = useCallback(() => {
-    if (!state.chat) return
-    api.compact(state.chat.sessionId).catch((err) => {
+    if (!chat) return
+    api.compact(chat.sessionId).catch((err) => {
       dispatch({ type: 'notice', text: err instanceof Error ? err.message : String(err) })
     })
-  }, [state.chat])
+  }, [chat])
 
   const changeModel = useCallback(
     async (provider: string, model: string) => {
-      if (!state.chat) return
+      if (!chat) return
       try {
-        await api.setModel(state.chat.sessionId, provider, model)
+        await api.setModel(chat.sessionId, provider, model)
         dispatch({ type: 'model', model: `${provider}/${model}` })
       } catch (err) {
         dispatch({ type: 'notice', text: err instanceof Error ? err.message : String(err) })
       }
     },
-    [state.chat]
+    [chat]
   )
 
   const handleCommand = useCallback(async (name: CommandName, argument: string) => {
-    const chat = state.chat
     if (name === 'help') {
       if (argument) dispatch({ type: 'notice', text: argument })
       setModal('help')
@@ -268,18 +280,22 @@ export default function App(): JSX.Element {
       if (chat.running) dispatch({ type: 'notice', text: 'Stop the active run before compacting context.' })
       else compact()
     }
-  }, [compact, state.chat])
+  }, [compact, chat])
 
   const renameSession = useCallback((id: string, currentTitle: string) => {
-    const title = window.prompt('Rename session', currentTitle)?.trim()
-    if (title === undefined) return
-    setSessionPreferences((current) => ({ ...current, [id]: { ...current[id], title } }))
+    setRenameTarget({ id, title: currentTitle })
   }, [])
+
+  const saveSessionRename = useCallback(async (title: string) => {
+    if (!renameTarget) return
+    await api.renameSession(renameTarget.id, title)
+    await refreshSessions()
+  }, [refreshSessions, renameTarget])
 
   const archiveSession = useCallback((id: string) => {
     setSessionPreferences((current) => ({ ...current, [id]: { ...current[id], archived: true } }))
-    if (state.chat?.sessionId === id) dispatch({ type: 'home' })
-  }, [state.chat?.sessionId])
+    if (chat?.sessionId === id) dispatch({ type: 'home' })
+  }, [chat?.sessionId])
 
   const restoreSession = useCallback((id: string) => {
     setSessionPreferences((current) => ({ ...current, [id]: { ...current[id], archived: false } }))
@@ -289,12 +305,14 @@ export default function App(): JSX.Element {
     () => state.sessions.filter((session) => sessionPreferences[session.id]?.archived),
     [sessionPreferences, state.sessions]
   )
-  const sessionTitles = useMemo(
-    () => Object.fromEntries(Object.entries(sessionPreferences).map(([id, value]) => [id, value.title])),
-    [sessionPreferences]
+
+  const runningIds = useMemo(
+    () => new Set(Object.values(state.chats).filter((c) => c.running).map((c) => c.sessionId)),
+    [state.chats]
   )
 
   return (
+    <MotionConfig reducedMotion={preferences.reducedMotion ? 'always' : 'user'}>
     <div className="flex h-screen w-full overflow-hidden">
       <div
         className={cn(
@@ -305,7 +323,8 @@ export default function App(): JSX.Element {
       <Sidebar
         sessions={state.sessions}
         projects={projectList}
-        activeId={state.chat?.sessionId ?? null}
+        activeId={chat?.sessionId ?? null}
+        runningIds={runningIds}
         onOpen={openSession}
         onCompose={composeIn}
         onAddProject={addProject}
@@ -314,7 +333,6 @@ export default function App(): JSX.Element {
         onToggle={() => setSidebarCollapsed((value) => !value)}
         settingsOpen={view === 'settings'}
         onSettings={() => setView('settings')}
-        sessionTitles={sessionTitles}
         archivedSessionIds={new Set(archivedSessions.map((session) => session.id))}
         onRename={renameSession}
         onArchive={archiveSession}
@@ -330,7 +348,6 @@ export default function App(): JSX.Element {
             serverVersion={state.serverVersion}
             onReconnect={bootstrap}
             archivedSessions={archivedSessions}
-            sessionTitles={sessionTitles}
             onOpenArchived={openSession}
             onRestore={restoreSession}
             providers={state.providers}
@@ -339,21 +356,21 @@ export default function App(): JSX.Element {
             onDefaultProvider={async (name, model) => { const providers = await api.setDefaultProvider(name, model); dispatch({ type: 'providers', providers }) }}
             onDiscoverProvider={async (name, apiKey) => { const models = await api.discoverProviderModels(name, apiKey); const providers = await api.providers(); dispatch({ type: 'providers', providers }); return models }}
           />
-        ) : state.chat ? (
+        ) : chat ? (
           <>
             <ChatHeader
-              chat={state.chat}
+              chat={chat}
               onCompact={compact}
               onToggleDebug={() => setDebugOpen((v) => !v)}
               debugOpen={debugOpen}
             />
-            <Chat chat={state.chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} />
+            <Chat key={chat.sessionId} chat={chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} />
             <div className="shrink-0 px-4 pb-4 pt-2 sm:px-7">
               <Composer
-                running={state.chat.running}
+                running={chat.running}
                 onSend={send}
                 onStop={stop}
-                model={state.chat.model}
+                model={chat.model}
                 providers={state.providers}
                 onModel={changeModel}
                 sendOnEnter={preferences.sendOnEnter}
@@ -362,7 +379,7 @@ export default function App(): JSX.Element {
               />
             </div>
             {/* debug-panel: LLM request/retry timeline drawer */}
-            <DebugPanel sessionId={state.chat.sessionId} open={debugOpen} onClose={() => setDebugOpen(false)} />
+            <DebugPanel sessionId={chat.sessionId} open={debugOpen} onClose={() => setDebugOpen(false)} />
           </>
         ) : (
           <Home
@@ -383,11 +400,17 @@ export default function App(): JSX.Element {
           conn={state.conn}
           detail={state.connDetail}
           version={state.serverVersion}
-          chat={state.chat}
+          chat={chat}
         />
       </main>
       <WindowControls />
-      {modal === 'help' && <CommandModal onClose={() => setModal(null)} />}
+      <AnimatePresence>
+        {modal === 'help' && <CommandModal key="help" onClose={() => setModal(null)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {renameTarget && <RenameSessionModal key="rename" initialTitle={renameTarget.title} onClose={() => setRenameTarget(null)} onSave={saveSessionRename} />}
+      </AnimatePresence>
     </div>
+    </MotionConfig>
   )
 }

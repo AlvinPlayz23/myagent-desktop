@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { motion } from 'motion/react'
 import { Archive01, ArchiveRestore, Check, ComputerTerminal, Globe02, Message01, Settings01 } from './ui/icons'
 import type { ConnState } from '../state'
 import { normalizeAppName, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay } from '../preferences'
@@ -14,7 +15,6 @@ interface Props {
   serverVersion?: string
   onReconnect(): void
   archivedSessions: SessionMeta[]
-  sessionTitles: Record<string, string | undefined>
   onOpenArchived(id: string): void
   onRestore(id: string): void
   providers: ProvidersInfo
@@ -84,7 +84,7 @@ function Toggle({ checked, title, detail, onChange }: { checked: boolean; title:
   )
 }
 
-export default function Settings({ preferences, onChange, conn, detail, serverVersion, onReconnect, archivedSessions, sessionTitles, onOpenArchived, onRestore, providers, onSaveProvider, onDeleteProvider, onDefaultProvider, onDiscoverProvider }: Props): JSX.Element {
+export default function Settings({ preferences, onChange, conn, detail, serverVersion, onReconnect, archivedSessions, onOpenArchived, onRestore, providers, onSaveProvider, onDeleteProvider, onDefaultProvider, onDiscoverProvider }: Props): JSX.Element {
   const [section, setSection] = useState<'appearance' | 'chat' | 'providers' | 'archive' | 'about'>('appearance')
   const nav = [
     { id: 'appearance' as const, label: 'Appearance', icon: Settings01 },
@@ -100,27 +100,40 @@ export default function Settings({ preferences, onChange, conn, detail, serverVe
         <div className="px-2 pb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Settings</div>
         <div className="space-y-1">
           {nav.map(({ id, label, icon: Icon }) => (
-            <button key={id} type="button" onClick={() => setSection(id)} className={cn('flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[12.5px] transition-colors', section === id ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground')}>
-              <Icon size={15} strokeWidth={1.8} />
-              {label}
+            <button key={id} type="button" onClick={() => setSection(id)} className={cn('relative flex h-9 w-full items-center rounded-lg px-2.5 text-left text-[12.5px] transition-colors', section === id ? 'text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground')}>
+              {section === id && (
+                <motion.span
+                  layoutId="settings-nav-pill"
+                  className="absolute inset-0 rounded-lg bg-selected"
+                  transition={{ type: 'spring', stiffness: 620, damping: 48 }}
+                />
+              )}
+              <span className="relative flex items-center gap-2">
+                <Icon size={15} strokeWidth={1.8} />
+                {label}
+              </span>
             </button>
           ))}
         </div>
       </aside>
-      <div className={cn('min-w-0 flex-1', section === 'providers' ? 'flex min-h-0 flex-col overflow-hidden' : 'overflow-y-auto px-7 py-14 sm:px-12')}>
+      <div className={cn('min-w-0 flex-1', section === 'providers' ? 'flex min-h-0 overflow-hidden' : 'overflow-y-auto px-7 py-14 sm:px-12')}>
         {section === 'providers' ? (
-          <>
-            <div className="shrink-0 px-7 pb-6 pt-14 sm:px-12">
-              <div className="mx-auto max-w-2xl">
-                <h1 className="m-0 text-[24px] font-semibold tracking-tight text-foreground">Providers</h1>
-                <p className="mt-2 text-[13px] text-muted-foreground">Manage the model services and credentials used by Myagent.</p>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <ProviderManager providers={providers} onSave={onSaveProvider} onDelete={onDeleteProvider} onDefault={onDefaultProvider} onDiscover={onDiscoverProvider} />
-            </div>
-          </>
-        ) : <div className="mx-auto max-w-2xl [animation:rise_0.24s_ease]">
+          <motion.div
+            key="providers"
+            className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+          >
+            <ProviderManager providers={providers} onSave={onSaveProvider} onDelete={onDeleteProvider} onDefault={onDefaultProvider} onDiscover={onDiscoverProvider} />
+          </motion.div>
+        ) : <motion.div
+          key={section}
+          className="mx-auto max-w-2xl"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+        >
           {section === 'appearance' && <>
             <h1 className="m-0 text-[24px] font-semibold tracking-tight text-foreground">Appearance</h1>
             <p className="mt-2 text-[13px] text-muted-foreground">Tune how Myagent Desktop looks and moves.</p>
@@ -164,7 +177,7 @@ export default function Settings({ preferences, onChange, conn, detail, serverVe
                 {archivedSessions.map((session) => (
                   <div key={session.id} className="flex items-center gap-4 py-3">
                     <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpenArchived(session.id)}>
-                      <span className="block truncate text-[13px] font-medium text-foreground">{sessionTitles[session.id] || session.preview || `${session.messageCount} messages`}</span>
+                      <span className="block truncate text-[13px] font-medium text-foreground">{session.title || session.preview || `${session.messageCount} messages`}</span>
                       <span className="mt-0.5 block truncate font-mono text-[10.5px] text-muted-foreground">{session.cwd}</span>
                     </button>
                     <button type="button" onClick={() => onRestore(session.id)} className="flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-selected hover:text-foreground">
@@ -182,7 +195,7 @@ export default function Settings({ preferences, onChange, conn, detail, serverVe
             {detail && <p className="mt-3 text-[11.5px] text-muted-foreground">{detail}</p>}
             <button type="button" onClick={onReconnect} className="mt-6 rounded-full border border-border px-4 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-selected">Reconnect server</button>
           </>}
-        </div>}
+        </motion.div>}
       </div>
     </div>
   )

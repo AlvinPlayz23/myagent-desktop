@@ -126,6 +126,7 @@ export interface SessionMeta {
   modified: string
   messageCount: number
   preview: string
+  title: string
 }
 
 export interface SessionInfo {

@@ -38,6 +38,8 @@ interface Props {
   sessions: SessionMeta[]
   projects: { cwd: string; name: string }[]
   activeId: string | null
+  /** Sessions currently streaming a turn (background runs included). */
+  runningIds: Set<string>
   onOpen(id: string): void
   onCompose(cwd: string): void
   onAddProject(): void
@@ -46,7 +48,6 @@ interface Props {
   onToggle(): void
   settingsOpen: boolean
   onSettings(): void
-  sessionTitles: Record<string, string | undefined>
   archivedSessionIds: Set<string>
   onRename(id: string, currentTitle: string): void
   onArchive(id: string): void
@@ -58,6 +59,7 @@ export default function Sidebar({
   sessions,
   projects,
   activeId,
+  runningIds,
   onOpen,
   onCompose,
   onAddProject,
@@ -66,7 +68,6 @@ export default function Sidebar({
   onToggle,
   settingsOpen,
   onSettings,
-  sessionTitles,
   archivedSessionIds,
   onRename,
   onArchive,
@@ -140,6 +141,13 @@ export default function Sidebar({
     [sessions, activeId]
   )
 
+  // Codex-style quick access: the freshest threads across all projects.
+  // Sessions arrive newest-first from App.
+  const recent = useMemo(
+    () => sessions.filter((s) => !archivedSessionIds.has(s.id)).slice(0, 4),
+    [sessions, archivedSessionIds]
+  )
+
   const isOpen = (p: Project, index: number): boolean => {
     if (p.cwd in toggled) return toggled[p.cwd]
     if (activeCwd) return p.cwd === activeCwd
@@ -196,6 +204,47 @@ export default function Sidebar({
           </span>
           {!collapsed && <span>New Chat</span>}
         </button>
+
+        {!collapsed && recent.length > 0 && (
+          <>
+            <div className="px-2 pb-1.5 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Recent
+            </div>
+            <div className="mb-3 space-y-0.5">
+              {recent.map((s) => (
+                <button
+                  key={s.id}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors',
+                    s.id === activeId ? 'bg-selected' : 'hover:bg-hover',
+                    menu?.session.id === s.id && 'bg-hover'
+                  )}
+                  onClick={() => onOpen(s.id)}
+                  onContextMenu={(e) => openMenu(e, s)}
+                  title={s.title || s.preview || s.id}
+                >
+                  <span
+                    className={cn(
+                      'size-1.5 shrink-0 rounded-full',
+                      runningIds.has(s.id) ? 'bg-success' : 'bg-muted-foreground/40'
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      'min-w-0 flex-1 truncate text-[12px]',
+                      s.id === activeId ? 'font-medium text-foreground' : 'text-muted-foreground'
+                    )}
+                  >
+                    {s.title || s.preview || `${s.messageCount} messages`}
+                  </span>
+                  <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
+                    {relTime(s.modified)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         {!collapsed && <div className="flex items-center justify-between px-2 py-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -281,7 +330,7 @@ export default function Sidebar({
                             )}
                             onClick={() => onOpen(s.id)}
                             onContextMenu={(e) => openMenu(e, s)}
-                            title={s.preview || s.id}
+                            title={s.title || s.preview || s.id}
                           >
                             <span
                               className={cn(
@@ -291,7 +340,7 @@ export default function Sidebar({
                                   : 'text-muted-foreground'
                               )}
                             >
-                              {sessionTitles[s.id] || s.preview || `${s.messageCount} messages`}
+                              {s.title || s.preview || `${s.messageCount} messages`}
                             </span>
                             <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
                               {relTime(s.modified)}
@@ -316,6 +365,7 @@ export default function Sidebar({
             </motion.div>
           )
         })}
+
       </div>
       <div className={cn('shrink-0 py-2', collapsed ? 'px-1.5' : 'px-2')}>
         <button
@@ -362,7 +412,7 @@ export default function Sidebar({
           <button
             className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-foreground transition-colors hover:bg-hover"
             onClick={() => {
-              onRename(menu.session.id, sessionTitles[menu.session.id] || menu.session.preview || '')
+              onRename(menu.session.id, menu.session.title || menu.session.preview || '')
               setMenu(null)
             }}
           >

@@ -57,6 +57,8 @@ export const api = {
   compact: (sessionId: string): Promise<void> => call('session.compact', { sessionId }),
   setModel: (sessionId: string, provider: string, model: string): Promise<void> =>
     call('session.setModel', { sessionId, provider, model }),
+  renameSession: (sessionId: string, title: string): Promise<{ title: string }> =>
+    call('session.rename', { sessionId, title }),
   closeSession: (sessionId: string): Promise<void> => call('session.close', { sessionId }),
   saveProvider: (provider: ProviderInput): Promise<ProvidersInfo> => call('provider.save', provider),
   deleteProvider: (name: string): Promise<ProvidersInfo> => call('provider.delete', { name }),

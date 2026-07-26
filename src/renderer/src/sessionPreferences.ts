@@ -1,5 +1,4 @@
 export interface SessionPreference {
-  title?: string
   archived?: boolean
 }
 
@@ -20,6 +19,3 @@ export function saveSessionPreferences(preferences: SessionPreferences): void {
   localStorage.setItem(KEY, JSON.stringify(preferences))
 }
 
-export function sessionTitle(id: string, fallback: string, preferences: SessionPreferences): string {
-  return preferences[id]?.title?.trim() || fallback
-}

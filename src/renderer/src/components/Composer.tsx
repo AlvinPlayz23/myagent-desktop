@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, KeyboardEvent } from 'react'
+import { motion } from 'motion/react'
 import { ArrowUp02, AddToList, ChevronDown, ChevronRight, Search01, Square, Tick01 } from './ui/icons'
 import type { ProviderEntry, ProvidersInfo } from '../../../shared/protocol'
 import { cn } from '../util'
@@ -184,13 +185,18 @@ export default function Composer({
   return (
     <div className="mx-auto w-full min-w-0 max-w-3xl">
       {queuedFollowUps.length > 0 && (
-        <div className="mb-2 flex items-center gap-2 rounded-xl border border-border bg-subtle px-3 py-2 text-[11.5px] text-muted-foreground [animation:rise_0.2s_ease]">
+        <motion.div
+          className="mb-2 flex items-center gap-2 rounded-xl border border-border bg-subtle px-3 py-2 text-[11.5px] text-muted-foreground"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+        >
           <AddToList size={14} strokeWidth={1.8} className="shrink-0" />
           <span className="font-medium text-foreground">
             {queuedFollowUps.length} follow-up{queuedFollowUps.length === 1 ? '' : 's'} queued
           </span>
           <span className="min-w-0 truncate">{queuedFollowUps[0]}</span>
-        </div>
+        </motion.div>
       )}
       <form
         onSubmit={(e) => {
@@ -498,7 +504,7 @@ export default function Composer({
                   </button>
                 </>
               )}
-              <button
+              <motion.button
                 type={running ? 'button' : 'submit'}
                 className={cn(
                   'flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xs transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-30 disabled:shadow-none'
@@ -507,9 +513,11 @@ export default function Composer({
                 onClick={running ? onStop : undefined}
                 disabled={!running && !hasText}
                 aria-label={running ? 'Stop generation' : 'Send message'}
+                whileTap={{ scale: 0.88 }}
+                transition={{ type: 'spring', stiffness: 600, damping: 28 }}
               >
                 {running ? <Square size={12} strokeWidth={1.8} /> : <ArrowUp02 size={15} strokeWidth={2.2} />}
-              </button>
+              </motion.button>
             </div>
           </div>
         </div>

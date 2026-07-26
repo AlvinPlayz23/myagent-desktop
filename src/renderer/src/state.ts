@@ -59,7 +59,11 @@ export interface AppState {
   serverVersion?: string
   sessions: SessionMeta[]
   providers: ProvidersInfo
-  chat: ChatState | null
+  // Every session this connection is tracking live, keyed by session id.
+  // Background sessions keep receiving events and can run concurrently;
+  // activeId picks the one shown in the main pane.
+  chats: Record<string, ChatState>
+  activeId: string | null
   loading: boolean
   fatal: string | null
   // Project cwd preselected in the home screen's dropdown.
@@ -67,6 +71,10 @@ export interface AppState {
   // Projects added explicitly (folder picker) — kept even with zero sessions,
   // persisted so they survive restarts. Session cwds are merged in at render.
   projects: string[]
+}
+
+export function activeChat(state: AppState): ChatState | null {
+  return state.activeId ? state.chats[state.activeId] ?? null : null
 }
 
 const PROJECTS_KEY = 'myagent.projects'
@@ -92,7 +100,8 @@ export const initialState: AppState = {
   conn: 'starting',
   sessions: [],
   providers: { providers: [], defaultModel: '' },
-  chat: null,
+  chats: {},
+  activeId: null,
   loading: false,
   fatal: null,
   homeCwd: null,
@@ -402,6 +411,7 @@ export type Action =
   | { type: 'sessions'; sessions: SessionMeta[] }
   | { type: 'providers'; providers: ProvidersInfo }
   | { type: 'openChat'; chat: ChatState }
+  | { type: 'focusChat'; sessionId: string }
   | { type: 'closeChat' }
   | { type: 'loading'; value: boolean }
   | { type: 'fatal'; message: string | null }
@@ -414,10 +424,28 @@ export type Action =
   | { type: 'addProject'; cwd: string }
   | { type: 'clearVisible' }
 
+// Replace one tracked chat, leaving the rest of the map untouched.
+function withChat(state: AppState, chat: ChatState): AppState {
+  return { ...state, chats: { ...state.chats, [chat.sessionId]: chat } }
+}
+
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'conn':
+    case 'conn': {
+      // A disconnect aborts every run and drops ownership server-side. Keep
+      // only the visible chat (marked idle); background chats must re-resume
+      // from disk anyway, and keeping them would leave stale ownership state.
+      if (action.state === 'disconnected') {
+        const active = activeChat(state)
+        return {
+          ...state,
+          conn: action.state,
+          connDetail: action.detail,
+          chats: active ? { [active.sessionId]: { ...active, running: false, streaming: null } } : {}
+        }
+      }
       return { ...state, conn: action.state, connDetail: action.detail }
+    }
     case 'hello':
       return { ...state, serverVersion: action.version }
     case 'sessions':
@@ -425,63 +453,70 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'providers':
       return { ...state, providers: action.providers }
     case 'openChat':
-      return { ...state, chat: action.chat, loading: false }
+      return { ...withChat(state, action.chat), activeId: action.chat.sessionId, loading: false }
+    case 'focusChat':
+      if (!state.chats[action.sessionId]) return state
+      return { ...state, activeId: action.sessionId, loading: false }
     case 'closeChat':
-      return { ...state, chat: null }
+      return { ...state, activeId: null }
     case 'loading':
       return { ...state, loading: action.value }
     case 'fatal':
       return { ...state, fatal: action.message }
-    case 'event':
-      if (!state.chat || state.chat.sessionId !== action.sessionId) return state
-      return { ...state, chat: applyEvent(state.chat, action.event) }
+    case 'event': {
+      const chat = state.chats[action.sessionId]
+      if (!chat) return state
+      return withChat(state, applyEvent(chat, action.event))
+    }
     case 'done': {
-      if (!state.chat || state.chat.sessionId !== action.sessionId) return state
+      const chat = state.chats[action.sessionId]
+      if (!chat) return state
       const aborted = action.error?.toLowerCase().includes('abort')
-      return {
-        ...state,
-        chat: {
-          ...state.chat,
-          running: false,
-          streaming: null,
-          notice: action.error ? (aborted ? 'Run stopped.' : action.error) : null,
-          items: finishTurn(state.chat).items
-        }
-      }
+      return withChat(state, {
+        ...chat,
+        running: false,
+        streaming: null,
+        notice: action.error ? (aborted ? 'Run stopped.' : action.error) : null,
+        items: finishTurn(chat).items
+      })
     }
     case 'localUser': {
-      if (!state.chat) return state
+      const chat = activeChat(state)
+      if (!chat) return state
       const msg: Message = {
         role: 'user',
         content: [{ type: 'text', text: action.text }],
         timestamp: Date.now()
       }
-      return {
-        ...state,
-        chat: {
-          ...state.chat,
-          items: [...state.chat.items, { kind: 'msg', msg }],
-          pendingUserTexts: [...state.chat.pendingUserTexts, action.text],
-          notice: null
-        }
-      }
+      return withChat(state, {
+        ...chat,
+        items: [...chat.items, { kind: 'msg', msg }],
+        pendingUserTexts: [...chat.pendingUserTexts, action.text],
+        notice: null
+      })
     }
-    case 'model':
-      if (!state.chat) return state
-      return { ...state, chat: { ...state.chat, model: action.model } }
-    case 'notice':
-      if (!state.chat) return state
-      return { ...state, chat: { ...state.chat, notice: action.text } }
+    case 'model': {
+      const chat = activeChat(state)
+      if (!chat) return state
+      return withChat(state, { ...chat, model: action.model })
+    }
+    case 'notice': {
+      const chat = activeChat(state)
+      if (!chat) return state
+      return withChat(state, { ...chat, notice: action.text })
+    }
     case 'home':
-      return { ...state, chat: null, loading: false, homeCwd: action.cwd ?? state.homeCwd }
+      return { ...state, activeId: null, loading: false, homeCwd: action.cwd ?? state.homeCwd }
     case 'addProject': {
       const projects = [action.cwd, ...state.projects.filter((c) => c !== action.cwd)]
       persistProjects(projects)
       return { ...state, projects }
     }
-    case 'clearVisible':
-      if (!state.chat) return state
-      return { ...state, chat: { ...state.chat, items: [], streaming: null, toolRuns: {}, notice: null } }
+    case 'clearVisible': {
+      const chat = activeChat(state)
+      if (!chat) return state
+      return withChat(state, { ...chat, items: [], streaming: null, toolRuns: {}, notice: null })
+    }
     default:
       return state
   }

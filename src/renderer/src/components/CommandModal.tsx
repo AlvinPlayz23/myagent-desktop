@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { motion } from 'motion/react'
 import { commands } from '../commands'
 
 export default function CommandModal({
@@ -13,8 +14,22 @@ export default function CommandModal({
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 p-5 backdrop-blur-[2px]" onMouseDown={onClose}>
-      <section className="w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-elevated shadow-2xl [animation:pop_0.18s_ease]" onMouseDown={(event) => event.stopPropagation()}>
+    <motion.div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/35 p-5 backdrop-blur-[2px]"
+      onMouseDown={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
+    >
+      <motion.section
+        className="w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-elevated shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+        initial={{ opacity: 0, scale: 0.96, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 6 }}
+        transition={{ type: 'spring', stiffness: 520, damping: 38 }}
+      >
         <div className="border-b border-border px-5 py-4">
           <h2 className="m-0 text-[15px] font-semibold text-foreground">Commands</h2>
           <p className="mb-0 mt-1 text-[12px] text-muted-foreground">Type / in the composer to search and run a command.</p>
@@ -27,7 +42,7 @@ export default function CommandModal({
             </div>
           ))}
         </div>
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   )
 }
