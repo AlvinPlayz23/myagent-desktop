@@ -392,6 +392,13 @@ export default function App(): JSX.Element {
               chat={chat}
               title={(() => { const s = state.sessions.find((s) => s.id === chat.sessionId); return s?.title || s?.preview })()}
               onCompact={compact}
+              onRename={() => {
+                const s = state.sessions.find((s) => s.id === chat.sessionId)
+                renameSession(chat.sessionId, s?.title || s?.preview || '')
+              }}
+              onArchive={() => archiveSession(chat.sessionId)}
+              sidebarCollapsed={sidebarCollapsed}
+              onShowSidebar={() => setSidebarCollapsed(false)}
               onToggleDebug={() => setDebugOpen((v) => !v)}
               debugOpen={debugOpen}
             />

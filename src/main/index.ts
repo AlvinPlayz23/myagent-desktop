@@ -1,7 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme } from 'electron'
 import { join } from 'path'
 import { release } from 'os'
-import { spawn } from 'child_process'
 import { startServer, SpawnedServer } from './server'
 import { RpcClient } from './rpc'
 import type { AgentEvent, BackdropMode, RpcResult, ServerPush } from '../shared/protocol'
@@ -109,53 +108,80 @@ function shellOpacity(): number {
 }
 
 let acrylicRefresh: ReturnType<typeof setTimeout> | null = null
+let setWindowCompositionAttribute: ((hwnd: number, data: unknown) => number) | null = null
+let compositionBindingFailed = false
+
+// Electron exposes no Windows 10 material API, so the DWM call is made directly
+// through FFI. Bound lazily: the failure path has to stay silent and one-shot.
+function bindComposition(): typeof setWindowCompositionAttribute {
+  if (setWindowCompositionAttribute || compositionBindingFailed) return setWindowCompositionAttribute
+  try {
+    const koffi = require('koffi')
+    const AccentPolicy = koffi.struct('AccentPolicy', {
+      State: 'int',
+      Flags: 'int',
+      Color: 'int',
+      Animation: 'int'
+    })
+    // WINCOMPATTRDATA is { DWORD; PVOID; SIZE_T } — cbData is pointer-sized, so
+    // it must be size_t. Declaring it as int leaves the upper half undefined on
+    // x64 and the call is rejected.
+    const WindowCompositionAttributeData = koffi.struct('WindowCompositionAttributeData', {
+      Attribute: 'int',
+      DataPointer: koffi.pointer(AccentPolicy),
+      Size: 'size_t'
+    })
+    const user32 = koffi.load('user32.dll')
+    // The HWND is taken as uintptr_t, not void*: koffi would pass the address of
+    // a Buffer rather than the handle value it contains.
+    setWindowCompositionAttribute = user32.func('__stdcall', 'SetWindowCompositionAttribute', 'int', [
+      'uintptr_t',
+      koffi.pointer(WindowCompositionAttributeData)
+    ])
+  } catch (err) {
+    compositionBindingFailed = true
+    console.warn('Windows 10 blur unavailable; using transparent fallback:', err)
+  }
+  return setWindowCompositionAttribute
+}
+
+/** Read the HWND value out of the Buffer Electron hands back. */
+function nativeHandle(target: BrowserWindow): number {
+  const buffer = target.getNativeWindowHandle()
+  return buffer.length >= 8 ? Number(buffer.readBigUInt64LE(0)) : buffer.readUInt32LE(0)
+}
 
 function applyWindows10Acrylic(): void {
-  // Electron has no Windows 10 material API. Apply DWM's acrylic composition
-  // attribute through PowerShell's built-in C# compiler instead of shipping a
-  // native Node addon (which would require Visual Studio build tools).
   if (!win || process.platform !== 'win32' || backdrop !== 'transparent') return
   if (acrylicRefresh) clearTimeout(acrylicRefresh)
   acrylicRefresh = setTimeout(() => {
     acrylicRefresh = null
     if (!win || win.isDestroyed()) return
+    const apply = bindComposition()
+    if (!apply) return
 
     const dark = appTheme === 'dark' || (appTheme === null && nativeTheme.shouldUseDarkColors)
-    const red = dark ? 32 : 240
-    const green = dark ? 32 : 236
-    const blue = dark ? 32 : 228
+    // Matches the --shell-rgb tokens in the renderer's styles.css.
+    const red = dark ? 20 : 240
+    const green = dark ? 20 : 236
+    const blue = dark ? 22 : 228
     // AccentPolicy expects ABGR, not CSS RGBA.
     const gradient = ((Math.round(shellOpacity() * 255) << 24) | (blue << 16) | (green << 8) | red) >>> 0
-    const hwnd = win.getNativeWindowHandle().readBigUInt64LE(0).toString()
-    const script = `
-$source = @'
-using System;
-using System.Runtime.InteropServices;
-public static class MyagentWin10Acrylic {
-  [StructLayout(LayoutKind.Sequential)] public struct AccentPolicy { public int State, Flags, Color, Animation; }
-  [StructLayout(LayoutKind.Sequential)] public struct Data { public int Attribute; public IntPtr DataPointer; public int Size; }
-  [DllImport("user32.dll")] static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref Data data);
-  public static void Apply(long hwnd, uint color) {
-    var policy = new AccentPolicy { State = 4, Flags = 2, Color = unchecked((int)color), Animation = 0 };
-    var pointer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(AccentPolicy)));
+
     try {
-      Marshal.StructureToPtr(policy, pointer, false);
-      var data = new Data { Attribute = 19, DataPointer = pointer, Size = Marshal.SizeOf(typeof(AccentPolicy)) };
-      SetWindowCompositionAttribute(new IntPtr(hwnd), ref data);
-    } finally { Marshal.FreeHGlobal(pointer); }
-  }
-}
-'@
-Add-Type -TypeDefinition $source
-[MyagentWin10Acrylic]::Apply(${hwnd}, [uint32]${gradient})
-`
-    const encoded = Buffer.from(script, 'utf16le').toString('base64')
-    const powershell = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
-    const child = spawn(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], {
-      windowsHide: true,
-      stdio: 'ignore'
-    })
-    child.once('error', (err) => console.warn('Windows 10 acrylic unavailable; using transparent fallback:', err))
+      // State 3 is ACCENT_ENABLE_BLURBEHIND. State 4 (acrylic) is what Windows
+      // 10 stalls on while the window is being dragged, so it is deliberately
+      // not used here. Flags 2 = draw all borders.
+      const policy = { State: 3, Flags: 2, Color: gradient | 0, Animation: 0 }
+      const ok = apply(nativeHandle(win), {
+        Attribute: 19,
+        DataPointer: policy,
+        Size: 16
+      })
+      if (!ok) console.warn('Windows 10 blur rejected by DWM; using transparent fallback')
+    } catch (err) {
+      console.warn('Windows 10 blur call failed; using transparent fallback:', err)
+    }
   }, 80)
 }
 
@@ -165,9 +191,9 @@ Add-Type -TypeDefinition $source
  * Windows 11 exposes compositor materials by build: acrylic (live blur of
  * whatever is behind the window) landed in 22H2 / build 22621, mica (a static
  * wallpaper tint) in 21H2 / build 22000. Windows 10 has no supported API, so it
- * falls back to a plain see-through window — the desktop shows through the
- * sidebar unblurred, which needs no native addon and doesn't lag on drag.
- * Linux is the same deal; whether it actually blurs is up to the compositor.
+ * falls back to a transparent window that applyWindows10Acrylic then blurs via
+ * a direct DWM call. Linux is the same deal; whether it actually blurs is up to
+ * the compositor.
  */
 function resolveBackdrop(): BackdropMode {
   if (process.platform === 'darwin') return 'vibrancy'

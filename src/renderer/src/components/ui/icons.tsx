@@ -26,6 +26,8 @@ import {
   LayoutAlignRightIcon,
   Loading03Icon,
   Message01Icon,
+  MoreHorizontalIcon,
+  PanelLeftOpenIcon,
   Rotate01Icon,
   Search01Icon,
   Settings01Icon,
@@ -70,6 +72,8 @@ export const LayoutAlignLeft = makeIcon(LayoutAlignLeftIcon)
 export const LayoutAlignRight = makeIcon(LayoutAlignRightIcon)
 export const Loading03 = makeIcon(Loading03Icon)
 export const Message01 = makeIcon(Message01Icon)
+export const MoreHorizontal = makeIcon(MoreHorizontalIcon)
+export const PanelLeftOpen = makeIcon(PanelLeftOpenIcon)
 export const Rotate01 = makeIcon(Rotate01Icon)
 export const Search01 = makeIcon(Search01Icon)
 export const Settings01 = makeIcon(Settings01Icon)

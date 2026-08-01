@@ -164,22 +164,18 @@ export default function Sidebar({
         collapsed ? 'w-14' : 'w-[260px]'
       )}
     >
-      <div className="drag-region h-9 shrink-0" />
+      <div className={cn('drag-region flex h-9 shrink-0 items-center', collapsed ? 'justify-center' : 'pl-3.5')}>
+        {!collapsed && (
+          <span className="select-none truncate text-[12.5px] font-semibold tracking-tight text-foreground">
+            {appName}
+          </span>
+        )}
+      </div>
 
       <div className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto', collapsed ? 'px-1.5' : 'px-2')}>
-        {/* h-[52px] matches ChatHeader so the brand and the panel header share
-            a baseline across the seam. */}
-        <div
-          className={cn(
-            'flex h-[52px] shrink-0 items-center',
-            collapsed ? 'justify-center' : 'justify-between pl-3 pr-0'
-          )}
-        >
-          {!collapsed && (
-            <span className="select-none truncate text-[15px] font-semibold tracking-tight text-foreground">
-              {appName}
-            </span>
-          )}
+        {/* h-[52px] matches ChatHeader so the first sidebar row and the panel
+            header share a baseline across the seam. */}
+        <div className={cn('flex h-[52px] shrink-0 items-center', collapsed ? 'justify-center' : 'pl-1')}>
           <button
             className={cn(
               'grid place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-selected hover:text-foreground',
@@ -195,8 +191,8 @@ export default function Sidebar({
 
         <button
           className={cn(
-            'mb-3 mt-1 flex h-9 shrink-0 items-center rounded-lg text-[12.5px] font-medium text-foreground transition-colors hover:bg-selected',
-            collapsed ? 'w-full justify-center' : 'w-full gap-2 px-3 text-left'
+            'mb-3 flex h-9 shrink-0 items-center rounded-lg text-[12.5px] font-medium text-foreground transition-colors hover:bg-hover',
+            collapsed ? 'w-full justify-center' : 'w-full gap-2.5 px-3 text-left'
           )}
           title={collapsed ? 'New Chat' : undefined}
           aria-label={collapsed ? 'New Chat' : undefined}
@@ -210,12 +206,10 @@ export default function Sidebar({
         </button>
 
         {!collapsed && recent.length > 0 && (
-          <>
-            <div className="px-2 pb-1.5 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Recent
-            </div>
-            <div className="mb-3 space-y-0.5">
-              {recent.map((s) => (
+          <div className="mb-4 space-y-0.5">
+            {recent.map((s) => {
+              const running = runningIds.has(s.id)
+              return (
                 <button
                   key={s.id}
                   className={cn(
@@ -230,7 +224,7 @@ export default function Sidebar({
                   <span
                     className={cn(
                       'size-1.5 shrink-0 rounded-full',
-                      runningIds.has(s.id) ? 'bg-success' : 'bg-muted-foreground/40'
+                      running ? 'bg-success' : 'bg-muted-foreground/40'
                     )}
                   />
                   <span
@@ -241,18 +235,23 @@ export default function Sidebar({
                   >
                     {s.title || s.preview || `${s.messageCount} messages`}
                   </span>
+                  {running && (
+                    <span className="shrink-0 rounded-full border border-success/30 bg-success/10 px-1.5 py-px text-[10px] font-medium text-success-foreground">
+                      Running
+                    </span>
+                  )}
                   <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
                     {relTime(s.modified)}
                   </span>
                 </button>
-              ))}
-            </div>
-          </>
+              )
+            })}
+          </div>
         )}
 
-        {!collapsed && <div className="flex items-center justify-between px-2 py-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Projects
+        {!collapsed && <div className="flex items-center justify-between px-2.5 pb-1 pt-0.5">
+          <span className="text-[12px] text-muted-foreground">
+            Threads
           </span>
           <button
             className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -263,46 +262,23 @@ export default function Sidebar({
           </button>
         </div>}
 
-        {!collapsed && grouped.length === 0 && (
-          <button
-            className="flex w-full items-center gap-2.5 rounded-lg border border-dashed border-input px-3.5 py-3 text-[12.5px] text-muted-foreground transition-colors hover:border-primary hover:bg-accent hover:text-foreground"
-            onClick={onAddProject}
-          >
-            <FolderAdd size={13} strokeWidth={1.8} className="text-primary" />
-            <span>Add a project to start</span>
-          </button>
-        )}
-
         {!collapsed && grouped.map((p, i) => {
           const open = isOpen(p, i)
           return (
-            <motion.div key={p.cwd} layout="position" transition={{ duration: 0.18, ease: 'easeOut' }} className="mb-0.5">
+            <motion.div key={p.cwd} layout="position" transition={{ duration: 0.18, ease: 'easeOut' }}>
               <div
-                className={cn(
-                    'group flex items-center rounded-lg transition-colors hover:bg-hover',
-                    open && 'bg-hover'
-                )}
+                className="group flex items-center rounded-lg transition-colors hover:bg-hover"
                 title={p.cwd}
               >
                 <button
-                  className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-2 pr-1 text-left"
+                  className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-2 pr-1 text-left"
                   onClick={() => setToggled((t) => ({ ...t, [p.cwd]: !open }))}
                 >
-                  <ChevronRight
-                    size={13}
-                    className={cn(
-                      'shrink-0 text-muted-foreground transition-transform',
-                      open && 'rotate-90'
-                    )}
-                  />
                   {open
-                    ? <Folder02 size={13} strokeWidth={1.8} className="shrink-0 text-foreground" />
-                    : <Folder01 size={13} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
+                    ? <Folder02 size={14} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
+                    : <Folder01 size={14} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
                   }
-                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium">{p.name}</span>
-                  <span className="shrink-0 rounded-full bg-muted px-1.5 py-px font-mono text-[10px] text-muted-foreground">
-                    {p.sessions.length}
-                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[12.5px]">{p.name}</span>
                 </button>
                 <button
                   className="mr-1.5 grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-colors hover:bg-accent hover:text-primary group-hover:opacity-100"
@@ -323,7 +299,7 @@ export default function Sidebar({
                     className="overflow-hidden"
                   >
                     {p.sessions.length > 0 ? (
-                      <div className="ml-4 border-l border-border pl-2">
+                      <div className="pl-4">
                         {p.sessions.map((s) => (
                           <button
                             key={s.id}
@@ -353,7 +329,7 @@ export default function Sidebar({
                         ))}
                       </div>
                     ) : (
-                      <div className="ml-4 border-l border-border pl-2">
+                      <div className="pl-4">
                         <button
                           className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
                           onClick={() => onCompose(p.cwd)}
@@ -369,6 +345,16 @@ export default function Sidebar({
             </motion.div>
           )
         })}
+
+        {!collapsed && (
+          <button
+            className="flex w-full items-center gap-2 rounded-lg py-1.5 pl-2 pr-1 text-left text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+            onClick={onAddProject}
+          >
+            <FolderAdd size={14} strokeWidth={1.8} className="shrink-0" />
+            <span className="text-[12.5px]">Add project</span>
+          </button>
+        )}
 
       </div>
       <div className={cn('shrink-0 py-2', collapsed ? 'px-1.5' : 'px-2')}>
