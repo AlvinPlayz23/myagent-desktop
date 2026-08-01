@@ -172,7 +172,7 @@ export default function Sidebar({
         )}
       </div>
 
-      <div className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto', collapsed ? 'px-1.5' : 'px-2')}>
+      <div className={cn('no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto', collapsed ? 'px-1.5' : 'px-2')}>
         {/* h-[52px] matches ChatHeader so the first sidebar row and the panel
             header share a baseline across the seam. */}
         <div className={cn('flex h-[52px] shrink-0 items-center', collapsed ? 'justify-center' : 'pl-1')}>
