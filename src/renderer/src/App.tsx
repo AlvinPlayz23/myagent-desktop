@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { AnimatePresence, MotionConfig } from 'motion/react'
 import { api, ApiError } from './api'
 import { activeChat, initialState, loadHistory, newChat, reducer } from './state'
-import { baseName, cn } from './util'
+import { baseName } from './util'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
 import Composer from './components/Composer'
@@ -11,7 +11,7 @@ import Home from './components/Home'
 import ChatHeader from './components/ChatHeader'
 import Settings from './components/Settings'
 import WindowControls from './components/WindowControls'
-import { applyTheme, loadPreferences, normalizeAppName, savePreferences, type Preferences } from './preferences'
+import { applyTheme, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
 import DebugPanel from './debug-panel/DebugPanel'
@@ -51,6 +51,38 @@ export default function App(): JSX.Element {
   useEffect(() => {
     document.documentElement.classList.toggle('reduce-motion', preferences.reducedMotion)
   }, [preferences.reducedMotion])
+
+  // Native Acrylic, Mica, Vibrancy, and transparent windows all use the same
+  // renderer-controlled tint. The OS still owns the blur/material effect;
+  // this variable controls how strongly our shell is painted over it.
+  useEffect(() => {
+    const transparency = normalizeTransparency(preferences.transparency)
+    const opacity = 0.94 - transparency / 100 * 0.56
+    document.documentElement.style.setProperty('--shell-opacity', opacity.toFixed(3))
+    // Windows 10 needs a native DWM call for actual desktop blur. Other hosts
+    // ignore this renderer-to-main update and keep their native material.
+    void window.myagent.setTransparency(transparency)
+  }, [preferences.transparency])
+
+  // How the window blends with the desktop is fixed for the process lifetime —
+  // resolve it once and hand it to CSS, which owns every visual consequence.
+  // Also drives the window corner radius, which has to square off when
+  // maximized, so the maximized state is mirrored onto <html> alongside it.
+  useEffect(() => {
+    window.myagent
+      .backdrop()
+      .then((mode) => {
+        document.documentElement.dataset.backdrop = mode
+      })
+      .catch(() => {
+        document.documentElement.dataset.backdrop = 'none'
+      })
+    const setMaximized = (maximized: boolean): void => {
+      document.documentElement.classList.toggle('window-maximized', maximized)
+    }
+    window.myagent.windowMaximized().then(setMaximized).catch(() => {})
+    return window.myagent.onWindowMaximized(setMaximized)
+  }, [])
 
   useEffect(() => {
     saveSessionPreferences(sessionPreferences)
@@ -313,13 +345,11 @@ export default function App(): JSX.Element {
 
   return (
     <MotionConfig reducedMotion={preferences.reducedMotion ? 'always' : 'user'}>
-    <div className="flex h-screen w-full overflow-hidden">
-      <div
-        className={cn(
-          'drag-region fixed right-[138px] top-0 z-[5] h-11 transition-[left] duration-200',
-          sidebarCollapsed ? 'left-14' : 'left-[260px]'
-        )}
-      />
+    <div className="app-shell flex h-screen w-full overflow-hidden">
+      {/* Titlebar strip: shell-owned and full width, so it reads as one band
+          across the sidebar and the inset panel below it. Safe to span the
+          sidebar because the sidebar's own top 36px is an empty spacer. */}
+      <div className="drag-region fixed inset-x-0 top-0 z-[5] h-9" />
       <Sidebar
         sessions={state.sessions}
         projects={projectList}
@@ -338,7 +368,7 @@ export default function App(): JSX.Element {
         onArchive={archiveSession}
         appName={normalizeAppName(preferences.appName)}
       />
-      <main className="main-panel surface-grain relative flex min-w-0 flex-1 flex-col overflow-hidden">
+      <main className="main-panel surface-grain relative mb-2 mr-2 mt-9 flex min-w-0 flex-1 flex-col overflow-hidden">
         {view === 'settings' ? (
           <Settings
             preferences={preferences}
@@ -360,6 +390,7 @@ export default function App(): JSX.Element {
           <>
             <ChatHeader
               chat={chat}
+              title={(() => { const s = state.sessions.find((s) => s.id === chat.sessionId); return s?.title || s?.preview })()}
               onCompact={compact}
               onToggleDebug={() => setDebugOpen((v) => !v)}
               debugOpen={debugOpen}

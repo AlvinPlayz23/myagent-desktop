@@ -1,9 +1,10 @@
-import { Folder01, ArrowShrink01, Cpu } from './ui/icons'
+import { ArrowShrink01, Cpu } from './ui/icons'
 import type { ChatState } from '../state'
 import { Button } from './ui/Button'
 
 interface Props {
   chat: ChatState
+  title?: string
   onCompact(): void
   // debug-panel: toggles the LLM debug drawer (see ../debug-panel/README.md)
   onToggleDebug(): void
@@ -11,18 +12,14 @@ interface Props {
   debugOpen: boolean
 }
 
-export default function ChatHeader({ chat, onCompact, onToggleDebug, debugOpen }: Props): JSX.Element {
+export default function ChatHeader({ chat, title, onCompact, onToggleDebug, debugOpen }: Props): JSX.Element {
   return (
-    <header className="drag-region flex h-[52px] shrink-0 items-center gap-3 border-b border-border px-4 pr-36">
-      <div
-        className="no-drag relative z-10 flex min-w-0 items-center gap-2 rounded-full border border-border bg-subtle px-3.5 py-1.5 font-mono text-[12px] text-muted-foreground"
-        title={chat.cwd}
-      >
-        <Folder01 size={14} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
-        <span className="truncate [direction:rtl]">{chat.cwd}</span>
-      </div>
+    <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-border px-4">
+      <span className="truncate text-[14px] font-medium text-foreground select-none pointer-events-none">
+        {title || chat.cwd}
+      </span>
 
-      <div className="no-drag relative z-10 ml-auto flex items-center gap-2">
+      <div className="no-drag ml-auto flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon"
@@ -49,3 +46,4 @@ export default function ChatHeader({ chat, onCompact, onToggleDebug, debugOpen }
     </header>
   )
 }
+

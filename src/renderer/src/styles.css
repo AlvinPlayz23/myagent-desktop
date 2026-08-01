@@ -6,7 +6,13 @@
    Restrained neutral surfaces, DM Sans / JetBrains Mono, and a 0.625rem base
    radius. Light is default;
    the `.dark` class (toggled from prefers-color-scheme in main.tsx) flips it.
-   Deliberately omits the reference's backdrop-blur "glass" composer layers. */
+
+   Two distinct ground planes:
+     --shell       the window backdrop the sidebar sits on. Translucent when the
+                   host can blend with the desktop (see [data-backdrop] below),
+                   opaque otherwise.
+     --background  the inset chat panel. Always opaque — it has to stay legible
+                   no matter what the wallpaper behind the window looks like. */
 
 @theme inline {
   --font-sans:
@@ -22,6 +28,7 @@
   --color-hover: var(--hover);
   --color-subtle: var(--subtle);
   --color-elevated: var(--elevated);
+  --color-shell: var(--shell);
   --color-sidebar: var(--sidebar);
   --color-success-foreground: var(--success-foreground);
   --color-success: var(--success);
@@ -105,17 +112,23 @@
 :root {
   color-scheme: light;
   --radius: 0.625rem;
-  --background: #f3efe7;
-  --sidebar: #f8f4ec;
-  --elevated: #f8f4ec;
+  --window-radius: 0px;
+  --background: #f8f4ec;
+  --shell: #ece7dd;
+  --shell-rgb: 240 236 228;
+  --shell-opacity: 0.66;
+  --shell-translucent: rgb(var(--shell-rgb) / var(--shell-opacity));
+  --shell-clear: rgb(var(--shell-rgb) / var(--shell-opacity));
+  --sidebar: var(--shell);
+  --elevated: #fdfbf6;
   --subtle: rgba(30, 25, 20, 0.035);
   --hover: rgba(30, 25, 20, 0.055);
   --selected: rgba(30, 25, 20, 0.075);
-  --code: #eeeae1;
+  --code: #f1ece3;
   --foreground: #1f1c19;
-  --card: #f8f4ec;
+  --card: #fdfbf6;
   --card-foreground: #1f1c19;
-  --popover: #f8f4ec;
+  --popover: #fdfbf6;
   --popover-foreground: #1f1c19;
   --primary: #1f1c19;
   --primary-foreground: #f8f4ec;
@@ -138,39 +151,47 @@
   --warning-foreground: #d97706;
 }
 
+/* Neutral dark mode: hue-free zinc surfaces with the same semantic scale as
+   the reference theme. Light mode above intentionally keeps myagent's warm
+   paper palette unchanged. */
 .dark {
   color-scheme: dark;
-  --background: #0d0d12;
-  --sidebar: #0d0d12;
-  --elevated: #181820;
-  --subtle: rgba(255, 255, 255, 0.035);
-  --hover: rgba(255, 255, 255, 0.05);
-  --selected: rgba(255, 255, 255, 0.08);
-  --code: #101014;
-  --foreground: #f5f5f5;
-  --card: #181820;
-  --card-foreground: #f5f5f5;
-  --popover: #181820;
-  --popover-foreground: #f5f5f5;
-  --primary: #e5e5e5;
-  --primary-foreground: #0a0a0a;
-  --secondary: rgba(255, 255, 255, 0.05);
-  --secondary-foreground: #f5f5f5;
-  --muted: rgba(255, 255, 255, 0.05);
-  --muted-foreground: #737373;
-  --accent: rgba(255, 255, 255, 0.06);
-  --accent-foreground: #f5f5f5;
-  --destructive: #ef4444;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.1);
-  --ring: #e5e5e5;
-  --destructive-foreground: #f87171;
-  --info: #3b82f6;
-  --info-foreground: #60a5fa;
-  --success: #10b981;
-  --success-foreground: #34d399;
-  --warning: #f59e0b;
-  --warning-foreground: #fbbf24;
+  --background: oklch(0.145 0 0);
+  --shell: oklch(0.205 0 0);
+  --shell-rgb: 32 32 32;
+  --shell-opacity: 0.58;
+  --shell-translucent: rgb(var(--shell-rgb) / var(--shell-opacity));
+  --shell-clear: rgb(var(--shell-rgb) / var(--shell-opacity));
+  --sidebar: oklch(0.205 0 0);
+  --elevated: oklch(0.245 0 0);
+  --subtle: rgb(255 255 255 / 0.035);
+  --hover: rgb(255 255 255 / 0.055);
+  --selected: rgb(255 255 255 / 0.09);
+  --code: oklch(0.12 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --destructive-foreground: oklch(0.704 0.191 22.216);
+  --info: oklch(0.65 0.15 250);
+  --info-foreground: oklch(0.75 0.13 250);
+  --success: oklch(0.7 0.16 155);
+  --success-foreground: oklch(0.8 0.14 155);
+  --warning: oklch(0.78 0.16 75);
+  --warning-foreground: oklch(0.84 0.14 75);
 }
 
 @layer base {
@@ -183,15 +204,15 @@
     height: 100%;
     margin: 0;
   }
-  html {
-    background-color: var(--background);
+  /* Both stay unpainted: an opaque fill here would sit in front of the
+     compositor material and defeat the backdrop entirely. `.app-shell` is the
+     first thing that paints, and it covers the viewport. */
+  html,
+  body {
+    background-color: transparent;
   }
   body {
     @apply text-foreground;
-    background-color: var(--background);
-    background-image: var(--surface-grain);
-    background-repeat: repeat;
-    background-size: 256px 256px;
     font-family: var(--font-sans);
     font-size: 13.5px;
     overflow: hidden;
@@ -220,8 +241,55 @@
   background-size: 256px 256px;
 }
 
+/* ── window shell ───────────────────────────────────────────────────────────
+   The sidebar has no fill of its own; it rides directly on this. `data-backdrop`
+   is written to <html> once at boot from the mode the main process resolved
+   (see resolveBackdrop in src/main/index.ts). The default below is the opaque
+   case, so a slow IPC round-trip flashes a solid fill rather than a void. */
+.app-shell {
+  background: rgb(var(--shell-rgb) / var(--shell-opacity));
+  border-radius: var(--window-radius);
+}
+
+/* Compositor blurs the desktop for us, so the tint can stay light. */
+[data-backdrop='acrylic'] .app-shell,
+[data-backdrop='mica'] .app-shell,
+[data-backdrop='vibrancy'] .app-shell {
+  background: var(--shell-translucent);
+}
+
+/* No blur available — the wallpaper comes through sharp, so the tint has to
+   carry all the contrast on its own or sidebar text stops being readable. */
+[data-backdrop='transparent'] .app-shell {
+  background: var(--shell-clear);
+}
+
+/* Windows 10 and Linux don't round a transparent window's corners themselves,
+   and a frameless transparent window has no painted edge to grab; the inset
+   ring gives one. Maximized windows must stay square. */
+[data-backdrop='transparent']:not(.window-maximized) {
+  --window-radius: 10px;
+}
+[data-backdrop='transparent'] .app-shell {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* Row fills tuned for an opaque sidebar disappear over a translucent one. */
+[data-backdrop]:not([data-backdrop='none']) .app-shell {
+  --hover: rgba(255, 255, 255, 0.08);
+  --selected: rgba(255, 255, 255, 0.14);
+}
+[data-backdrop]:not([data-backdrop='none']):not(.dark) .app-shell {
+  --hover: rgba(30, 25, 20, 0.06);
+  --selected: rgba(30, 25, 20, 0.11);
+}
+
+/* The inset chat card. Opaque by definition; the grain lives here now that the
+   body no longer paints (film grain over acrylic reads as dirt). */
 @utility main-panel {
   background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
 }
 
 /* Window drag region (frameless titlebar) */
@@ -246,13 +314,13 @@
   top: 0;
   right: 0;
   display: flex;
-  height: 44px;
+  height: 36px;
   -webkit-app-region: no-drag;
 }
 .window-control {
   display: grid;
   width: 46px;
-  height: 44px;
+  height: 36px;
   place-items: center;
   color: var(--muted-foreground);
   transition: background-color 100ms ease, color 100ms ease;
@@ -284,11 +352,16 @@
 .window-control-close:focus-visible {
   outline-color: #c42b1c;
 }
+/* The controls are position:fixed, so the shell's overflow clip doesn't reach
+   them — the close button has to round its own corner to match the window. */
+.window-control-close {
+  border-top-right-radius: var(--window-radius);
+}
 
 /* Scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -483,6 +556,16 @@
   scroll-behavior: auto !important;
   transition-duration: 0.01ms !important;
 }
+.transparency-slider {
+  height: 1rem;
+  accent-color: var(--foreground);
+  cursor: pointer;
+}
+.transparency-slider:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
 .settings-heading {
   margin: 0 0 0.65rem;
   font-size: 0.75rem;

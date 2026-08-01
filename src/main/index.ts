@@ -1,8 +1,10 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme } from 'electron'
 import { join } from 'path'
+import { release } from 'os'
+import { spawn } from 'child_process'
 import { startServer, SpawnedServer } from './server'
 import { RpcClient } from './rpc'
-import type { AgentEvent, RpcResult, ServerPush } from '../shared/protocol'
+import type { AgentEvent, BackdropMode, RpcResult, ServerPush } from '../shared/protocol'
 
 let win: BrowserWindow | null = null
 let server: SpawnedServer | null = null
@@ -10,6 +12,7 @@ const rpc = new RpcClient()
 let hello: { name: string; version: string; protocol: number } | null = null
 let connecting: Promise<RpcResult<{ name: string; version: string }>> | null = null
 let appTheme: 'light' | 'dark' | null = null
+let transparency = 50
 
 function push(p: ServerPush): void {
   win?.webContents.send('myagent:push', p)
@@ -93,25 +96,109 @@ async function ensureConnected(): Promise<RpcResult<{ name: string; version: str
   return connecting
 }
 
-// Native titlebar overlay + pre-paint window background for both themes, kept
-// close to the renderer surface colors so load doesn't flash a mismatched fill.
-function chromeColors(): { color: string; symbolColor: string } {
+// Pre-paint window background for both themes, kept close to the renderer
+// surface colors so load doesn't flash a mismatched fill. Only consulted when
+// the window is opaque — every other backdrop mode needs a zero-alpha fill.
+function chromeColor(): string {
   const dark = appTheme === 'dark' || (appTheme === null && nativeTheme.shouldUseDarkColors)
-  return dark
-    ? { color: '#0a0a0a', symbolColor: '#a1a1a1' }
-    : { color: '#f5f5f5', symbolColor: '#525252' }
+  return dark ? '#141414' : '#f5f5f5'
 }
 
+function shellOpacity(): number {
+  return 0.94 - Math.min(100, Math.max(0, transparency)) / 100 * 0.56
+}
+
+let acrylicRefresh: ReturnType<typeof setTimeout> | null = null
+
+function applyWindows10Acrylic(): void {
+  // Electron has no Windows 10 material API. Apply DWM's acrylic composition
+  // attribute through PowerShell's built-in C# compiler instead of shipping a
+  // native Node addon (which would require Visual Studio build tools).
+  if (!win || process.platform !== 'win32' || backdrop !== 'transparent') return
+  if (acrylicRefresh) clearTimeout(acrylicRefresh)
+  acrylicRefresh = setTimeout(() => {
+    acrylicRefresh = null
+    if (!win || win.isDestroyed()) return
+
+    const dark = appTheme === 'dark' || (appTheme === null && nativeTheme.shouldUseDarkColors)
+    const red = dark ? 32 : 240
+    const green = dark ? 32 : 236
+    const blue = dark ? 32 : 228
+    // AccentPolicy expects ABGR, not CSS RGBA.
+    const gradient = ((Math.round(shellOpacity() * 255) << 24) | (blue << 16) | (green << 8) | red) >>> 0
+    const hwnd = win.getNativeWindowHandle().readBigUInt64LE(0).toString()
+    const script = `
+$source = @'
+using System;
+using System.Runtime.InteropServices;
+public static class MyagentWin10Acrylic {
+  [StructLayout(LayoutKind.Sequential)] public struct AccentPolicy { public int State, Flags, Color, Animation; }
+  [StructLayout(LayoutKind.Sequential)] public struct Data { public int Attribute; public IntPtr DataPointer; public int Size; }
+  [DllImport("user32.dll")] static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref Data data);
+  public static void Apply(long hwnd, uint color) {
+    var policy = new AccentPolicy { State = 4, Flags = 2, Color = unchecked((int)color), Animation = 0 };
+    var pointer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(AccentPolicy)));
+    try {
+      Marshal.StructureToPtr(policy, pointer, false);
+      var data = new Data { Attribute = 19, DataPointer = pointer, Size = Marshal.SizeOf(typeof(AccentPolicy)) };
+      SetWindowCompositionAttribute(new IntPtr(hwnd), ref data);
+    } finally { Marshal.FreeHGlobal(pointer); }
+  }
+}
+'@
+Add-Type -TypeDefinition $source
+[MyagentWin10Acrylic]::Apply(${hwnd}, [uint32]${gradient})
+`
+    const encoded = Buffer.from(script, 'utf16le').toString('base64')
+    const powershell = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+    const child = spawn(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], {
+      windowsHide: true,
+      stdio: 'ignore'
+    })
+    child.once('error', (err) => console.warn('Windows 10 acrylic unavailable; using transparent fallback:', err))
+  }, 80)
+}
+
+/**
+ * Pick the strongest desktop-blending mode the host supports.
+ *
+ * Windows 11 exposes compositor materials by build: acrylic (live blur of
+ * whatever is behind the window) landed in 22H2 / build 22621, mica (a static
+ * wallpaper tint) in 21H2 / build 22000. Windows 10 has no supported API, so it
+ * falls back to a plain see-through window — the desktop shows through the
+ * sidebar unblurred, which needs no native addon and doesn't lag on drag.
+ * Linux is the same deal; whether it actually blurs is up to the compositor.
+ */
+function resolveBackdrop(): BackdropMode {
+  if (process.platform === 'darwin') return 'vibrancy'
+  if (process.platform !== 'win32') return 'transparent'
+  const build = Number(release().split('.')[2])
+  if (!Number.isFinite(build)) return 'transparent'
+  if (build >= 22621) return 'acrylic'
+  if (build >= 22000) return 'mica'
+  return 'transparent'
+}
+
+const backdrop = resolveBackdrop()
+
 function createWindow(): void {
-  const chrome = chromeColors()
   win = new BrowserWindow({
     width: 1280,
     height: 840,
     minWidth: 880,
     minHeight: 560,
     show: false,
-    backgroundColor: chrome.color,
+    // Any opaque fill defeats the material, vibrancy, and transparency alike.
+    backgroundColor: backdrop === 'none' ? chromeColor() : '#00000000',
     titleBarStyle: 'hidden',
+    roundedCorners: true,
+    ...(backdrop === 'acrylic' || backdrop === 'mica' ? { backgroundMaterial: backdrop } : {}),
+    ...(backdrop === 'vibrancy'
+      ? { vibrancy: 'sidebar' as const, visualEffectState: 'active' as const }
+      : {}),
+    // thickFrame stays at its default true so Windows keeps the resize border
+    // and snap behaviour on this frameless, transparent window.
+    ...(backdrop === 'transparent' ? { transparent: true } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -119,9 +206,11 @@ function createWindow(): void {
     }
   })
 
+  applyWindows10Acrylic()
+
   win.once('ready-to-show', () => win?.show())
   nativeTheme.on('updated', () => {
-    win?.setBackgroundColor(chromeColors().color)
+    if (backdrop === 'none') win?.setBackgroundColor(chromeColor())
   })
   win.on('maximize', pushWindowMaximized)
   win.on('unmaximize', pushWindowMaximized)
@@ -169,9 +258,15 @@ app.whenReady().then(() => {
 
   ipcMain.handle('myagent:setTheme', (_e, theme: 'light' | 'dark') => {
     appTheme = theme
-    const chrome = chromeColors()
-    win?.setBackgroundColor(chrome.color)
+    if (backdrop === 'none') win?.setBackgroundColor(chromeColor())
+    applyWindows10Acrylic()
   })
+  ipcMain.handle('myagent:setTransparency', (_e, value: number) => {
+    transparency = Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 50
+    applyWindows10Acrylic()
+  })
+
+  ipcMain.handle('myagent:backdrop', (): BackdropMode => backdrop)
 
   ipcMain.handle('myagent:window:minimize', () => win?.minimize())
   ipcMain.handle('myagent:window:toggleMaximize', () => {

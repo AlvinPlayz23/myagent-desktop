@@ -156,19 +156,23 @@ export default function Sidebar({
 
   return (
     <>
+    {/* No fill of its own — the sidebar rides directly on the window shell, so
+        whatever backdrop the host resolved shows through it. */}
     <aside
       className={cn(
-        'flex shrink-0 flex-col overflow-hidden rounded-r-2xl bg-sidebar transition-[width] duration-200',
+        'flex shrink-0 flex-col overflow-hidden transition-[width] duration-200',
         collapsed ? 'w-14' : 'w-[260px]'
       )}
     >
-      <div className="drag-region h-11 shrink-0" />
+      <div className="drag-region h-9 shrink-0" />
 
       <div className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto', collapsed ? 'px-1.5' : 'px-2')}>
+        {/* h-[52px] matches ChatHeader so the brand and the panel header share
+            a baseline across the seam. */}
         <div
           className={cn(
-            'mb-2 flex h-9 shrink-0 items-center',
-            collapsed ? 'justify-center' : 'justify-between pl-4 pr-0'
+            'flex h-[52px] shrink-0 items-center',
+            collapsed ? 'justify-center' : 'justify-between pl-3 pr-0'
           )}
         >
           {!collapsed && (
@@ -191,7 +195,7 @@ export default function Sidebar({
 
         <button
           className={cn(
-            'mb-3 flex h-9 shrink-0 items-center rounded-lg text-[12.5px] font-medium text-foreground transition-colors hover:bg-selected',
+            'mb-3 mt-1 flex h-9 shrink-0 items-center rounded-lg text-[12.5px] font-medium text-foreground transition-colors hover:bg-selected',
             collapsed ? 'w-full justify-center' : 'w-full gap-2 px-3 text-left'
           )}
           title={collapsed ? 'New Chat' : undefined}
@@ -392,7 +396,7 @@ export default function Sidebar({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: -4 }}
           transition={{ duration: 0.12, ease: 'easeOut' }}
-          className="fixed z-[51] w-[240px] overflow-hidden rounded-xl border border-border bg-elevated py-1 shadow-lg"
+          className="fixed z-[51] w-[240px] overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-xl shadow-black/25"
           style={{ left: menu.x, top: menu.y }}
           onContextMenu={(e) => e.preventDefault()}
         >

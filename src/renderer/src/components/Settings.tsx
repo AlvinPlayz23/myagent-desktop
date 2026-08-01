@@ -138,6 +138,29 @@ export default function Settings({ preferences, onChange, conn, detail, serverVe
             <h1 className="m-0 text-[24px] font-semibold tracking-tight text-foreground">Appearance</h1>
             <p className="mt-2 text-[13px] text-muted-foreground">Tune how Myagent Desktop looks and moves.</p>
             <section className="mt-9"><h2 className="settings-heading">Theme</h2><div className="grid gap-2 sm:grid-cols-3">{themes.map((item) => <Choice key={item.value} {...item} current={preferences.theme} onSelect={(theme) => onChange({ theme })} />)}</div></section>
+            <section className="settings-card mt-8 py-3.5">
+              <div className="flex items-center justify-between gap-4">
+                <span>
+                  <span className="block text-[13px] font-medium text-foreground">Window transparency</span>
+                  <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">Let more of the desktop material show through the sidebar.</span>
+                </span>
+                <output className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">{preferences.transparency}%</output>
+              </div>
+              <div className="mt-4 flex items-center gap-3">
+                <span className="text-[10px] text-muted-foreground">Solid</span>
+                <input
+                  aria-label="Window transparency"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={preferences.transparency}
+                  onChange={(event) => onChange({ transparency: Number(event.target.value) })}
+                  className="transparency-slider min-w-0 flex-1"
+                />
+                <span className="text-[10px] text-muted-foreground">Clear</span>
+              </div>
+            </section>
             <section className="settings-card mt-8"><Toggle checked={preferences.reducedMotion} title="Reduce motion" detail="Minimize interface animation and transitions." onChange={(reducedMotion) => onChange({ reducedMotion })} /></section>
             <section className="mt-8">
               <h2 className="settings-heading mb-3">Branding</h2>

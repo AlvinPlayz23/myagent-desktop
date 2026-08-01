@@ -9,6 +9,8 @@ export interface Preferences {
   autoScroll: boolean
   sendOnEnter: boolean
   toolActivityDisplay: ToolActivityDisplay
+  /** 0 is more opaque; 100 lets more of the desktop material show through. */
+  transparency: number
   /** Display name shown at the top of the sidebar. */
   appName: string
 }
@@ -24,7 +26,13 @@ export const defaults: Preferences = {
   autoScroll: true,
   sendOnEnter: true,
   toolActivityDisplay: 'compact',
+  transparency: 50,
   appName: DEFAULT_APP_NAME
+}
+
+/** Keep the visual preference safe when localStorage contains old or invalid data. */
+export function normalizeTransparency(value: number | undefined | null): number {
+  return Number.isFinite(value) ? Math.min(100, Math.max(0, Math.round(value as number))) : defaults.transparency
 }
 
 /** Normalize a sidebar brand name; empty/whitespace falls back to default. */
@@ -40,6 +48,7 @@ export function loadPreferences(): Preferences {
       ...defaults,
       ...stored,
       toolActivityDisplay: stored.toolActivityDisplay === 'expanded' || stored.toolActivityDisplay === 'hidden' ? stored.toolActivityDisplay : 'compact',
+      transparency: normalizeTransparency(stored.transparency),
       appName: normalizeAppName(stored.appName ?? defaults.appName)
     }
   } catch {

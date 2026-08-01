@@ -6,7 +6,9 @@
   "private": true,
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@seorii/win32-displayconfig",
       "electron",
+      "electron-acrylic-window",
       "esbuild"
     ]
   },

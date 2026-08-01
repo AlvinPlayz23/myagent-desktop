@@ -179,12 +179,23 @@ export interface ProviderInput {
 
 export type RpcResult<T = unknown> = { ok: true; result: T } | { ok: false; error: RpcError }
 
+/**
+ * How the window blends with the desktop behind it, resolved once at startup
+ * from the host platform. `acrylic`/`mica` are Windows 11 compositor materials,
+ * `vibrancy` is the macOS equivalent, `transparent` is a plain see-through
+ * window (Windows 10 and Linux, where no blur API exists), and `none` means the
+ * window is opaque and the shell paints a solid fill instead.
+ */
+export type BackdropMode = 'acrylic' | 'mica' | 'vibrancy' | 'transparent' | 'none'
+
 // API exposed on window.myagent by the preload script.
 export interface MyagentApi {
   connect(): Promise<RpcResult<{ name: string; version: string }>>
   rpc<T = unknown>(method: string, params?: unknown): Promise<RpcResult<T>>
   pickFolder(): Promise<string | null>
   setTheme(theme: 'light' | 'dark'): Promise<void>
+  setTransparency(value: number): Promise<void>
+  backdrop(): Promise<BackdropMode>
   minimizeWindow(): Promise<void>
   toggleMaximizeWindow(): Promise<boolean>
   closeWindow(): Promise<void>
