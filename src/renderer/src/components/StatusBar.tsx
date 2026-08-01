@@ -25,7 +25,7 @@ const DOT: Record<ConnState, string> = {
 
 export default function StatusBar({ conn, detail, version, chat }: Props): JSX.Element {
   return (
-    <footer className="flex h-7 shrink-0 items-center gap-2.5 border-t border-border px-4 text-[11px] text-muted-foreground">
+    <footer className="flex h-7 shrink-0 items-center gap-2.5 px-4 text-[11px] text-muted-foreground">
       <motion.span
         key={conn}
         className={cn('size-1.5 shrink-0 rounded-full', DOT[conn])}

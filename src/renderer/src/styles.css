@@ -3,7 +3,7 @@
 @custom-variant dark (&:is(.dark, .dark *));
 
 /* ── design tokens ─────────────────────────────────────────────────────────
-   Restrained neutral surfaces, DM Sans / JetBrains Mono, and a 0.625rem base
+   Restrained neutral surfaces, Inter / JetBrains Mono, and a 0.625rem base
    radius. Light is default;
    the `.dark` class (toggled from prefers-color-scheme in main.tsx) flips it.
 
@@ -19,7 +19,8 @@
     "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
     sans-serif;
   --font-mono:
-    "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono",
+    Consolas, "Liberation Mono", monospace;
 
   --color-warning-foreground: var(--warning-foreground);
   --color-warning: var(--warning);
@@ -284,12 +285,17 @@
   --selected: rgba(30, 25, 20, 0.11);
 }
 
-/* The inset chat card. Opaque by definition; the grain lives here now that the
-   body no longer paints (film grain over acrylic reads as dirt). */
+/* The chat panel. Opaque by definition; the grain lives here now that the body
+   no longer paints (film grain over acrylic reads as dirt).
+
+   It runs flush to the window's bottom and right edges, so only the two edges
+   that actually face the shell get a border and a rounded corner. The window's
+   own corner rounding is handled by `.app-shell`, which clips this. */
 @utility main-panel {
   background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  border-top-left-radius: 0.75rem;
 }
 
 /* Window drag region (frameless titlebar) */

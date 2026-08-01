@@ -55,7 +55,7 @@ export default function ChatHeader({
   const project = baseName(chat.cwd)
 
   return (
-    <header className="flex h-[52px] shrink-0 items-center gap-2 border-b border-border px-4">
+    <header className="flex h-[52px] shrink-0 items-center gap-2 px-4">
       {sidebarCollapsed && (
         <button
           className="no-drag grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"

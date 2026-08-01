@@ -368,7 +368,7 @@ export default function App(): JSX.Element {
         onArchive={archiveSession}
         appName={normalizeAppName(preferences.appName)}
       />
-      <main className="main-panel surface-grain relative mb-2 mr-2 mt-9 flex min-w-0 flex-1 flex-col overflow-hidden">
+      <main className="main-panel surface-grain relative mt-9 flex min-w-0 flex-1 flex-col overflow-hidden">
         {view === 'settings' ? (
           <Settings
             preferences={preferences}
