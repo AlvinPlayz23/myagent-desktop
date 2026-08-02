@@ -8,9 +8,16 @@ interface Props {
   streaming?: boolean
   messageSize?: 'compact' | 'default' | 'large'
   showThinking?: boolean
+  /**
+   * Measured reasoning durations for this message, keyed by content-block
+   * index. Supplied while streaming so a block that has finished reasoning can
+   * show its elapsed time immediately, rather than reading a bare "Thought"
+   * until the whole message finalizes.
+   */
+  thinkingDurations?: Record<number, number>
 }
 
-export default function MessageView({ msg, streaming, messageSize = 'default', showThinking = true }: Props): JSX.Element | null {
+export default function MessageView({ msg, streaming, messageSize = 'default', showThinking = true, thinkingDurations }: Props): JSX.Element | null {
   const messageClass = messageSize === 'compact' ? 'text-[12px]' : messageSize === 'large' ? 'text-[15px]' : 'text-[13.5px]'
   if (msg.role === 'user') {
     const text = msg.content.map((b) => b.text ?? '').join('')
@@ -28,7 +35,16 @@ export default function MessageView({ msg, streaming, messageSize = 'default', s
       <div className="flex w-full min-w-0 flex-col gap-0.5">
         {msg.content.map((block, i) => {
           if (showThinking && block.type === 'thinking' && (block.thinking || block.redacted)) {
-            return <Thinking key={i} text={block.redacted ? '[redacted]' : block.thinking!} />
+            // Reasoning is still arriving only while its block is the last one:
+            // any block after it means the model has moved on to prose or a tool.
+            return (
+              <Thinking
+                key={i}
+                text={block.redacted ? '[redacted]' : block.thinking!}
+                live={!!streaming && i === msg.content.length - 1}
+                durationMs={thinkingDurations?.[i]}
+              />
+            )
           }
           if (block.type === 'text' && block.text) {
             return <div key={i} className={messageClass}><Markdown text={block.text} /></div>

@@ -30,9 +30,19 @@ export interface TurnSummary {
 export type ChatItem =
   | { kind: 'msg'; msg: Message }
   | { kind: 'tool'; toolCallId: string }
-  | { kind: 'thinking'; id: string; text: string; redacted: boolean }
+  | { kind: 'thinking'; id: string; text: string; redacted: boolean; durationMs?: number }
   | { kind: 'compaction'; info: CompactionInfo }
   | { kind: 'turn'; summary: TurnSummary }
+
+// How long one reasoning block streamed for. The protocol carries no reasoning
+// duration (Usage.reasoning is a token count), so it is measured off the stream.
+// `length` is what distinguishes "still reasoning" from "block finished and the
+// message moved on": endedAt only advances while the text is actually growing.
+export interface ThinkingSpan {
+  startedAt: number
+  endedAt: number
+  length: number
+}
 
 export interface ChatState {
   sessionId: string
@@ -49,6 +59,12 @@ export interface ChatState {
   // Text is retained rather than used as a global deduplication key: identical
   // prompts are valid and each must remain visible.
   pendingUserTexts: string[]
+  // Reasoning spans for the message currently streaming, keyed by content-block
+  // index; consumed and cleared when that message finalizes. streamStartedAt
+  // anchors the first block so provider latency before the first reasoning
+  // token is counted rather than silently dropped.
+  streamStartedAt: number | null
+  thinkingSpans: Record<number, ThinkingSpan>
 }
 
 export type ConnState = 'starting' | 'connected' | 'reconnecting' | 'disconnected'
@@ -118,7 +134,10 @@ export function messageText(msg: Message): string {
 // Preserve the provider's block order inside an assistant turn. A response can
 // contain commentary before and between tool calls, so it must not be reduced
 // to "all work, then all text".
-function assistantTimelineItems(msg: Message): ChatItem[] {
+function assistantTimelineItems(
+  msg: Message,
+  spans: Record<number, ThinkingSpan> = {}
+): ChatItem[] {
   const out: ChatItem[] = []
   let body: Message['content'] = []
 
@@ -133,7 +152,15 @@ function assistantTimelineItems(msg: Message): ChatItem[] {
   msg.content.forEach((block, i) => {
     if (block.type === 'thinking' && (block.thinking || block.redacted)) {
       flushBody()
-      out.push({ kind: 'thinking', id: `${msg.timestamp}-${i}`, text: block.thinking ?? '', redacted: !!block.redacted })
+      const span = spans[i]
+      out.push({
+        kind: 'thinking',
+        id: `${msg.timestamp}-${i}`,
+        text: block.thinking ?? '',
+        redacted: !!block.redacted,
+        // Absent for history loaded from disk — it was never streamed here.
+        durationMs: span ? span.endedAt - span.startedAt : undefined
+      })
     } else if (block.type === 'toolCall' && block.id) {
       flushBody()
       out.push({ kind: 'tool', toolCallId: block.id })
@@ -153,14 +180,43 @@ function assistantTimelineItems(msg: Message): ChatItem[] {
 // tool_execution_start. The placeholders are removed and rebuilt in the exact
 // assistant content order, preventing a live placeholder from permanently
 // appearing before commentary that preceded its tool call.
-function appendAssistantTimeline(items: ChatItem[], msg: Message): ChatItem[] {
+function appendAssistantTimeline(
+  items: ChatItem[],
+  msg: Message,
+  spans: Record<number, ThinkingSpan>
+): ChatItem[] {
   const toolIDs = new Set(
     msg.content.flatMap((block) => (block.type === 'toolCall' && block.id ? [block.id] : []))
   )
   const withoutPlaceholders = items.filter(
     (item) => item.kind !== 'tool' || !toolIDs.has(item.toolCallId)
   )
-  return [...withoutPlaceholders, ...assistantTimelineItems(msg)]
+  return [...withoutPlaceholders, ...assistantTimelineItems(msg, spans)]
+}
+
+// Extend the reasoning spans for a streaming partial. A span opens the first
+// time its block carries content and its end only moves while that text keeps
+// growing, so a block stops accruing time the moment the model switches to
+// prose or a tool call.
+function trackThinking(chat: ChatState, partial: Message): Record<number, ThinkingSpan> {
+  const now = Date.now()
+  let spans = chat.thinkingSpans
+  partial.content.forEach((block, i) => {
+    if (block.type !== 'thinking') return
+    const length = block.thinking?.length ?? 0
+    if (length === 0 && !block.redacted) return
+    const prev = spans[i]
+    if (!prev) {
+      // Only the message's first reasoning block can claim the pre-stream wait;
+      // for later ones that gap was tool work or prose, not thinking.
+      const startedAt =
+        Object.keys(spans).length === 0 ? chat.streamStartedAt ?? now : now
+      spans = { ...spans, [i]: { startedAt, endedAt: now, length } }
+    } else if (length > prev.length) {
+      spans = { ...spans, [i]: { ...prev, endedAt: now, length } }
+    }
+  })
+  return spans
 }
 
 export function newChat(sessionId: string, cwd: string, model: string): ChatState {
@@ -175,7 +231,9 @@ export function newChat(sessionId: string, cwd: string, model: string): ChatStat
     notice: null,
     cost: 0,
     lastTokens: 0,
-    pendingUserTexts: []
+    pendingUserTexts: [],
+    streamStartedAt: null,
+    thinkingSpans: {}
   }
 }
 
@@ -224,7 +282,19 @@ export function loadHistory(chat: ChatState, messages: Message[]): ChatState {
       items.push({ kind: 'msg', msg })
     }
   }
-  return { ...chat, items, toolRuns, cost, lastTokens, streaming: null, pendingUserTexts: [] }
+  // Reasoning durations are not persisted, so resumed blocks show a bare
+  // "Thought" rather than a fabricated elapsed time.
+  return {
+    ...chat,
+    items,
+    toolRuns,
+    cost,
+    lastTokens,
+    streaming: null,
+    pendingUserTexts: [],
+    streamStartedAt: null,
+    thinkingSpans: {}
+  }
 }
 
 export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
@@ -252,12 +322,15 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
       }
 
     case 'message_start':
-      if (ev.message?.role === 'assistant') return { ...chat, streaming: ev.message }
+      if (ev.message?.role === 'assistant') {
+        return { ...chat, streaming: ev.message, streamStartedAt: Date.now(), thinkingSpans: {} }
+      }
       return chat
 
     case 'message_update': {
       const partial = ev.assistantMessageEvent?.partial
-      return partial ? { ...chat, streaming: partial } : chat
+      if (!partial) return chat
+      return { ...chat, streaming: partial, thinkingSpans: trackThinking(chat, partial) }
     }
 
     case 'message_end': {
@@ -313,8 +386,10 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
       }
       return {
         ...chat,
-        items: appendAssistantTimeline(chat.items, msg),
+        items: appendAssistantTimeline(chat.items, msg, chat.thinkingSpans),
         streaming: null,
+        streamStartedAt: null,
+        thinkingSpans: {},
         toolRuns,
         cost: chat.cost + (msg.usage?.cost?.total ?? 0),
         lastTokens: msg.usage?.totalTokens ?? chat.lastTokens
@@ -515,7 +590,15 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'clearVisible': {
       const chat = activeChat(state)
       if (!chat) return state
-      return withChat(state, { ...chat, items: [], streaming: null, toolRuns: {}, notice: null })
+      return withChat(state, {
+        ...chat,
+        items: [],
+        streaming: null,
+        toolRuns: {},
+        notice: null,
+        streamStartedAt: null,
+        thinkingSpans: {}
+      })
     }
     default:
       return state

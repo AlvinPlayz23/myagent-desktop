@@ -49,7 +49,7 @@ export default function Home({
 
   return (
     <div className="drag-region flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6">
-      <div className="no-drag flex w-full max-w-2xl flex-col items-center gap-3 pb-16 [animation:rise_0.3s_ease]">
+      <div className="no-drag flex w-full max-w-2xl flex-col items-center gap-3 pb-16 [animation:bloom_0.5s_cubic-bezier(0.22,1,0.36,1)]">
         <div className="flex items-center text-[30px] font-semibold tracking-tight text-foreground">
           What do you want to work on?
         </div>

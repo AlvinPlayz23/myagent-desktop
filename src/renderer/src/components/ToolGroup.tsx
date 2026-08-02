@@ -1,50 +1,55 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronRight, Loading03 } from './ui/icons'
+import { ChevronRight } from './ui/icons'
 import type { Message } from '../../../shared/protocol'
 import type { ToolRun } from '../state'
 import type { ToolActivityDisplay } from '../preferences'
 import ToolCard from './ToolCard'
 import Thinking from './Thinking'
 import MessageView from './MessageView'
-import { cn } from '../util'
+import { cn, duration } from '../util'
 
 // A single unit of agent work: reasoning or a tool call. Consecutive entries
 // are rendered together so presentation stays decoupled from history.
 export type WorkEntry =
   | { kind: 'tool'; run: ToolRun }
-  | { kind: 'thinking'; id: string; text: string; redacted: boolean }
+  | { kind: 'thinking'; id: string; text: string; redacted: boolean; durationMs?: number }
   | { kind: 'message'; id: string; msg: Message }
-
-function duration(ms: number): string {
-  const seconds = Math.max(1, Math.round(ms / 1000))
-  const minutes = Math.floor(seconds / 60)
-  return minutes > 0 ? `${minutes}m ${seconds % 60}s` : `${seconds}s`
-}
 
 function EntryView({ entry }: { entry: WorkEntry }): JSX.Element {
   if (entry.kind === 'tool') return <ToolCard run={entry.run} />
   if (entry.kind === 'message') return <MessageView msg={entry.msg} messageSize="default" showThinking={false} />
-  return <Thinking text={entry.redacted ? '[redacted]' : entry.text} />
+  // Entries reaching a group are finalized, so reasoning is never live here.
+  return <Thinking text={entry.redacted ? '[redacted]' : entry.text} durationMs={entry.durationMs} />
 }
 
 // Renders a run of consecutive work entries as one presentation unit. The
 // conversation history is unchanged regardless of mode:
 //   expanded  every entry open-able (reasoning + tool cards)
-//   compact   a collapsible "Worked for …" fold
+//   compact   tools inline while running; once the work settles they fold
+//             behind a collapsed "Worked for …" divider the user can expand
 //   hidden    nothing, except tool failures which always stay visible
 export default function ToolGroup({
   entries,
-  display
+  display,
+  live = false
 }: {
   entries: WorkEntry[]
   display: ToolActivityDisplay
+  /**
+   * The turn that produced these entries is still in flight. Tool status alone
+   * cannot answer that: between two tool calls every run reads 'done' while the
+   * provider is still thinking, retrying, or waiting on a slow response. Folding
+   * on that would claim the work had finished and then reopen when the next
+   * entry landed, so the fold waits for the turn itself to end.
+   */
+  live?: boolean
 }): JSX.Element | null {
   const [open, setOpen] = useState(false)
   if (entries.length === 0) return null
 
   const runs = entries.flatMap((e) => (e.kind === 'tool' ? [e.run] : []))
-  const running = runs.some((r) => r.status === 'running')
+  const running = live || runs.some((r) => r.status === 'running')
   const errors = runs.filter((r) => r.status === 'error')
   const toolCount = runs.length
 
@@ -70,16 +75,25 @@ export default function ToolGroup({
     )
   }
 
-  // compact
-  const label = (() => {
-    const tools = `${toolCount} tool${toolCount === 1 ? '' : 's'}`
-    if (running) return toolCount > 0 ? `Working · ${tools}` : 'Working'
-    if (toolCount === 0) return 'Thinking'
-    const startedAt = Math.min(...runs.map((r) => r.createdAt))
-    const endedAt = Math.max(...runs.map((r) => r.updatedAt))
-    return `Worked for ${duration(endedAt - startedAt)} · ${tools}`
-  })()
+  // compact — while the turn is still live (or thinking-only with nothing to
+  // fold), show entries inline so users can watch each step. Once the turn ends
+  // and there are tool calls, fold them behind a "Worked for …" divider that
+  // starts collapsed; click to expand, click again to collapse.
+  // Duration comes from tool-run timestamps so resumed history keeps summaries.
+  if (running || toolCount === 0) {
+    return (
+      <section className="mt-5 [animation:rise_0.25s_ease]">
+        <div className="flex flex-col gap-0.5">
+          {entries.map((entry) => (
+            <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
+          ))}
+        </div>
+      </section>
+    )
+  }
 
+  const startedAt = Math.min(...runs.map((r) => r.createdAt))
+  const endedAt = Math.max(...runs.map((r) => r.updatedAt))
   return (
     <section className="mt-5 [animation:rise_0.25s_ease]">
       <AnimatePresence initial={false}>
@@ -110,8 +124,7 @@ export default function ToolGroup({
             strokeWidth={1.8}
             className={cn('transition-transform', open && '-rotate-90')}
           />
-          {running && <Loading03 size={12} strokeWidth={1.8} className="animate-spin" />}
-          {label}
+          {`Worked for ${duration(endedAt - startedAt)} · ${toolCount} tool${toolCount === 1 ? '' : 's'}`}
           {errors.length > 0 && (
             <span className="text-destructive-foreground">· {errors.length} failed</span>
           )}

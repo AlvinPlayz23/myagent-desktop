@@ -38,7 +38,7 @@ const sizes: Array<{ value: MessageSize; title: string; detail: string }> = [
 
 const toolDisplays: Array<{ value: ToolActivityDisplay; title: string; detail: string }> = [
   { value: 'expanded', title: 'Expanded', detail: 'Every tool call as its own card' },
-  { value: 'compact', title: 'Compact', detail: 'Fold tool work behind “Worked for …”' },
+  { value: 'compact', title: 'Compact', detail: 'Tools inline while running; fold behind “Worked for …” when done' },
   { value: 'hidden', title: 'Hidden', detail: 'Quiet chat; only failures show' }
 ]
 

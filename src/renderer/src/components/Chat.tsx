@@ -5,6 +5,7 @@ import type { ChatItem, ChatState } from '../state'
 import type { Message } from '../../../shared/protocol'
 import type { ToolActivityDisplay } from '../preferences'
 import MessageView from './MessageView'
+import ThinkingState from './ThinkingState'
 import ToolGroup, { type WorkEntry } from './ToolGroup'
 
 // Rises a timeline entry in as it appends to a live conversation. Rows that
@@ -95,11 +96,15 @@ export default function Chat({
   let finalAssistantMsg: Message | null = null
   let segment = 0
 
-  const flushSegment = (): void => {
+  // `live` is only ever passed by the final flush below. Items are
+  // chronological, so an in-flight turn's work always lands in the last
+  // segment; every earlier segment is settled history and must still fold even
+  // while a new turn runs.
+  const flushSegment = (live = false): void => {
     if (workEntries.length > 0) {
       rows.push(
         <Entrance key={`work-${segment}`} animate={liveRegion.current}>
-          <ToolGroup entries={workEntries} display={toolActivityDisplay} />
+          <ToolGroup entries={workEntries} display={toolActivityDisplay} live={live} />
         </Entrance>
       )
     }
@@ -134,7 +139,13 @@ export default function Chat({
           workEntries.push({ kind: 'tool', run })
         }
       } else if (item.kind === 'thinking') {
-        workEntries.push({ kind: 'thinking', id: item.id, text: item.text, redacted: item.redacted })
+        workEntries.push({
+          kind: 'thinking',
+          id: item.id,
+          text: item.text,
+          redacted: item.redacted,
+          durationMs: item.durationMs
+        })
       }
       continue
     }
@@ -159,7 +170,14 @@ export default function Chat({
       }
     }
   }
-  flushSegment()
+  flushSegment(chat.running)
+
+  // Elapsed reasoning time for the message still streaming, so a block that has
+  // already stopped reasoning shows its duration without waiting for the turn.
+  const streamingThinkingDurations: Record<number, number> = {}
+  for (const [index, span] of Object.entries(chat.thinkingSpans)) {
+    streamingThinkingDurations[Number(index)] = span.endedAt - span.startedAt
+  }
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto" ref={scroller} onScroll={onScroll}>
@@ -173,14 +191,19 @@ export default function Chat({
         {rows}
         {chat.streaming && (
           <Entrance animate={liveRegion.current}>
-            <div className="mt-5"><MessageView msg={chat.streaming} streaming messageSize={messageSize} /></div>
+            <div className="mt-5">
+              <MessageView
+                msg={chat.streaming}
+                streaming
+                messageSize={messageSize}
+                thinkingDurations={streamingThinkingDurations}
+              />
+            </div>
           </Entrance>
         )}
         {chat.running && !chat.streaming && (
-          <div className="flex gap-1.5 px-0.5 py-1.5">
-            <span className="size-[7px] rounded-full bg-foreground/70 [animation:work-pulse_1.2s_ease-in-out_infinite]" />
-            <span className="size-[7px] rounded-full bg-foreground/70 [animation:work-pulse_1.2s_ease-in-out_0.15s_infinite]" />
-            <span className="size-[7px] rounded-full bg-foreground/70 [animation:work-pulse_1.2s_ease-in-out_0.3s_infinite]" />
+          <div className="px-1.5 py-1.5">
+            <ThinkingState />
           </div>
         )}
         {chat.notice && <div className="self-center rounded-full border border-border bg-muted px-4.5 py-1.5 font-mono text-[11.5px] text-muted-foreground [animation:rise_0.3s_ease]">{chat.notice}</div>}

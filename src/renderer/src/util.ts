@@ -10,6 +10,13 @@ export function baseName(p: string): string {
   return parts[parts.length - 1] || p
 }
 
+/** Compact elapsed-time label for work summaries: "45s", "2m 5s". */
+export function duration(ms: number): string {
+  const seconds = Math.max(1, Math.round(ms / 1000))
+  const minutes = Math.floor(seconds / 60)
+  return minutes > 0 ? `${minutes}m ${seconds % 60}s` : `${seconds}s`
+}
+
 export function relTime(iso: string): string {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return ''

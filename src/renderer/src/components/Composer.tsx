@@ -232,20 +232,24 @@ export default function Composer({
               className="min-h-[72px] max-h-[220px] w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/65"
             />
             {commandSuggestions.length > 0 && (
-              <div className="absolute bottom-[calc(100%+0.6rem)] left-0 z-40 w-[min(30rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border bg-elevated p-1 shadow-lg [animation:pop_0.16s_ease]">
-                <div className="px-2.5 pb-1 pt-1.5 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground/70">Commands</div>
+              <div className="absolute bottom-[calc(100%+0.5rem)] left-0 z-40 w-[min(15rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border bg-popover p-1.5 shadow-xl shadow-black/25 [animation:pop_0.16s_ease]">
                 {commandSuggestions.map((command, index) => (
                   <button
                     key={command.name}
                     type="button"
-                    className={cn('flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors', index === commandIndex ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground')}
+                    className={cn(
+                      'flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors',
+                      index === commandIndex
+                        ? 'bg-selected text-foreground'
+                        : 'text-muted-foreground hover:bg-hover hover:text-foreground'
+                    )}
+                    title={command.description}
                     onMouseEnter={() => setCommandIndex(index)}
                     onClick={() => {
                       executeCommand(command.slash)
                     }}
                   >
-                    <span className="w-20 shrink-0 font-mono text-[11.5px] text-foreground">{command.slash}</span>
-                    <span className="min-w-0 flex-1 text-[12px]">{command.description}</span>
+                    <span className="min-w-0 truncate">{command.title}</span>
                   </button>
                 ))}
               </div>

@@ -4,14 +4,16 @@ export interface DesktopCommand {
   name: CommandName
   slash: string
   usage: string
+  /** Row label in the composer's "/" menu. */
+  title: string
   description: string
   aliases?: string[]
 }
 
 export const commands: DesktopCommand[] = [
-  { name: 'help', slash: '/help', usage: '/help', description: 'Show available commands and shortcuts' },
-  { name: 'compact', slash: '/compact', usage: '/compact', description: 'Summarize older conversation context now' },
-  { name: 'clear', slash: '/clear', usage: '/clear', description: 'Clear the visible transcript' }
+  { name: 'help', slash: '/help', usage: '/help', title: 'Help', description: 'Show available commands and shortcuts' },
+  { name: 'compact', slash: '/compact', usage: '/compact', title: 'Compact context', description: 'Summarize older conversation context now' },
+  { name: 'clear', slash: '/clear', usage: '/clear', title: 'Clear transcript', description: 'Clear the visible transcript' }
 ]
 
 export type ParsedCommand = { command: DesktopCommand; argument: string } | { error: string }
