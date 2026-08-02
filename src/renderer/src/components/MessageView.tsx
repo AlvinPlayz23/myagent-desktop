@@ -23,7 +23,9 @@ export default function MessageView({ msg, streaming, messageSize = 'default', s
     const text = msg.content.map((b) => b.text ?? '').join('')
     return (
       <div className="flex justify-end [animation:rise_0.3s_ease]">
-        <div className={cn('max-w-[80%] rounded-2xl rounded-br-md border border-border bg-hover px-4 py-2.5 leading-relaxed text-foreground', messageClass)}>
+        {/* Uniformly rounded, no tail: the corner radius pairs with the
+            composer's 24px so a sent message reads as the same object. */}
+        <div className={cn('max-w-[80%] rounded-3xl border border-border bg-hover px-4 py-2.5 leading-relaxed text-foreground', messageClass)}>
           <Markdown text={text} />
         </div>
       </div>
