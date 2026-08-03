@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { ChevronDown, Folder01, FolderAdd, Rotate01 } from './ui/icons'
 import type { ProvidersInfo } from '../../../shared/protocol'
 import Composer from './Composer'
 import { Button } from './ui/Button'
 import { cn } from '../util'
 import type { CommandName } from '../commands'
+import { BLOOM_FAST } from '../motion'
 
 interface Props {
   loading: boolean
@@ -49,7 +51,7 @@ export default function Home({
 
   return (
     <div className="drag-region flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6">
-      <div className="no-drag flex w-full max-w-2xl flex-col items-center gap-3 pb-16 [animation:bloom_0.5s_cubic-bezier(0.22,1,0.36,1)]">
+      <div className="no-drag flex w-full max-w-2xl flex-col items-center gap-3 pb-16">
         <div className="flex items-center text-[30px] font-semibold tracking-tight text-foreground">
           What do you want to work on?
         </div>
@@ -93,46 +95,54 @@ export default function Home({
                 <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
               </button>
 
-              {open && (
-                <div className="absolute left-1/2 top-11 z-40 max-h-[320px] w-[260px] -translate-x-1/2 overflow-y-auto rounded-xl border border-border bg-elevated p-1.5 shadow-lg [animation:pop_0.16s_ease]">
-                  {projects.map((p) => (
-                    <button
-                      key={p.cwd}
-                      className={cn(
-                        'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors hover:bg-accent',
-                        p.cwd === current?.cwd && 'bg-selected'
-                      )}
-                      onClick={() => {
-                        onSelect(p.cwd)
-                        setOpen(false)
-                      }}
-                      title={p.cwd}
-                    >
-                      <Folder01
-                        size={13}
-                        strokeWidth={1.8}
-                        className={cn(
-                          'shrink-0',
-                          p.cwd === current?.cwd ? 'text-foreground' : 'text-muted-foreground'
-                        )}
-                      />
-                      <span className="shrink-0 text-[12.5px] font-medium text-foreground">
-                        {p.name}
-                      </span>
-                    </button>
-                  ))}
-                  <button
-                    className="mt-1 flex w-full items-center gap-2.5 rounded-md border-t border-border px-3 pb-2 pt-2.5 text-left text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    onClick={() => {
-                      setOpen(false)
-                      onAddProject()
-                    }}
+              <AnimatePresence>
+                {open && (
+                  <motion.div
+                    className="absolute left-1/2 top-11 z-40 max-h-[320px] w-[260px] origin-top overflow-y-auto rounded-xl border border-border bg-elevated p-1.5 shadow-lg"
+                    initial={{ opacity: 0, y: -6, scale: 0.97, filter: 'blur(8px)', x: '-50%' }}
+                    animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)', x: '-50%' }}
+                    exit={{ opacity: 0, y: -4, scale: 0.985, filter: 'blur(4px)', x: '-50%' }}
+                    transition={BLOOM_FAST}
                   >
-                    <FolderAdd size={13} strokeWidth={1.8} className="shrink-0" />
-                    <span className="text-[12.5px]">Add project…</span>
-                  </button>
-                </div>
-              )}
+                    {projects.map((p) => (
+                      <button
+                        key={p.cwd}
+                        className={cn(
+                          'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors hover:bg-accent',
+                          p.cwd === current?.cwd && 'bg-selected'
+                        )}
+                        onClick={() => {
+                          onSelect(p.cwd)
+                          setOpen(false)
+                        }}
+                        title={p.cwd}
+                      >
+                        <Folder01
+                          size={13}
+                          strokeWidth={1.8}
+                          className={cn(
+                            'shrink-0',
+                            p.cwd === current?.cwd ? 'text-foreground' : 'text-muted-foreground'
+                          )}
+                        />
+                        <span className="shrink-0 text-[12.5px] font-medium text-foreground">
+                          {p.name}
+                        </span>
+                      </button>
+                    ))}
+                    <button
+                      className="mt-1 flex w-full items-center gap-2.5 rounded-md border-t border-border px-3 pb-2 pt-2.5 text-left text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      onClick={() => {
+                        setOpen(false)
+                        onAddProject()
+                      }}
+                    >
+                      <FolderAdd size={13} strokeWidth={1.8} className="shrink-0" />
+                      <span className="text-[12.5px]">Add project…</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <Composer

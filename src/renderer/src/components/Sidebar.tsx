@@ -15,6 +15,7 @@ import {
   SquarePenIcon
 } from './ui/icons'
 import type { SessionMeta } from '../../../shared/protocol'
+import { BLOOM_FAST, EASE_IN, EASE_OUT, bloomDown } from '../motion'
 import { relTime } from '../util'
 import { cn } from '../util'
 
@@ -26,6 +27,40 @@ interface Menu {
 
 const MENU_WIDTH = 240
 const MENU_HEIGHT_ESTIMATE = 140
+
+// Sidebar text exists only in the expanded state. It clears out well ahead of
+// the width collapse and fades back in once that has mostly finished, so a
+// label is never caught mid-squeeze against the shrinking edge. `nowrap` keeps
+// it clipping cleanly under the edge instead of reflowing on the way out.
+//
+// The exit is deliberately much shorter than the entrance: AnimatePresence
+// holds the node mounted for the whole exit, and any of that time overlapping
+// the shrinking width is time spent watching text compress. Leading the width
+// rather than trailing it is most of what makes closing feel clean.
+function CollapseLabel({
+  show,
+  className,
+  children
+}: {
+  show: boolean
+  className?: string
+  children: React.ReactNode
+}): JSX.Element {
+  return (
+    <AnimatePresence initial={false}>
+      {show && (
+        <motion.span
+          className={cn('whitespace-nowrap', className)}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: { duration: 0.16, delay: 0.1, ease: 'easeOut' } }}
+          exit={{ opacity: 0, transition: { duration: 0.06, ease: 'easeIn' } }}
+        >
+          {children}
+        </motion.span>
+      )}
+    </AnimatePresence>
+  )
+}
 
 interface Project {
   cwd: string
@@ -158,18 +193,24 @@ export default function Sidebar({
     <>
     {/* No fill of its own — the sidebar rides directly on the window shell, so
         whatever backdrop the host resolved shows through it. */}
+    {/* Asymmetric by design. Collapsing is a dismissal — the user has already
+        decided, so it should get out of the way; expanding is revealing content
+        and can afford to settle. The easing is a decelerating curve rather than
+        Tailwind's default ease-in-out, whose slow tail is most of what read as
+        sluggish on the way closed. */}
     <aside
       className={cn(
-        'flex shrink-0 flex-col overflow-hidden transition-[width] duration-200',
-        collapsed ? 'w-14' : 'w-[260px]'
+        'flex shrink-0 flex-col overflow-hidden transition-[width] ease-[cubic-bezier(0.32,0.72,0,1)]',
+        collapsed ? 'w-14 duration-[170ms]' : 'w-[260px] duration-[230ms]'
       )}
     >
-      <div className={cn('drag-region flex h-9 shrink-0 items-center', collapsed ? 'justify-center' : 'pl-3.5')}>
-        {!collapsed && (
-          <span className="select-none truncate text-[12.5px] font-semibold tracking-tight text-foreground">
-            {appName}
-          </span>
-        )}
+      <div className={cn('drag-region flex h-9 shrink-0 items-center overflow-hidden', collapsed ? 'justify-center' : 'pl-3.5')}>
+        <CollapseLabel
+          show={!collapsed}
+          className="select-none truncate text-[12.5px] font-semibold tracking-tight text-foreground"
+        >
+          {appName}
+        </CollapseLabel>
       </div>
 
       <div className={cn('no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto', collapsed ? 'px-1.5' : 'px-2')}>
@@ -202,55 +243,93 @@ export default function Sidebar({
             <Square size={14} strokeWidth={1.8} className="absolute" />
             <SquarePenIcon size={10} strokeWidth={1.8} className="absolute" />
           </span>
-          {!collapsed && <span>New Chat</span>}
+          <CollapseLabel show={!collapsed}>New Chat</CollapseLabel>
         </button>
 
-        {!collapsed && recent.length > 0 && (
+        {/* Everything below the icon rail is expanded-only. Grouped under one
+            fade so collapsing doesn't blank several regions independently, and
+            timed like CollapseLabel so it clears before the width animates.
+
+            The pinned width is what stops the collapse looking sluggish: while
+            this is exiting the aside is already narrowing, and an auto-width
+            child would reflow every row inside it on the way out — text
+            re-wrapping and truncating frame by frame. Held at its expanded
+            width (260px aside − the px-2 rail) it simply slides under the
+            clip instead. */}
+        <AnimatePresence initial={false}>
+        {!collapsed && (
+        <motion.div
+          key="expanded"
+          className="w-[244px] shrink-0"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: { duration: 0.16, delay: 0.1, ease: 'easeOut' } }}
+          exit={{ opacity: 0, transition: { duration: 0.07, ease: 'easeIn' } }}
+        >
+        {recent.length > 0 && (
           <div className="mb-4 space-y-0.5">
-            {recent.map((s) => {
-              const running = runningIds.has(s.id)
-              return (
-                <button
-                  key={s.id}
-                  className={cn(
-                    'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors',
-                    s.id === activeId ? 'bg-selected' : 'hover:bg-hover',
-                    menu?.session.id === s.id && 'bg-hover'
-                  )}
-                  onClick={() => onOpen(s.id)}
-                  onContextMenu={(e) => openMenu(e, s)}
-                  title={s.title || s.preview || s.id}
-                >
-                  <span
-                    className={cn(
-                      'size-1.5 shrink-0 rounded-full',
-                      running ? 'bg-success' : 'bg-muted-foreground/40'
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      'min-w-0 flex-1 truncate text-[12px]',
-                      s.id === activeId ? 'font-medium text-foreground' : 'text-muted-foreground'
-                    )}
+            <AnimatePresence initial={false}>
+              {recent.map((s) => {
+                const running = runningIds.has(s.id)
+                return (
+                  <motion.div
+                    key={s.id}
+                    layout
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
+                    className="overflow-hidden"
                   >
-                    {s.title || s.preview || `${s.messageCount} messages`}
-                  </span>
-                  {running && (
-                    <span className="shrink-0 rounded-full border border-success/30 bg-success/10 px-1.5 py-px text-[10px] font-medium text-success-foreground">
-                      Running
-                    </span>
-                  )}
-                  <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
-                    {relTime(s.modified)}
-                  </span>
-                </button>
-              )
-            })}
+                    <button
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors',
+                        s.id === activeId ? 'bg-selected' : 'hover:bg-hover',
+                        menu?.session.id === s.id && 'bg-hover'
+                      )}
+                      onClick={() => onOpen(s.id)}
+                      onContextMenu={(e) => openMenu(e, s)}
+                      title={s.title || s.preview || s.id}
+                    >
+                      <span
+                        className={cn(
+                          'size-1.5 shrink-0 rounded-full',
+                          running ? 'bg-success' : 'bg-muted-foreground/40'
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          'min-w-0 flex-1 truncate text-[12px]',
+                          s.id === activeId ? 'font-medium text-foreground' : 'text-muted-foreground'
+                        )}
+                      >
+                        {s.title || s.preview || `${s.messageCount} messages`}
+                      </span>
+                      <AnimatePresence initial={false}>
+                        {running && (
+                          <motion.span
+                            className="shrink-0 overflow-hidden whitespace-nowrap rounded-full border border-success/30 bg-success/10 px-1.5 py-px text-[10px] font-medium text-success-foreground"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.14, ease: [0.2, 0, 0, 1] }}
+                          >
+                            Running
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                      <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
+                        {relTime(s.modified)}
+                      </span>
+                    </button>
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
           </div>
         )}
 
-        {!collapsed && <div className="flex items-center justify-between px-2.5 pb-1 pt-0.5">
-          <span className="text-[12px] text-muted-foreground">
+        <div className="flex items-center justify-between px-2.5 pb-1 pt-0.5">
+          <span className="whitespace-nowrap text-[12px] text-muted-foreground">
             Threads
           </span>
           <button
@@ -260,12 +339,16 @@ export default function Sidebar({
           >
             <FolderAdd size={14} strokeWidth={1.8} />
           </button>
-        </div>}
+        </div>
 
-        {!collapsed && grouped.map((p, i) => {
+        {grouped.map((p, i) => {
           const open = isOpen(p, i)
+          // The layout transition is timed to the folder's own height
+          // animation below: the folders underneath slide up as it collapses,
+          // so a shorter curve here lands them before the shrink finishes and
+          // opens a gap.
           return (
-            <motion.div key={p.cwd} layout="position" transition={{ duration: 0.18, ease: 'easeOut' }}>
+            <motion.div key={p.cwd} layout="position" transition={{ duration: 0.24, ease: EASE_OUT }}>
               <div
                 className="group flex items-center rounded-lg transition-colors hover:bg-hover"
                 title={p.cwd}
@@ -292,17 +375,81 @@ export default function Sidebar({
               <AnimatePresence initial={false}>
                 {open && (
                   <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    // Labels, not plain objects. Variant propagation is what
+                    // carries `closed` down to the travel wrapper and the rows
+                    // on exit — animating this container with object values
+                    // would collapse the height while everything inside it sat
+                    // frozen, which is exactly what "no close animation" looks
+                    // like. Descendants therefore declare `variants` only and
+                    // inherit the label from here.
+                    variants={{
+                      open: {
+                        height: 'auto',
+                        opacity: 1,
+                        transition: {
+                          height: { duration: 0.28, ease: EASE_OUT },
+                          opacity: { duration: 0.18, ease: 'easeOut' }
+                        }
+                      },
+                      closed: {
+                        height: 0,
+                        opacity: 0,
+                        transition: {
+                          height: { duration: 0.22, ease: EASE_IN },
+                          // Hold opacity almost to the end: fading early leaves
+                          // an empty gap visibly shrinking after the rows are
+                          // already gone.
+                          opacity: { duration: 0.16, ease: 'easeIn', delay: 0.04 }
+                        }
+                      }
+                    }}
+                    initial="closed"
+                    animate="open"
+                    exit="closed"
                     className="overflow-hidden"
                   >
+                    {/* The rows travel *through* the opening height rather than
+                        being revealed by it: they enter lifted and settle as
+                        the container finishes, and on close they ride back up
+                        into the folder row. That vertical travel is what reads
+                        as a dropdown rather than a window shade.
+
+                        Declares `variants` but no initial/animate/exit: the
+                        label is inherited from the height container above, and
+                        re-declaring it here would detach this branch from that
+                        propagation instead of joining it. */}
+                    <motion.div
+                      variants={{
+                        open: { y: 0, transition: { duration: 0.28, ease: EASE_OUT } },
+                        closed: { y: -10, transition: { duration: 0.22, ease: EASE_IN } }
+                      }}
+                    >
                     {p.sessions.length > 0 ? (
                       <div className="pl-4">
-                        {p.sessions.map((s) => (
-                          <button
+                        {p.sessions.map((s, si) => (
+                          <motion.button
                             key={s.id}
+                            variants={{
+                              open: {
+                                opacity: 1,
+                                y: 0,
+                                transition: {
+                                  duration: 0.2,
+                                  ease: EASE_OUT,
+                                  // Cap the cascade: a project with 30 sessions
+                                  // must not take 900ms to finish opening.
+                                  delay: Math.min(si, 6) * 0.022
+                                }
+                              },
+                              closed: {
+                                opacity: 0,
+                                y: -6,
+                                // No per-row delay closing. Staggering an exit
+                                // makes dismissal feel sluggish, and the rows
+                                // have to be gone before the height finishes.
+                                transition: { duration: 0.12, ease: EASE_IN }
+                              }
+                            }}
                             className={cn(
                               'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors',
                               s.id === activeId ? 'bg-selected' : 'hover:bg-hover',
@@ -325,20 +472,25 @@ export default function Sidebar({
                             <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
                               {relTime(s.modified)}
                             </span>
-                          </button>
+                          </motion.button>
                         ))}
                       </div>
                     ) : (
                       <div className="pl-4">
-                        <button
+                        <motion.button
+                          variants={{
+                            open: { opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_OUT } },
+                            closed: { opacity: 0, y: -6, transition: { duration: 0.12, ease: EASE_IN } }
+                          }}
                           className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
                           onClick={() => onCompose(p.cwd)}
                         >
                           <Plus size={12} strokeWidth={1.8} className="shrink-0" />
                           <span className="text-[12px]">Start first session</span>
-                        </button>
+                        </motion.button>
                       </div>
                     )}
+                    </motion.div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -346,15 +498,16 @@ export default function Sidebar({
           )
         })}
 
-        {!collapsed && (
-          <button
-            className="flex w-full items-center gap-2 rounded-lg py-1.5 pl-2 pr-1 text-left text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
-            onClick={onAddProject}
-          >
-            <FolderAdd size={14} strokeWidth={1.8} className="shrink-0" />
-            <span className="text-[12.5px]">Add project</span>
-          </button>
+        <button
+          className="flex w-full items-center gap-2 rounded-lg py-1.5 pl-2 pr-1 text-left text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+          onClick={onAddProject}
+        >
+          <FolderAdd size={14} strokeWidth={1.8} className="shrink-0" />
+          <span className="whitespace-nowrap text-[12.5px]">Add project</span>
+        </button>
+        </motion.div>
         )}
+        </AnimatePresence>
 
       </div>
       <div className={cn('shrink-0 py-2', collapsed ? 'px-1.5' : 'px-2')}>
@@ -369,7 +522,7 @@ export default function Sidebar({
           onClick={onSettings}
         >
           <Settings01 size={15} strokeWidth={1.8} className="shrink-0" />
-          {!collapsed && <span>Settings</span>}
+          <CollapseLabel show={!collapsed}>Settings</CollapseLabel>
         </button>
       </div>
     </aside>
@@ -378,11 +531,12 @@ export default function Sidebar({
     {menu && (
         <motion.div
           ref={menuRef}
-          initial={{ opacity: 0, scale: 0.96, y: -4 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: -4 }}
-          transition={{ duration: 0.12, ease: 'easeOut' }}
-          className="fixed z-[51] w-[240px] overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-xl shadow-black/25"
+          variants={bloomDown}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={BLOOM_FAST}
+          className="fixed z-[51] w-[240px] origin-top-left overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-xl shadow-black/25"
           style={{ left: menu.x, top: menu.y }}
           onContextMenu={(e) => e.preventDefault()}
         >

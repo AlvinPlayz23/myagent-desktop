@@ -62,16 +62,6 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
 
-  @keyframes skeleton {
-    to {
-      background-position: -200% 0;
-    }
-  }
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
   @keyframes blink {
     50% {
       opacity: 0;
@@ -85,31 +75,6 @@
     to {
       opacity: 1;
       transform: translateY(0);
-    }
-  }
-  @keyframes pop {
-    from {
-      opacity: 0;
-      transform: translateY(-6px) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-  /* Home screen entrance. Resolves out of a soft blur rather than sliding:
-     the window is translucent, and translating a large block across the
-     desktop showing through it reads as a smear. */
-  @keyframes bloom {
-    from {
-      opacity: 0;
-      filter: blur(10px);
-      transform: scale(0.98);
-    }
-    to {
-      opacity: 1;
-      filter: blur(0);
-      transform: scale(1);
     }
   }
   @keyframes label-shine {
@@ -655,4 +620,20 @@
   border-radius: 0;
   background: transparent;
   padding: 0.8rem 0.9rem;
+}
+.shortcut-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--muted);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1;
+  white-space: nowrap;
 }

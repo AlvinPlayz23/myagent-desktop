@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { motion } from 'motion/react'
 import { commands } from '../commands'
+import { BLOOM, bloomIn } from '../motion'
 
 export default function CommandModal({
   onClose
@@ -25,10 +26,11 @@ export default function CommandModal({
       <motion.section
         className="w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-elevated shadow-2xl"
         onMouseDown={(event) => event.stopPropagation()}
-        initial={{ opacity: 0, scale: 0.96, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: 6 }}
-        transition={{ type: 'spring', stiffness: 520, damping: 38 }}
+        variants={bloomIn}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        transition={BLOOM}
       >
         <div className="border-b border-border px-5 py-4">
           <h2 className="m-0 text-[15px] font-semibold text-foreground">Commands</h2>

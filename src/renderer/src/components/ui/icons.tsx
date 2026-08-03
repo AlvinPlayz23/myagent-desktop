@@ -1,5 +1,5 @@
 import { HugeiconsIcon, type HugeiconsIconProps } from '@hugeicons/react'
-import { Globe2 } from 'lucide-react'
+import { Globe2, Keyboard } from 'lucide-react'
 import {
   Add01Icon,
   AddToListIcon,
@@ -68,6 +68,7 @@ export const Folder01 = makeIcon(Folder01Icon)
 export const Folder02 = makeIcon(Folder02Icon)
 export const FolderAdd = makeIcon(FolderAddIcon)
 export const Globe02 = Globe2
+export const Keyboard01 = Keyboard
 export const LayoutAlignLeft = makeIcon(LayoutAlignLeftIcon)
 export const LayoutAlignRight = makeIcon(LayoutAlignRightIcon)
 export const Loading03 = makeIcon(Loading03Icon)

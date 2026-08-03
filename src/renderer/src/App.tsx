@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { AnimatePresence, MotionConfig } from 'motion/react'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
+import { bloomPanel } from './motion'
 import { api, ApiError } from './api'
 import { activeChat, initialState, loadHistory, newChat, reducer } from './state'
 import { baseName } from './util'
@@ -18,6 +19,7 @@ import DebugPanel from './debug-panel/DebugPanel'
 import type { CommandName } from './commands'
 import CommandModal from './components/CommandModal'
 import RenameSessionModal from './components/RenameSessionModal'
+import { matchShortcut, composerFocus, composerModelPicker, type ShortcutId } from './shortcuts'
 
 export default function App(): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -36,6 +38,11 @@ export default function App(): JSX.Element {
   const chats = useRef(state.chats)
   activeSession.current = chat?.sessionId ?? null
   chats.current = state.chats
+  // Refs read inside the stable keydown listener so it never resubscribes.
+  const modalRef = useRef(modal)
+  modalRef.current = modal
+  const renameRef = useRef(renameTarget)
+  renameRef.current = renameTarget
 
   useEffect(() => {
     applyTheme(preferences.theme)
@@ -343,6 +350,38 @@ export default function App(): JSX.Element {
     [state.chats]
   )
 
+  // Map each global shortcut id to the callback that should run. Held in a ref
+  // so the keydown listener (subscribed once) always calls the latest closures
+  // without resubscribing on every state change.
+  const shortcutsRef = useRef<Partial<Record<ShortcutId, (() => void) | null>>>({})
+  shortcutsRef.current = {
+    newTask: goHome,
+    toggleSidebar: () => setSidebarCollapsed((value) => !value),
+    openSettings: () => setView('settings'),
+    focusComposer: () => composerFocus.current?.(),
+    stop: () => { if (chat?.running) stop() },
+    compact: () => { if (chat && !chat.running) compact() },
+    modelPicker: () => composerModelPicker.current?.(),
+    toggleDebug: () => setDebugOpen((value) => !value),
+    commands: () => setModal('help')
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      // Pause global shortcuts while a modal dialog is open so its own Esc
+      // handling and focus stay predictable.
+      if (modalRef.current !== null || renameRef.current !== null) return
+      const id = matchShortcut(e)
+      if (!id) return
+      const handler = shortcutsRef.current[id]
+      if (!handler) return
+      e.preventDefault()
+      handler()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   return (
     <MotionConfig reducedMotion={preferences.reducedMotion ? 'always' : 'user'}>
     <div className="app-shell flex h-screen w-full overflow-hidden">
@@ -369,6 +408,21 @@ export default function App(): JSX.Element {
         appName={normalizeAppName(preferences.appName)}
       />
       <main className="main-panel surface-grain relative mt-9 flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Keyed by session as well as view: opening a different session is a
+            new surface arriving, and should bloom in the same way the Home
+            screen does, rather than swapping its contents underneath.
+
+            initial is left on so the first paint blooms too — this replaces the
+            CSS entrance Home used to carry itself. */}
+        <AnimatePresence mode="wait">
+        <motion.div
+          key={view === 'settings' ? 'settings' : chat ? `chat-${chat.sessionId}` : 'home'}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          variants={bloomPanel}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+        >
         {view === 'settings' ? (
           <Settings
             preferences={preferences}
@@ -397,8 +451,6 @@ export default function App(): JSX.Element {
                 renameSession(chat.sessionId, s?.title || s?.preview || '')
               }}
               onArchive={() => archiveSession(chat.sessionId)}
-              sidebarCollapsed={sidebarCollapsed}
-              onShowSidebar={() => setSidebarCollapsed(false)}
               onToggleDebug={() => setDebugOpen((v) => !v)}
               debugOpen={debugOpen}
             />
@@ -434,6 +486,8 @@ export default function App(): JSX.Element {
             onCommand={handleCommand}
           />
         )}
+        </motion.div>
+        </AnimatePresence>
         <StatusBar
           conn={state.conn}
           detail={state.connDetail}

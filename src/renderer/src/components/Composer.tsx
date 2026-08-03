@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState, KeyboardEvent } from 'react'
-import { motion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { ArrowUp02, AddToList, ChevronDown, ChevronRight, Search01, Square, Tick01 } from './ui/icons'
 import type { ProviderEntry, ProvidersInfo } from '../../../shared/protocol'
 import { cn } from '../util'
 import { commandMatches, parseCommand, type CommandName } from '../commands'
+import { composerFocus, composerModelPicker } from '../shortcuts'
+import { BLOOM_FAST, bloomUp } from '../motion'
 
 const PROVIDER_DOT: Record<string, string> = {
   openai: '#10a37f',
@@ -74,6 +76,18 @@ export default function Composer({
     }
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
+  }, [])
+
+  // Publish imperative handles so app-level shortcuts (focus composer, open
+  // model picker) can drive this Composer without prop drilling. Only the
+  // mounted Composer registers; the refs clear on unmount.
+  useEffect(() => {
+    composerFocus.current = () => area.current?.focus()
+    composerModelPicker.current = () => setModelsOpen(true)
+    return () => {
+      composerFocus.current = null
+      composerModelPicker.current = null
+    }
   }, [])
 
   useEffect(() => {
@@ -231,29 +245,38 @@ export default function Composer({
               onKeyDown={onKey}
               className="min-h-[72px] max-h-[220px] w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/65"
             />
-            {commandSuggestions.length > 0 && (
-              <div className="absolute bottom-[calc(100%+0.5rem)] left-0 z-40 w-[min(15rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border bg-popover p-1.5 shadow-xl shadow-black/25 [animation:pop_0.16s_ease]">
-                {commandSuggestions.map((command, index) => (
-                  <button
-                    key={command.name}
-                    type="button"
-                    className={cn(
-                      'flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors',
-                      index === commandIndex
-                        ? 'bg-selected text-foreground'
-                        : 'text-muted-foreground hover:bg-hover hover:text-foreground'
-                    )}
-                    title={command.description}
-                    onMouseEnter={() => setCommandIndex(index)}
-                    onClick={() => {
-                      executeCommand(command.slash)
-                    }}
-                  >
-                    <span className="min-w-0 truncate">{command.title}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <AnimatePresence>
+              {commandSuggestions.length > 0 && (
+                <motion.div
+                  className="absolute bottom-[calc(100%+0.5rem)] left-0 z-40 w-[min(15rem,calc(100vw-2rem))] origin-bottom overflow-hidden rounded-xl border border-border bg-popover p-1.5 shadow-xl shadow-black/25"
+                  variants={bloomUp}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={BLOOM_FAST}
+                >
+                  {commandSuggestions.map((command, index) => (
+                    <button
+                      key={command.name}
+                      type="button"
+                      className={cn(
+                        'flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors',
+                        index === commandIndex
+                          ? 'bg-selected text-foreground'
+                          : 'text-muted-foreground hover:bg-hover hover:text-foreground'
+                      )}
+                      title={command.description}
+                      onMouseEnter={() => setCommandIndex(index)}
+                      onClick={() => {
+                        executeCommand(command.slash)
+                      }}
+                    >
+                      <span className="min-w-0 truncate">{command.title}</span>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-2.5 pb-2.5">
@@ -276,9 +299,15 @@ export default function Composer({
                     <ChevronDown size={13} className="shrink-0" />
                   </button>
 
+                  <AnimatePresence>
                   {modelsOpen && (
-                    <div
-                      className="absolute bottom-10 left-0 z-40 w-[520px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-xl border border-border bg-elevated shadow-lg [animation:pop_0.16s_ease]"
+                    <motion.div
+                      className="absolute bottom-10 left-0 z-40 w-[520px] max-w-[calc(100vw-3rem)] origin-bottom-left overflow-hidden rounded-xl border border-border bg-elevated shadow-lg"
+                      variants={bloomUp}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      transition={BLOOM_FAST}
                       onKeyDown={(e) => {
                         if (e.key === 'Escape') {
                           e.stopPropagation()
@@ -488,8 +517,9 @@ export default function Composer({
                           )}
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
                 </div>
               )}
             </div>

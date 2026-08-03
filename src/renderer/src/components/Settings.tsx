@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { Archive01, ArchiveRestore, Check, ComputerTerminal, Globe02, Message01, Settings01 } from './ui/icons'
+import { Archive01, ArchiveRestore, Check, ComputerTerminal, Globe02, Keyboard01, Message01, Settings01 } from './ui/icons'
 import type { ConnState } from '../state'
 import { normalizeAppName, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
 import { cn } from '../util'
+import { shortcuts, shortcutCategories, formatCombo } from '../shortcuts'
 import ProviderManager from './ProviderManager'
 
 interface Props {
@@ -85,12 +86,13 @@ function Toggle({ checked, title, detail, onChange }: { checked: boolean; title:
 }
 
 export default function Settings({ preferences, onChange, conn, detail, serverVersion, onReconnect, archivedSessions, onOpenArchived, onRestore, providers, onSaveProvider, onDeleteProvider, onDefaultProvider, onDiscoverProvider }: Props): JSX.Element {
-  const [section, setSection] = useState<'appearance' | 'chat' | 'providers' | 'archive' | 'about'>('appearance')
+  const [section, setSection] = useState<'appearance' | 'chat' | 'providers' | 'archive' | 'shortcuts' | 'about'>('appearance')
   const nav = [
     { id: 'appearance' as const, label: 'Appearance', icon: Settings01 },
     { id: 'chat' as const, label: 'Chat', icon: Message01 },
     { id: 'providers' as const, label: 'Providers', icon: Globe02 },
     { id: 'archive' as const, label: 'Archive', icon: Archive01 },
+    { id: 'shortcuts' as const, label: 'Shortcuts', icon: Keyboard01 },
     { id: 'about' as const, label: 'About', icon: ComputerTerminal }
   ]
 
@@ -210,6 +212,23 @@ export default function Settings({ preferences, onChange, conn, detail, serverVe
                 ))}
               </div>
             )}
+          </>}
+          {section === 'shortcuts' && <>
+            <h1 className="m-0 text-[24px] font-semibold tracking-tight text-foreground">Keyboard shortcuts</h1>
+            <p className="mt-2 text-[13px] text-muted-foreground">Move around Myagent Desktop without reaching for the mouse.</p>
+            {shortcutCategories.map((category) => (
+              <section key={category} className="mt-8">
+                <h2 className="settings-heading">{category}</h2>
+                <div className="settings-card divide-y divide-border">
+                  {shortcuts.filter((s) => s.category === category).map((s) => (
+                    <div key={s.id} className="settings-row">
+                      <span>{s.description}</span>
+                      <kbd className="shortcut-key">{formatCombo(s.combo)}</kbd>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
           </>}
           {section === 'about' && <>
             <h1 className="m-0 text-[24px] font-semibold tracking-tight text-foreground">About</h1>

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Archive01, ArrowShrink01, Cpu, Edit01, MoreHorizontal, PanelLeftOpen } from './ui/icons'
+import { Archive01, ArrowShrink01, Cpu, Edit01, MoreHorizontal } from './ui/icons'
 import type { ChatState } from '../state'
+import { BLOOM_FAST, bloomDown } from '../motion'
 import { baseName, cn } from '../util'
 
 interface Props {
@@ -10,9 +11,6 @@ interface Props {
   onCompact(): void
   onRename(): void
   onArchive(): void
-  /** Sidebar is collapsed, so the header owns the button that reopens it. */
-  sidebarCollapsed: boolean
-  onShowSidebar(): void
   // debug-panel: toggles the LLM debug drawer (see ../debug-panel/README.md)
   onToggleDebug(): void
   // debug-panel: whether the drawer is currently open (drives the toggle's active state)
@@ -25,8 +23,6 @@ export default function ChatHeader({
   onCompact,
   onRename,
   onArchive,
-  sidebarCollapsed,
-  onShowSidebar,
   onToggleDebug,
   debugOpen
 }: Props): JSX.Element {
@@ -56,17 +52,6 @@ export default function ChatHeader({
 
   return (
     <header className="flex h-[52px] shrink-0 items-center gap-2 px-4">
-      {sidebarCollapsed && (
-        <button
-          className="no-drag grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
-          title="Show sidebar"
-          aria-label="Show sidebar"
-          onClick={onShowSidebar}
-        >
-          <PanelLeftOpen size={15} strokeWidth={1.8} />
-        </button>
-      )}
-
       <div className="pointer-events-none flex min-w-0 select-none items-center gap-2">
         <span className="truncate text-[14px] font-medium text-foreground">
           {title || project}
@@ -115,11 +100,12 @@ export default function ChatHeader({
           {menuOpen && (
             <motion.div
               ref={menuRef}
-              initial={{ opacity: 0, scale: 0.96, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: -4 }}
-              transition={{ duration: 0.12, ease: 'easeOut' }}
-              className="absolute right-0 top-9 z-50 w-[200px] overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-xl shadow-black/25"
+              variants={bloomDown}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={BLOOM_FAST}
+              className="absolute right-0 top-9 z-50 w-[200px] origin-top-right overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-xl shadow-black/25"
             >
               <button
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-foreground transition-colors hover:bg-hover"
