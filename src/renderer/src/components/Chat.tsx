@@ -57,9 +57,21 @@ export default function Chat({
     if (item.kind === 'msg') {
       // Finalized reasoning is shown as a foldable work item (see ToolGroup),
       // so the message body row itself never re-renders thinking.
+      //
+      // `copyable` is safe to set here even though an assistant node built by
+      // this function can still be demoted: when later work arrives the node is
+      // dropped (finalAssistant = null) and the message is re-rendered from
+      // scratch as a WorkEntry through EntryView, which does not pass the prop.
+      // Only a node that survives to flushSegment as the turn's answer is ever
+      // painted with the button. It is ignored for user messages.
       return (
         <div key={key} className="mt-5">
-          <MessageView msg={item.msg} messageSize={messageSize} showThinking={false} />
+          <MessageView
+            msg={item.msg}
+            messageSize={messageSize}
+            showThinking={false}
+            copyable={item.msg.role === 'assistant'}
+          />
         </div>
       )
     }
