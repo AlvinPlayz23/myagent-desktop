@@ -1,4 +1,5 @@
 import type {
+  ContentBlock,
   Message,
   MyagentApi,
   ProviderInput,
@@ -47,12 +48,12 @@ export const api = {
     const r = await call<{ sessions: SessionMeta[] }>('session.list')
     return r.sessions ?? []
   },
-  prompt: (sessionId: string, message: string): Promise<void> =>
-    call('session.prompt', { sessionId, message }),
-  steer: (sessionId: string, message: string): Promise<void> =>
-    call('session.steer', { sessionId, message }),
-  followUp: (sessionId: string, message: string): Promise<void> =>
-    call('session.followUp', { sessionId, message }),
+  prompt: (sessionId: string, content: ContentBlock[]): Promise<void> =>
+    call('session.prompt', { sessionId, content }),
+  steer: (sessionId: string, content: ContentBlock[]): Promise<void> =>
+    call('session.steer', { sessionId, content }),
+  followUp: (sessionId: string, content: ContentBlock[]): Promise<void> =>
+    call('session.followUp', { sessionId, content }),
   abort: (sessionId: string): Promise<void> => call('session.abort', { sessionId }),
   compact: (sessionId: string): Promise<void> => call('session.compact', { sessionId }),
   setModel: (sessionId: string, provider: string, model: string): Promise<void> =>

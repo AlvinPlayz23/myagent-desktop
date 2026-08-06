@@ -1,6 +1,7 @@
 import type {
   AgentEvent,
   CompactionInfo,
+  ContentBlock,
   Message,
   ProvidersInfo,
   SessionMeta,
@@ -28,7 +29,7 @@ export interface TurnSummary {
 }
 
 export type ChatItem =
-  | { kind: 'msg'; msg: Message }
+  | { kind: 'msg'; msg: Message; localId?: string }
   | { kind: 'tool'; toolCallId: string }
   | { kind: 'thinking'; id: string; text: string; redacted: boolean; durationMs?: number }
   | { kind: 'compaction'; info: CompactionInfo }
@@ -56,9 +57,9 @@ export interface ChatState {
   cost: number
   lastTokens: number
   // Optimistic user bubbles awaiting their matching server message_end event.
-  // Text is retained rather than used as a global deduplication key: identical
-  // prompts are valid and each must remain visible.
-  pendingUserTexts: string[]
+  // IDs let a rejected RPC roll back exactly its own bubble, including
+  // image-only prompts whose text is empty.
+  pendingUsers: { id: string }[]
   // Reasoning spans for the message currently streaming, keyed by content-block
   // index; consumed and cleared when that message finalizes. streamStartedAt
   // anchors the first block so provider latency before the first reasoning
@@ -129,6 +130,20 @@ export function messageText(msg: Message): string {
     .filter((b) => b.type === 'text')
     .map((b) => b.text ?? '')
     .join('')
+}
+
+export function contentText(content: ContentBlock[]): string {
+  return content
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text ?? '')
+    .join('')
+}
+
+export function contentMatches(left: ContentBlock[], right: ContentBlock[]): boolean {
+  return left.length === right.length && left.every((block, index) => {
+    const other = right[index]
+    return block.type === other.type && block.text === other.text && block.data === other.data && block.mimeType === other.mimeType
+  })
 }
 
 // Preserve the provider's block order inside an assistant turn. A response can
@@ -231,7 +246,7 @@ export function newChat(sessionId: string, cwd: string, model: string): ChatStat
     notice: null,
     cost: 0,
     lastTokens: 0,
-    pendingUserTexts: [],
+    pendingUsers: [],
     streamStartedAt: null,
     thinkingSpans: {}
   }
@@ -291,7 +306,7 @@ export function loadHistory(chat: ChatState, messages: Message[]): ChatState {
     cost,
     lastTokens,
     streaming: null,
-    pendingUserTexts: [],
+    pendingUsers: [],
     streamStartedAt: null,
     thinkingSpans: {}
   }
@@ -360,12 +375,18 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
         // follow-up. Consume only its corresponding pending entry. Do not
         // deduplicate by looking at nearby message text: identical prompts are
         // legitimate and previously caused queued bubbles to disappear.
-        const text = messageText(msg)
-        const pendingIndex = chat.pendingUserTexts.indexOf(text)
+        const pendingIndex = chat.pendingUsers.findIndex((pending) => {
+          const item = chat.items.find((candidate) => candidate.kind === 'msg' && candidate.localId === pending.id)
+          return item?.kind === 'msg' && contentMatches(item.msg.content, msg.content)
+        })
         if (pendingIndex >= 0) {
+          const pending = chat.pendingUsers[pendingIndex]
           return {
             ...chat,
-            pendingUserTexts: chat.pendingUserTexts.filter((_, index) => index !== pendingIndex)
+            items: chat.items.map((item) =>
+              item.kind === 'msg' && item.localId === pending.id ? { kind: 'msg', msg } : item
+            ),
+            pendingUsers: chat.pendingUsers.filter((_, index) => index !== pendingIndex)
           }
         }
         return { ...chat, items: [...chat.items, { kind: 'msg', msg }] }
@@ -486,15 +507,18 @@ export type Action =
   | { type: 'sessions'; sessions: SessionMeta[] }
   | { type: 'providers'; providers: ProvidersInfo }
   | { type: 'openChat'; chat: ChatState }
+  | { type: 'trackChat'; chat: ChatState }
   | { type: 'focusChat'; sessionId: string }
   | { type: 'closeChat' }
   | { type: 'loading'; value: boolean }
   | { type: 'fatal'; message: string | null }
   | { type: 'event'; sessionId: string; event: AgentEvent }
   | { type: 'done'; sessionId: string; error?: string }
-  | { type: 'localUser'; text: string }
+  | { type: 'localUser'; sessionId: string; localId: string; content: ContentBlock[] }
+  | { type: 'rollbackLocalUser'; sessionId: string; localId: string }
   | { type: 'model'; model: string }
   | { type: 'notice'; text: string | null }
+  | { type: 'chatNotice'; sessionId: string; text: string | null }
   | { type: 'home'; cwd?: string }
   | { type: 'addProject'; cwd: string }
   | { type: 'clearVisible' }
@@ -529,6 +553,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, providers: action.providers }
     case 'openChat':
       return { ...withChat(state, action.chat), activeId: action.chat.sessionId, loading: false }
+    case 'trackChat':
+      return withChat(state, action.chat)
     case 'focusChat':
       if (!state.chats[action.sessionId]) return state
       return { ...state, activeId: action.sessionId, loading: false }
@@ -567,18 +593,27 @@ export function reducer(state: AppState, action: Action): AppState {
       })
     }
     case 'localUser': {
-      const chat = activeChat(state)
+      const chat = state.chats[action.sessionId]
       if (!chat) return state
       const msg: Message = {
         role: 'user',
-        content: [{ type: 'text', text: action.text }],
+        content: action.content,
         timestamp: Date.now()
       }
       return withChat(state, {
         ...chat,
-        items: [...chat.items, { kind: 'msg', msg }],
-        pendingUserTexts: [...chat.pendingUserTexts, action.text],
+        items: [...chat.items, { kind: 'msg', msg, localId: action.localId }],
+        pendingUsers: [...chat.pendingUsers, { id: action.localId }],
         notice: null
+      })
+    }
+    case 'rollbackLocalUser': {
+      const chat = state.chats[action.sessionId]
+      if (!chat) return state
+      return withChat(state, {
+        ...chat,
+        items: chat.items.filter((item) => item.kind !== 'msg' || item.localId !== action.localId),
+        pendingUsers: chat.pendingUsers.filter((pending) => pending.id !== action.localId)
       })
     }
     case 'model': {
@@ -588,6 +623,11 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     case 'notice': {
       const chat = activeChat(state)
+      if (!chat) return state
+      return withChat(state, { ...chat, notice: action.text })
+    }
+    case 'chatNotice': {
+      const chat = state.chats[action.sessionId]
       if (!chat) return state
       return withChat(state, { ...chat, notice: action.text })
     }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ChevronDown, Folder01, FolderAdd, Rotate01 } from './ui/icons'
-import type { ProvidersInfo } from '../../../shared/protocol'
+import type { ContentBlock, ProvidersInfo } from '../../../shared/protocol'
 import Composer from './Composer'
 import { Button } from './ui/Button'
 import { cn } from '../util'
@@ -15,9 +15,11 @@ interface Props {
   selected: string | null
   onSelect(cwd: string): void
   onAddProject(): void
-  onSend(text: string, model?: string): void
+  onSend(content: ContentBlock[], model?: string): Promise<void>
   onRetry(): void
   providers: ProvidersInfo
+  notice?: string | null
+  onDismissNotice?(): void
   sendOnEnter?: boolean
   onCommand(name: CommandName, argument: string): void
 }
@@ -32,6 +34,8 @@ export default function Home({
   onSend,
   onRetry,
   providers,
+  notice,
+  onDismissNotice,
   sendOnEnter,
   onCommand
 }: Props): JSX.Element {
@@ -147,11 +151,13 @@ export default function Home({
 
             <Composer
               running={false}
-              onSend={(text) => onSend(text, model || undefined)}
+              onSend={(content) => onSend(content, model || undefined)}
               onStop={() => {}}
               placeholder={`Start a session in ${current?.name ?? 'this project'}…`}
               model={model || providers.defaultModel}
               providers={providers}
+              notice={notice}
+              onDismissNotice={onDismissNotice}
               onModel={(provider, selectedModel) => setModel(`${provider}/${selectedModel}`)}
               sendOnEnter={sendOnEnter}
               onCommand={onCommand}

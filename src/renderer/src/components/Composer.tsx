@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState, KeyboardEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, KeyboardEvent, ClipboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { AddToList, ChevronDown, ChevronRight, Search01, Tick01 } from './ui/icons'
-import type { ProvidersInfo } from '../../../shared/protocol'
+import type { ContentBlock, ProvidersInfo } from '../../../shared/protocol'
 import { cn } from '../util'
 import { commandMatches, parseCommand, type CommandName } from '../commands'
 import { composerFocus, composerModelPicker } from '../shortcuts'
@@ -24,8 +24,10 @@ const SPRING = 'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
 /** Effort levels are UI-only for now — the backend does not consume them yet. */
 const EFFORTS = ['Low', 'Medium', 'Max'] as const
 
-/** Attachments are mock-only: picked and previewed, but never sent. */
 const MAX_ATTACHMENTS = 6
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
+const MAX_TOTAL_ATTACHMENT_BYTES = 20 * 1024 * 1024
+const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 
 function dotColor(name: string): string {
   return PROVIDER_DOT[name] ?? '#9ca3af'
@@ -111,13 +113,46 @@ function MorphingText({ text }: { text: string }): JSX.Element {
   )
 }
 
-// ── Mock attachments ────────────────────────────────────────────────────────
 interface Attachment {
   id: string
   url: string
   name: string
+  data: string
+  mimeType: string
+  size: number
   width?: number
   height?: number
+}
+
+function readImage(file: File): Promise<Attachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`))
+    reader.onload = () => {
+      const url = typeof reader.result === 'string' ? reader.result : ''
+      const marker = url.indexOf(',')
+      if (marker < 0) {
+        reject(new Error(`Could not encode ${file.name}.`))
+        return
+      }
+      const image = new Image()
+      const finish = (width?: number, height?: number): void =>
+        resolve({
+          id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+          url,
+          name: file.name || 'clipboard image',
+          data: url.slice(marker + 1),
+          mimeType: file.type,
+          size: file.size,
+          width,
+          height
+        })
+      image.onload = () => finish(image.naturalWidth, image.naturalHeight)
+      image.onerror = () => finish()
+      image.src = url
+    }
+    reader.readAsDataURL(file)
+  })
 }
 
 function AttachmentThumb({
@@ -152,7 +187,7 @@ function AttachmentThumb({
       className="group relative size-12 shrink-0 overflow-hidden rounded-xl border border-border bg-muted outline-none transition-transform duration-200 hover:scale-[1.04] active:scale-[0.96]"
       aria-label={`Open preview of ${attachment.name}`}
     >
-      <img src={attachment.url} alt={attachment.name} className="size-full object-cover" draggable={false} />
+      <img src={attachment.url} alt={attachment.name} className="attachment-image size-full object-cover" draggable={false} />
       <span className={cn('absolute inset-0 flex items-start justify-end transition-colors duration-200', hovered && 'bg-black/25')}>
         <span
           role="button"
@@ -245,7 +280,7 @@ function AttachmentGalleryModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <img src={attachment.url} alt={attachment.name} className="size-full object-cover" draggable={false} />
+        <img src={attachment.url} alt={attachment.name} className="attachment-image size-full object-cover" draggable={false} />
       </div>
       <button
         type="button"
@@ -267,7 +302,7 @@ function AttachmentGalleryModal({
 
 interface Props {
   running: boolean
-  onSend(text: string, queue: boolean): void
+  onSend(content: ContentBlock[], queue: boolean): Promise<void>
   onStop(): void
   placeholder?: string
   model?: string
@@ -303,6 +338,9 @@ export default function Composer({
   const [activeProvider, setActiveProvider] = useState<string | null>(null)
   const [commandIndex, setCommandIndex] = useState(0)
   const [hoverStyle, setHoverStyle] = useState<HoverStyle>(HOVER_HIDDEN)
+  const [submitting, setSubmitting] = useState(false)
+  const [readingAttachments, setReadingAttachments] = useState(false)
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
 
   // UI-only extras adopted from the new composer design.
   const [effortIndex, setEffortIndex] = useState(1)
@@ -317,6 +355,10 @@ export default function Composer({
   const modelMenu = useRef<HTMLDivElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const recordTimer = useRef<number | null>(null)
+  const submittingRef = useRef(false)
+  const attachmentReads = useRef(0)
+  const attachmentQueue = useRef<Promise<void>>(Promise.resolve())
+  const attachmentsRef = useRef<Attachment[]>([])
 
   useEffect(() => {
     const close = (event: MouseEvent): void => {
@@ -367,16 +409,28 @@ export default function Composer({
     return true
   }
 
-  const submit = (queue: boolean): void => {
+  const submit = async (queue: boolean): Promise<void> => {
+    if (submittingRef.current || attachmentReads.current > 0) return
     const t = text.trim()
-    if (!t) return
-    if (executeCommand(t)) return
-    onSend(t, queue)
-    setText('')
-    if (area.current) area.current.style.height = 'auto'
-    if (attachments.length > 0) {
-      attachments.forEach((a) => URL.revokeObjectURL(a.url))
+    if (!t && attachments.length === 0) return
+    if (t && executeCommand(t)) return
+    const content: ContentBlock[] = []
+    if (t) content.push({ type: 'text', text: t })
+    content.push(...attachments.map(({ data, mimeType }) => ({ type: 'image' as const, data, mimeType })))
+    submittingRef.current = true
+    setSubmitting(true)
+    try {
+      await onSend(content, queue)
+      setText('')
+      attachmentsRef.current = []
       setAttachments([])
+      setAttachmentError(null)
+      if (area.current) area.current.style.height = 'auto'
+    } catch {
+      // The parent surfaces the RPC error; retain the draft for retry.
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
     }
   }
 
@@ -406,7 +460,7 @@ export default function Composer({
         executeCommand(command.slash)
         return
       }
-      submit(e.ctrlKey && running)
+      void submit(e.ctrlKey && running)
     }
   }
 
@@ -458,44 +512,90 @@ export default function Composer({
     }, 120)
   }, [])
 
-  // ── Mock attachments ──────────────────────────────────────────────────────
   const removeAttachment = (id: string): void => {
-    setAttachments((prev) => {
-      const target = prev.find((a) => a.id === id)
-      if (target) URL.revokeObjectURL(target.url)
-      return prev.filter((a) => a.id !== id)
-    })
+    if (submittingRef.current) return
+    const next = attachmentsRef.current.filter((attachment) => attachment.id !== id)
+    attachmentsRef.current = next
+    setAttachments(next)
+    setAttachmentError(null)
+  }
+
+  const addFiles = (files: File[]): void => {
+    if (files.length === 0 || submittingRef.current) return
+    attachmentReads.current += 1
+    setReadingAttachments(true)
+    attachmentQueue.current = attachmentQueue.current
+      .then(async () => {
+        setAttachmentError(null)
+        for (const file of files) {
+          if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
+            setAttachmentError('Use a PNG, JPEG, GIF, or WebP image.')
+            continue
+          }
+          if (file.size > MAX_ATTACHMENT_BYTES) {
+            setAttachmentError(`${file.name || 'Image'} exceeds the 8 MiB limit.`)
+            continue
+          }
+
+          const beforeRead = attachmentsRef.current
+          if (beforeRead.length >= MAX_ATTACHMENTS) {
+            setAttachmentError(`You can attach up to ${MAX_ATTACHMENTS} images.`)
+            break
+          }
+          if (beforeRead.reduce((sum, attachment) => sum + attachment.size, 0) + file.size > MAX_TOTAL_ATTACHMENT_BYTES) {
+            setAttachmentError('Attachments exceed the 20 MiB total limit.')
+            break
+          }
+
+          try {
+            const attachment = await readImage(file)
+            const current = attachmentsRef.current
+            if (current.length >= MAX_ATTACHMENTS) {
+              setAttachmentError(`You can attach up to ${MAX_ATTACHMENTS} images.`)
+              break
+            }
+            if (current.reduce((sum, item) => sum + item.size, 0) + file.size > MAX_TOTAL_ATTACHMENT_BYTES) {
+              setAttachmentError('Attachments exceed the 20 MiB total limit.')
+              break
+            }
+            const next = [...current, attachment]
+            attachmentsRef.current = next
+            setAttachments(next)
+          } catch (error) {
+            setAttachmentError(error instanceof Error ? error.message : `Could not read ${file.name}.`)
+          }
+        }
+      })
+      .finally(() => {
+        attachmentReads.current -= 1
+        if (attachmentReads.current === 0) setReadingAttachments(false)
+      })
   }
 
   const onFilesChosen = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const files = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith('image/'))
+    const files = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (files.length === 0) return
-    const room = Math.max(0, MAX_ATTACHMENTS - attachments.length)
-    for (const file of files.slice(0, room)) {
-      const url = URL.createObjectURL(file)
-      const id = `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`
-      const img = new Image()
-      const add = (width: number, height: number): void =>
-        setAttachments((prev) => [...prev, { id, url, name: file.name, width, height }])
-      img.onload = () => add(img.naturalWidth, img.naturalHeight)
-      img.onerror = () => add(800, 600)
-      img.src = url
-    }
+    addFiles(files)
   }
 
-  // Clean up timers / object URLs on unmount.
+  const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>): void => {
+    const files = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null)
+    if (files.length === 0) return
+    event.preventDefault()
+    addFiles(files)
+  }
+
+  // Clean up the mock recording timer on unmount.
   useEffect(() => {
     return () => {
       if (recordTimer.current) window.clearInterval(recordTimer.current)
     }
   }, [])
-  useEffect(() => {
-    return () => attachments.forEach((a) => URL.revokeObjectURL(a.url))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const hasAttachments = attachments.length > 0
+  const canSubmit = (hasText || hasAttachments) && !readingAttachments
   // Whether the notice is a live retry (spinner) vs a settled terminal state.
   const retrying = notice != null && /retry/i.test(notice)
   // Height of the connected slash-command tab: one row (~30px) per suggestion,
@@ -503,18 +603,35 @@ export default function Composer({
   const cmdCount = commandSuggestions.length
   const cmdHeight = cmdCount > 0 ? cmdCount * 30 + (cmdCount - 1) * 2 + 14 : 0
   const showStop = running || isRecording
-  const showSend = !running && !isRecording && hasText
+  const showSend = !running && !isRecording && canSubmit
 
   const onActionClick = (): void => {
     if (running) onStop()
     else if (isRecording) stopRecording()
-    else if (hasText) submit(false)
+    else if (canSubmit) void submit(false)
     else startRecording()
   }
 
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col">
-      <input ref={fileInput} type="file" accept="image/*" multiple onChange={onFilesChosen} className="hidden" tabIndex={-1} aria-hidden />
+      <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange={onFilesChosen} disabled={submitting} className="hidden" tabIndex={-1} aria-hidden />
+
+      <AnimatePresence initial={false}>
+        {attachmentError && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 3 }}
+            transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
+            className="mb-2 flex min-h-10 items-center justify-between gap-3 rounded-xl bg-destructive/8 px-3 text-[11.5px] text-destructive-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--destructive)_20%,transparent)]"
+          >
+            <span>{attachmentError}</span>
+            <button type="button" onClick={() => setAttachmentError(null)} className="grid size-8 shrink-0 place-items-center rounded-lg text-destructive-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive-foreground" aria-label="Dismiss attachment error">
+              <CloseGlyph />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Attachment tab — slides up from behind the input card. */}
       <div
@@ -673,7 +790,7 @@ export default function Composer({
               ref={area}
               value={text}
               rows={1}
-              disabled={isRecording}
+              disabled={isRecording || submitting}
               placeholder={placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything.')}
               onChange={(e) => {
                 setText(e.target.value)
@@ -681,6 +798,7 @@ export default function Composer({
                 grow()
               }}
               onKeyDown={onKey}
+              onPaste={onPaste}
               className="min-h-[72px] max-h-[220px] w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/65 disabled:opacity-70"
             />
           </div>
@@ -901,7 +1019,7 @@ export default function Composer({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => fileInput.current?.click()}
-                disabled={attachments.length >= MAX_ATTACHMENTS}
+                disabled={submitting || attachments.length >= MAX_ATTACHMENTS}
                 className="flex size-8 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                 title="Attach images"
               >
@@ -927,8 +1045,8 @@ export default function Composer({
                   type="button"
                   className="grid size-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
                   title="Queue as follow-up (Ctrl+Enter)"
-                  onClick={() => submit(true)}
-                  disabled={!hasText}
+                  onClick={() => void submit(true)}
+                  disabled={!canSubmit || submitting}
                 >
                   <AddToList size={15} strokeWidth={1.8} />
                 </button>
@@ -941,11 +1059,12 @@ export default function Composer({
                   e.stopPropagation()
                 }}
                 onClick={onActionClick}
-                className="relative flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xs outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring"
+                disabled={submitting}
+                className="relative flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xs outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                 title={running ? 'Stop the run' : isRecording ? 'Stop recording' : showSend ? 'Send' : 'Voice input (demo)'}
                 aria-label={running ? 'Stop generation' : isRecording ? 'Stop recording' : showSend ? 'Send message' : 'Voice input'}
-                whileTap={{ scale: 0.88 }}
-                transition={{ type: 'spring', stiffness: 600, damping: 28 }}
+                whileTap={{ scale: 0.96 }}
+                transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
               >
                 <span
                   className={cn(

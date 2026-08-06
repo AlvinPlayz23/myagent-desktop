@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { bloomPanel } from './motion'
 import { api, ApiError } from './api'
-import { activeChat, initialState, loadHistory, newChat, reducer } from './state'
+import { activeChat, contentMatches, contentText, initialState, loadHistory, newChat, reducer } from './state'
 import { baseName } from './util'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
@@ -20,6 +20,7 @@ import type { CommandName } from './commands'
 import CommandModal from './components/CommandModal'
 import RenameSessionModal from './components/RenameSessionModal'
 import { matchShortcut, composerFocus, composerModelPicker, type ShortcutId } from './shortcuts'
+import type { ContentBlock } from '../../shared/protocol'
 
 export default function App(): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -28,7 +29,8 @@ export default function App(): JSX.Element {
   // debug-panel: drawer open/closed state
   const [debugOpen, setDebugOpen] = useState(false)
   const [preferences, setPreferences] = useState<Preferences>(loadPreferences)
-  const [queuedFollowUps, setQueuedFollowUps] = useState<string[]>([])
+  const [queuedFollowUps, setQueuedFollowUps] = useState<{ id: string; sessionId: string; content: ContentBlock[]; label: string }[]>([])
+  const [homeNotice, setHomeNotice] = useState<string | null>(null)
   const [sessionPreferences, setSessionPreferences] = useState<SessionPreferences>(loadSessionPreferences)
   const [modal, setModal] = useState<'help' | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
@@ -156,12 +158,11 @@ export default function App(): JSX.Element {
           break
         }
         case 'event':
-          // Queued-follow-up bookkeeping belongs to the visible composer only;
-          // background sessions must not consume its entries.
-          if (push.sessionId === activeSession.current && push.event.type === 'message_end' && push.event.message?.role === 'user') {
-            const text = push.event.message.content.map((block) => block.text ?? '').join('')
+          if (push.event.type === 'message_end' && push.event.message?.role === 'user') {
             setQueuedFollowUps((current) => {
-              const index = current.indexOf(text)
+              const index = current.findIndex(
+                (pending) => pending.sessionId === push.sessionId && contentMatches(pending.content, push.event.message!.content)
+              )
               const next = index < 0 ? current : current.filter((_, itemIndex) => itemIndex !== index)
               return next
             })
@@ -169,7 +170,7 @@ export default function App(): JSX.Element {
           dispatch({ type: 'event', sessionId: push.sessionId, event: push.event })
           break
         case 'done':
-          if (push.sessionId === activeSession.current) setQueuedFollowUps([])
+          setQueuedFollowUps((current) => current.filter((pending) => pending.sessionId !== push.sessionId))
           dispatch({ type: 'done', sessionId: push.sessionId, error: push.error })
           refreshSessions()
           break
@@ -245,52 +246,71 @@ export default function App(): JSX.Element {
 
   // Home composer: create a session in the selected project, then prompt.
   const homeSend = useCallback(
-    async (text: string, modelRef?: string) => {
+    async (content: ContentBlock[], modelRef?: string) => {
       const cwd = state.homeCwd ?? projectList[0]?.cwd
       if (!cwd) return
-      dispatch({ type: 'loading', value: true })
+      setHomeNotice(null)
       try {
         const divider = modelRef?.indexOf('/') ?? -1
         const provider = divider > 0 ? modelRef?.slice(0, divider) : undefined
         const model = divider > 0 ? modelRef?.slice(divider + 1) : undefined
         const info = await api.createSession(cwd, provider, model)
-        dispatch({ type: 'openChat', chat: newChat(info.sessionId, info.cwd, info.model) })
-        dispatch({ type: 'localUser', text })
-        await api.prompt(info.sessionId, text)
+        const sessionId = info.sessionId
+        const localId = crypto.randomUUID()
+        dispatch({ type: 'trackChat', chat: newChat(sessionId, info.cwd, info.model) })
+        dispatch({ type: 'localUser', sessionId, localId, content })
+        try {
+          await api.prompt(sessionId, content)
+        } catch (err) {
+          dispatch({ type: 'rollbackLocalUser', sessionId, localId })
+          throw err
+        }
+        dispatch({ type: 'focusChat', sessionId })
         refreshSessions()
       } catch (err) {
-        dispatch({ type: 'loading', value: false })
-        dispatch({ type: 'fatal', message: err instanceof Error ? err.message : String(err) })
+        setHomeNotice(err instanceof Error ? err.message : String(err))
+        throw err
       }
     },
     [state.homeCwd, projectList, refreshSessions]
   )
 
   const send = useCallback(
-    async (text: string, queue: boolean) => {
+    async (content: ContentBlock[], queue: boolean) => {
       if (!chat) return
+      const sessionId = chat.sessionId
+      const localId = crypto.randomUUID()
+      const text = contentText(content)
+      const imageCount = content.filter((block) => block.type === 'image').length
+      const label = text || `${imageCount} image${imageCount === 1 ? '' : 's'} attached`
+      let queued = false
+      dispatch({ type: 'localUser', sessionId, localId, content })
       try {
         if (chat.running) {
           if (queue) {
             // Render the queued message before the RPC can emit its echoed
             // message_end event. This preserves ordering and gives the user
             // immediate confirmation that the follow-up was accepted.
-            dispatch({ type: 'localUser', text })
-            await api.followUp(chat.sessionId, text)
-            setQueuedFollowUps((current) => [...current, text])
+            queued = true
+            setQueuedFollowUps((current) => [...current, { id: localId, sessionId, content, label }])
+            await api.followUp(sessionId, content)
           } else {
-            await api.steer(chat.sessionId, text)
-            dispatch({ type: 'localUser', text })
+            await api.steer(sessionId, content)
           }
         } else {
-          dispatch({ type: 'localUser', text })
-          await api.prompt(chat.sessionId, text)
+          await api.prompt(sessionId, content)
         }
       } catch (err) {
+        dispatch({ type: 'rollbackLocalUser', sessionId, localId })
+        if (queued) {
+          setQueuedFollowUps((current) => current.filter((pending) => pending.id !== localId))
+        }
         dispatch({
-          type: 'notice',
+          type: 'chatNotice',
+          sessionId,
           text: err instanceof ApiError ? err.message : String(err)
         })
+        throw err
       }
     },
     [chat]
@@ -489,7 +509,7 @@ export default function App(): JSX.Element {
                 providers={state.providers}
                 onModel={changeModel}
                 sendOnEnter={preferences.sendOnEnter}
-                queuedFollowUps={queuedFollowUps}
+                queuedFollowUps={queuedFollowUps.filter((pending) => pending.sessionId === chat.sessionId).map((pending) => pending.label)}
                 notice={chat.notice}
                 onDismissNotice={() => dispatch({ type: 'notice', text: null })}
                 onCommand={handleCommand}
@@ -509,6 +529,8 @@ export default function App(): JSX.Element {
             onSend={homeSend}
             onRetry={bootstrap}
             providers={state.providers}
+            notice={homeNotice}
+            onDismissNotice={() => setHomeNotice(null)}
             sendOnEnter={preferences.sendOnEnter}
             onCommand={handleCommand}
           />

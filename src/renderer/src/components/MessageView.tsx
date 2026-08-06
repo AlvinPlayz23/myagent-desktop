@@ -30,13 +30,26 @@ interface Props {
 export default function MessageView({ msg, streaming, messageSize = 'default', showThinking = true, thinkingDurations, copyable = false }: Props): JSX.Element | null {
   const messageClass = messageSize === 'compact' ? 'text-[12px]' : messageSize === 'large' ? 'text-[15px]' : 'text-[13.5px]'
   if (msg.role === 'user') {
-    const text = msg.content.map((b) => b.text ?? '').join('')
+    const text = msg.content.filter((block) => block.type === 'text').map((block) => block.text ?? '').join('')
+    const images = msg.content.filter((block) => block.type === 'image' && block.data && block.mimeType)
     return (
       <div className="flex justify-end [animation:rise_0.3s_ease]">
         {/* Uniformly rounded, no tail: the corner radius pairs with the
             composer's 24px so a sent message reads as the same object. */}
-        <div className={cn('max-w-[80%] rounded-3xl border border-border bg-hover px-4 py-2.5 leading-relaxed text-foreground', messageClass)}>
-          <Markdown text={text} />
+        <div className={cn('flex max-w-[80%] flex-col gap-2.5 rounded-3xl border border-border bg-hover p-2.5 leading-relaxed text-foreground', text && 'px-4', messageClass)}>
+          {images.length > 0 && (
+			<div className={cn('grid gap-2', images.length > 1 && 'grid-cols-2')}>
+			  {images.map((image, index) => (
+				<img
+				  key={index}
+				  src={`data:${image.mimeType};base64,${image.data}`}
+				  alt={`Attached image ${index + 1}`}
+				  className="attachment-image max-h-64 max-w-full rounded-2xl object-cover"
+				/>
+			  ))}
+			</div>
+		  )}
+		  {text && <Markdown text={text} />}
         </div>
       </div>
     )
@@ -76,7 +89,7 @@ export default function MessageView({ msg, streaming, messageSize = 'default', s
                 key={i}
                 src={`data:${block.mimeType};base64,${block.data}`}
                 alt="Shared image"
-                className="max-h-[520px] max-w-full rounded-xl outline outline-1 outline-border"
+				className="attachment-image max-h-[520px] max-w-full rounded-xl"
               />
             )
           }
