@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { motion } from 'motion/react'
-import { Sparkles } from './ui/icons'
+import { Folder01 } from './ui/icons'
 import type { ChatItem, ChatState } from '../state'
 import type { Message } from '../../../shared/protocol'
 import type { ToolActivityDisplay } from '../preferences'
@@ -195,9 +195,17 @@ export default function Chat({
     <div className="min-h-0 flex-1 overflow-y-auto" ref={scroller} onScroll={onScroll}>
       <div className="mx-auto flex max-w-3xl flex-col px-5 pb-6 pt-7 sm:px-8">
         {chat.items.length === 0 && !chat.streaming && (
-          <div className="mt-[8vh] flex items-start gap-3 rounded-2xl border border-dashed border-border bg-subtle px-5 py-4 text-muted-foreground [animation:rise_0.4s_ease]">
-            <Sparkles size={18} strokeWidth={1.8} className="mt-0.5 shrink-0 text-muted-foreground" />
-            <p className="m-0 leading-relaxed">Fresh session in <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[12px] text-foreground">{chat.cwd}</code>. Describe what you want built, fixed, or explained.</p>
+          <div className="mt-[9vh] flex flex-col items-center gap-5 text-center [animation:rise_0.4s_ease]">
+            <div className="flex flex-col items-center gap-1.5">
+              <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Fresh session</h2>
+              <p className="max-w-md text-[13px] leading-relaxed text-muted-foreground">
+                Describe what you want built, fixed, or explained.
+              </p>
+            </div>
+            <code className="inline-flex min-w-0 items-center gap-2 font-mono text-[11px] text-muted-foreground">
+              <Folder01 size={12} strokeWidth={1.8} className="shrink-0" />
+              <span className="min-w-0 truncate">{chat.cwd}</span>
+            </code>
           </div>
         )}
         {rows}
