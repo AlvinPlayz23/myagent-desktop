@@ -32,16 +32,16 @@ export default function TurnSummary({ startedAt, endedAt, children }: { startedA
       </AnimatePresence>
       <button
         type="button"
-        className="group mt-2 flex w-full items-center gap-2 text-left text-muted-foreground transition-[color,transform] hover:text-foreground active:scale-[0.96]"
+        className="group mt-2 flex w-full items-center gap-2 text-left text-muted-foreground transition-colors"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
       >
-        <span className="h-px flex-1 bg-border transition-colors group-hover:bg-muted-foreground/40" />
-        <span className="flex shrink-0 items-center gap-1.5 text-[11.5px] font-medium">
-          <ChevronRight size={13} strokeWidth={1.8} className={cn('transition-transform', open && '-rotate-90')} />
+        <span className="h-px flex-1 bg-border transition-colors group-hover:bg-muted-foreground/25" />
+        <span className="flex shrink-0 items-center gap-1.5 text-[11.5px] font-medium transition-colors group-hover:text-foreground/80">
+          <ChevronRight size={13} strokeWidth={1.8} className={cn('transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]', open && '-rotate-90')} />
           Worked for {duration(elapsed)}
         </span>
-        <span className="h-px flex-1 bg-border transition-colors group-hover:bg-muted-foreground/40" />
+        <span className="h-px flex-1 bg-border transition-colors group-hover:bg-muted-foreground/25" />
       </button>
     </section>
   )
