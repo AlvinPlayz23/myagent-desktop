@@ -43,6 +43,10 @@ export default function App(): JSX.Element {
   modalRef.current = modal
   const renameRef = useRef(renameTarget)
   renameRef.current = renameTarget
+  // Same pattern for the active notice: the once-subscribed keydown listener
+  // must see the latest value without resubscribing on every state change.
+  const noticeRef = useRef<string | null>(null)
+  noticeRef.current = chat?.notice ?? null
 
   useEffect(() => {
     applyTheme(preferences.theme)
@@ -380,6 +384,11 @@ export default function App(): JSX.Element {
       // Pause global shortcuts while a modal dialog is open so its own Esc
       // handling and focus stay predictable.
       if (modalRef.current !== null || renameRef.current !== null) return
+      // Esc dismisses the current notice (same as the ✕ on the notice tab).
+      if (e.key === 'Escape' && noticeRef.current) {
+        dispatch({ type: 'notice', text: null })
+        return
+      }
       const id = matchShortcut(e)
       if (!id) return
       const handler = shortcutsRef.current[id]

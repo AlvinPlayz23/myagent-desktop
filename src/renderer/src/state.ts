@@ -547,11 +547,22 @@ export function reducer(state: AppState, action: Action): AppState {
       const chat = state.chats[action.sessionId]
       if (!chat) return state
       const aborted = action.error?.toLowerCase().includes('abort')
+      const err = action.error?.toLowerCase() ?? ''
+      // Map raw backend errors to friendly user-facing wording. Go's
+      // context.Canceled surfaces as "context canceled"; it means the run was
+      // interrupted (user stopped it or the connection dropped).
+      const friendly: string | null = action.error
+        ? err.includes('context canceled') || err.includes('context cancelled')
+          ? 'Run was interrupted.'
+          : aborted
+            ? 'Run stopped.'
+            : action.error
+        : null
       return withChat(state, {
         ...chat,
         running: false,
         streaming: null,
-        notice: action.error ? (aborted ? 'Run stopped.' : action.error) : null,
+        notice: friendly,
         items: finishTurn(chat).items
       })
     }
