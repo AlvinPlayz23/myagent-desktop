@@ -177,7 +177,7 @@ export default function ProviderManager({
               <input
                 value={form.baseUrl}
                 onChange={(event) => update({ baseUrl: event.target.value })}
-                className={cn(fieldClass, 'font-mono')}
+                className={cn(fieldClass, 'font-sans')}
                 placeholder="https://api.example.com/v1"
               />
             </label>
@@ -197,7 +197,7 @@ export default function ProviderManager({
                 list="provider-models"
                 value={form.model}
                 onChange={(event) => update({ model: event.target.value })}
-                className={cn(fieldClass, 'font-mono')}
+                className={cn(fieldClass, 'font-sans')}
                 placeholder="model-id"
               />
               <datalist id="provider-models">

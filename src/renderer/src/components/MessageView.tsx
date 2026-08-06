@@ -1,51 +1,8 @@
-import { useState } from 'react'
 import type { Message } from '../../../shared/protocol'
 import Markdown from './Markdown'
 import Thinking from './Thinking'
-import { Copy01, Check } from './ui/icons'
+import MessageActions from './MessageActions'
 import { cn } from '../util'
-
-// Copies the assistant's prose only — thinking blocks and tool calls are
-// deliberately excluded, so what lands on the clipboard is what the message
-// actually reads as on screen.
-//
-// The row is always in the DOM and only its opacity changes. Mounting it on
-// hover would reflow the whole transcript under the cursor (and fight the
-// autoscroll in Chat.tsx), so the space stays reserved and the button just
-// fades in. `focus-visible:opacity-100` keeps it reachable by keyboard, where
-// there is no hover to reveal it.
-function CopyMessage({ text }: { text: string }): JSX.Element {
-  const [copied, setCopied] = useState(false)
-
-  const copy = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1200)
-    } catch {
-      // Clipboard permission denied — nothing useful to report inline.
-    }
-  }
-
-  return (
-    <div className="mt-1 flex items-center">
-      <button
-        type="button"
-        className={cn(
-          'grid size-7 place-items-center rounded-md text-muted-foreground opacity-0 transition-[opacity,color,background-color]',
-          'hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100',
-          'outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          copied && 'text-success-foreground'
-        )}
-        onClick={() => void copy()}
-        title={copied ? 'Copied' : 'Copy message'}
-        aria-label={copied ? 'Copied' : 'Copy message'}
-      >
-        {copied ? <Check size={14} strokeWidth={1.8} /> : <Copy01 size={14} strokeWidth={1.8} />}
-      </button>
-    </div>
-  )
-}
 
 interface Props {
   msg: Message
@@ -135,7 +92,7 @@ export default function MessageView({ msg, streaming, messageSize = 'default', s
             {msg.errorMessage}
           </div>
         )}
-        {copyText.length > 0 && copyable && <CopyMessage text={copyText} />}
+        {copyText.length > 0 && copyable && <MessageActions msg={msg} copyText={copyText} />}
       </div>
     </div>
   )

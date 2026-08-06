@@ -371,7 +371,7 @@ export default function Composer({
                 <div className="relative" ref={modelMenu}>
                   <button
                     type="button"
-                    className="flex h-8 max-w-[260px] items-center gap-1.5 rounded-full px-2.5 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-60"
+                    className="flex h-8 max-w-[260px] items-center gap-1.5 rounded-full px-2.5 font-sans text-[11.5px] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-60"
                     onClick={() => setModelsOpen((value) => !value)}
                     disabled={running}
                     title={model || 'Select model'}
@@ -408,7 +408,7 @@ export default function Composer({
                         />
                         {/* Was a hardcoded "⌘K" — the wrong key (the binding is
                             mod+m) rendered with a Mac glyph on every platform. */}
-                        <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground/70">
+                        <span className="shrink-0 font-sans text-[10.5px] text-muted-foreground/70">
                           {searching ? `${totalMatches} match${totalMatches === 1 ? '' : 'es'}` : formatCombo('mod+m')}
                         </span>
                       </div>
@@ -417,7 +417,7 @@ export default function Composer({
                         <div className="w-[180px] shrink-0 border-r border-border py-1.5">
                           {searching ? (
                             <>
-                              <div className="px-3 pb-1 pt-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
+                              <div className="px-3 pb-1 pt-1 font-sans text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
                                 Matches
                               </div>
                               {matches.length === 0 && (
@@ -430,7 +430,7 @@ export default function Composer({
                                   key={p.name}
                                   type="button"
                                   className={cn(
-                                    'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-mono text-[12px] transition-colors hover:bg-hover',
+                                    'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-sans text-[12px] transition-colors hover:bg-hover',
                                     activeProvider === p.name && 'bg-hover'
                                   )}
                                   onClick={() => setActiveProvider(p.name)}
@@ -445,7 +445,7 @@ export default function Composer({
                             <>
                               {recentRefs.length > 0 && (
                                 <>
-                                  <div className="px-3 pb-1 pt-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
+                                  <div className="px-3 pb-1 pt-1 font-sans text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
                                     Recent
                                   </div>
                                   {recentRefs.map((ref) => {
@@ -457,7 +457,7 @@ export default function Composer({
                                         key={ref}
                                         type="button"
                                         className={cn(
-                                          'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-mono text-[12px] transition-colors hover:bg-hover',
+                                          'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-sans text-[12px] transition-colors hover:bg-hover',
                                           ref === model && 'bg-selected text-foreground'
                                         )}
                                         title={ref}
@@ -471,7 +471,7 @@ export default function Composer({
                                   <div className="mx-2.5 my-1.5 border-t border-border" />
                                 </>
                               )}
-                              <div className="px-3 pb-1 pt-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
+                              <div className="px-3 pb-1 pt-1 font-sans text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
                                 Providers
                               </div>
                               {providers.providers.map((entry) => (
@@ -479,7 +479,7 @@ export default function Composer({
                                   key={entry.name}
                                   type="button"
                                   className={cn(
-                                    'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-mono text-[12px] transition-colors hover:bg-hover',
+                                    'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-sans text-[12px] transition-colors hover:bg-hover',
                                     activeProvider === entry.name && 'bg-hover text-foreground'
                                   )}
                                   onClick={() => {
@@ -513,7 +513,7 @@ export default function Composer({
                               ) : (
                                 matches.map(({ provider: p, models }) => (
                                   <div key={p.name} className="pb-1">
-                                    <div className="flex items-center gap-1.5 px-2.5 pb-0.5 pt-1.5 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
+                                    <div className="flex items-center gap-1.5 px-2.5 pb-0.5 pt-1.5 font-sans text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
                                       <ProviderDot name={p.name} size={6} />
                                       {p.name}
                                     </div>
@@ -527,7 +527,7 @@ export default function Composer({
                                           type="button"
                                           data-model-index={at}
                                           className={cn(
-                                            'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-mono text-[12px] transition-colors',
+                                            'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-sans text-[12px] transition-colors',
                                             at === modelIndex ? 'bg-hover' : 'hover:bg-hover',
                                             active && 'bg-selected text-foreground'
                                           )}
@@ -553,7 +553,7 @@ export default function Composer({
                                 <ChevronRight size={12} className="rotate-180" />
                                 <span>Back to {provider.name} models</span>
                               </button>
-                              <div className="px-2.5 pb-1 pt-2 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
+                              <div className="px-2.5 pb-1 pt-2 font-sans text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
                                 Add custom model to {provider.name}
                               </div>
                               <div className="flex gap-1.5 px-1 pb-1 pt-1.5">
@@ -569,7 +569,7 @@ export default function Composer({
                                   placeholder="model-id"
                                   spellCheck={false}
                                   autoFocus
-                                  className="min-w-0 flex-1 rounded-full border border-border bg-subtle px-3 py-1.5 font-mono text-[12px] text-foreground outline-none focus:border-input focus:ring-1 focus:ring-input"
+                                  className="min-w-0 flex-1 rounded-full border border-border bg-subtle px-3 py-1.5 font-sans text-[12px] text-foreground outline-none focus:border-input focus:ring-1 focus:ring-input"
                                 />
                                 <button
                                   type="button"
@@ -583,7 +583,7 @@ export default function Composer({
                             </div>
                           ) : provider ? (
                             <>
-                              <div className="flex items-center gap-1.5 px-3 pb-1 pt-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
+                              <div className="flex items-center gap-1.5 px-3 pb-1 pt-1 font-sans text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
                                 <ProviderDot name={provider.name} size={6} />
                                 {provider.name}
                               </div>
@@ -599,7 +599,7 @@ export default function Composer({
                                         type="button"
                                         data-model-index={at}
                                         className={cn(
-                                          'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-mono text-[12px] transition-colors',
+                                          'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-sans text-[12px] transition-colors',
                                           at === modelIndex ? 'bg-hover' : 'hover:bg-hover',
                                           active && 'bg-selected text-foreground'
                                         )}
@@ -616,7 +616,7 @@ export default function Composer({
                                 <div className="px-3 py-4 text-center text-[12px] text-muted-foreground/70">
                                   No models discovered yet.
                                   <div className="mt-0.5 text-[11px] text-muted-foreground/60">
-                                    Add a custom model below or configure the provider in <span className="font-mono">/providers</span>.
+                                    Add a custom model below or configure the provider in <span className="font-sans">/providers</span>.
                                   </div>
                                 </div>
                               )}
@@ -640,10 +640,10 @@ export default function Composer({
                       {/* The panel is keyboard-driven but gives no sign of it;
                           without this the arrow keys are undiscoverable. */}
                       <div className="flex items-center gap-3 border-t border-border px-3 py-1.5 text-[10.5px] text-muted-foreground/70">
-                        <span><span className="font-mono">↑↓</span> models</span>
-                        {!searching && <span><span className="font-mono">←→</span> providers</span>}
-                        <span><span className="font-mono">⏎</span> select</span>
-                        <span className="ml-auto"><span className="font-mono">esc</span> close</span>
+                        <span><span className="font-sans">↑↓</span> models</span>
+                        {!searching && <span><span className="font-sans">←→</span> providers</span>}
+                        <span><span className="font-sans">⏎</span> select</span>
+                        <span className="ml-auto"><span className="font-sans">esc</span> close</span>
                       </div>
                     </motion.div>
                   )}
