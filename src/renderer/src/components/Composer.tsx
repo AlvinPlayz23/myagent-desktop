@@ -22,7 +22,7 @@ const PROVIDER_DOT: Record<string, string> = {
 const SPRING = 'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
 
 /** Effort levels are UI-only for now — the backend does not consume them yet. */
-const EFFORTS = ['Low', 'Medium', 'Max Effort'] as const
+const EFFORTS = ['Low', 'Medium', 'Max'] as const
 
 /** Attachments are mock-only: picked and previewed, but never sent. */
 const MAX_ATTACHMENTS = 6
@@ -306,6 +306,8 @@ export default function Composer({
 
   // UI-only extras adopted from the new composer design.
   const [effortIndex, setEffortIndex] = useState(1)
+  const [effortMenuOpen, setEffortMenuOpen] = useState(false)
+  const effortMenuRef = useRef<HTMLDivElement>(null)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [activeAttachment, setActiveAttachment] = useState<{ attachment: Attachment; rect: DOMRect } | null>(null)
   const [isRecording, setIsRecording] = useState(false)
@@ -319,6 +321,7 @@ export default function Composer({
   useEffect(() => {
     const close = (event: MouseEvent): void => {
       if (modelMenu.current && !modelMenu.current.contains(event.target as Node)) setModelsOpen(false)
+      if (effortMenuRef.current && !effortMenuRef.current.contains(event.target as Node)) setEffortMenuOpen(false)
     }
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
@@ -831,16 +834,67 @@ export default function Composer({
                 </div>
               )}
 
-              {/* Effort (UI-only) */}
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setEffortIndex((i) => (i + 1) % EFFORTS.length)}
-                className="flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-medium text-muted-foreground outline-none transition-colors hover:bg-accent/60 hover:text-foreground"
-                title="Reasoning effort"
-              >
-                <MorphingText text={EFFORTS[effortIndex]} />
-              </button>
+              {/* Effort (UI-only) — left-click cycles; right-click opens a
+                  horizontal picker popup styled like the pill itself. */}
+              <div className="relative" ref={effortMenuRef}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setEffortIndex((i) => (i + 1) % EFFORTS.length)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    setEffortMenuOpen((v) => !v)
+                  }}
+                  className={cn(
+                    'flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-medium text-muted-foreground outline-none transition-colors hover:bg-accent/60 hover:text-foreground',
+                    effortMenuOpen && 'bg-accent/60 text-foreground'
+                  )}
+                  title="Reasoning effort (right-click to pick)"
+                  aria-haspopup="menu"
+                  aria-expanded={effortMenuOpen}
+                >
+                  <MorphingText text={EFFORTS[effortIndex]} />
+                </button>
+
+                {/* Right-click popup: a horizontal row of effort pills. */}
+                <AnimatePresence>
+                  {effortMenuOpen && (
+                    <motion.div
+                      style={{ transformOrigin: 'bottom left' }}
+                      className="absolute bottom-full left-0 z-50 mb-2.5 flex items-center gap-1 rounded-2xl border border-border bg-popover/95 p-1 shadow-xl backdrop-blur-md"
+                      variants={bloomUp}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      transition={BLOOM_FAST}
+                    >
+                      {EFFORTS.map((effort) => {
+                        const active = effort === EFFORTS[effortIndex]
+                        return (
+                          <button
+                            key={effort}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEffortIndex(EFFORTS.indexOf(effort))
+                              setEffortMenuOpen(false)
+                            }}
+                            className={cn(
+                              'flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-medium whitespace-nowrap outline-none transition-colors',
+                              active
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-muted-foreground hover:bg-hover hover:text-foreground'
+                            )}
+                          >
+                            {effort}
+                          </button>
+                        )
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               {/* Attach (mock) */}
               <button
