@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { AddToList, ChevronDown, ChevronRight, Tick01 } from './ui/icons'
+import { AddToList, ChevronDown, ChevronRight, Search01, Tick01 } from './ui/icons'
 import type { ProvidersInfo } from '../../../shared/protocol'
 import { cn } from '../util'
 import { commandMatches, parseCommand, type CommandName } from '../commands'
@@ -299,6 +299,7 @@ export default function Composer({
 }: Props): JSX.Element {
   const [text, setText] = useState('')
   const [modelsOpen, setModelsOpen] = useState(false)
+  const [modelQuery, setModelQuery] = useState('')
   const [activeProvider, setActiveProvider] = useState<string | null>(null)
   const [commandIndex, setCommandIndex] = useState(0)
   const [hoverStyle, setHoverStyle] = useState<HoverStyle>(HOVER_HIDDEN)
@@ -344,6 +345,8 @@ export default function Composer({
     const initial =
       fromModel && providers?.providers.some((p) => p.name === fromModel) ? fromModel : providers?.providers[0]?.name ?? null
     setActiveProvider(initial)
+    // Fresh search each time the picker opens.
+    setModelQuery('')
   }, [modelsOpen, model, providers])
 
   const commandSuggestions = commandMatches(text)
@@ -413,6 +416,9 @@ export default function Composer({
 
   const hasText = text.trim().length > 0
   const provider = providers?.providers.find((entry) => entry.name === activeProvider)
+  // Models filtered by the picker's search box (case-insensitive substring).
+  const query = modelQuery.trim().toLowerCase()
+  const visibleModels = provider?.models.filter((m) => !query || m.toLowerCase().includes(query)) ?? []
 
   const pickModel = (ref: string): void => {
     const index = ref.indexOf('/')
@@ -713,15 +719,46 @@ export default function Composer({
                         exit="exit"
                         transition={BLOOM_FAST}
                       >
+                        {/* Search: filters the active provider's model list. */}
+                        <div className="relative mb-1 flex items-center">
+                          <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground/60" strokeWidth={1.8} />
+                          <input
+                            autoFocus
+                            value={modelQuery}
+                            onChange={(e) => {
+                              setModelQuery(e.target.value)
+                              setHoverStyle(HOVER_HIDDEN)
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && visibleModels.length > 0 && provider) {
+                                e.preventDefault()
+                                pickModel(`${provider.name}/${visibleModels[0]}`)
+                              }
+                              if (e.key === 'Escape') {
+                                if (modelQuery) {
+                                  e.stopPropagation()
+                                  setModelQuery('')
+                                }
+                              }
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            placeholder="Search models…"
+                            aria-label="Search models"
+                            className="h-8 w-full rounded-lg border border-border bg-muted/60 pl-8 pr-2 text-[11.5px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-input focus:ring-1 focus:ring-input"
+                          />
+                        </div>
+
                         {/* Animated model list for the active provider */}
                         <div
-                          className="relative flex max-h-64 flex-col gap-0.5 overflow-y-auto px-0.5"
+                          className="relative flex max-h-52 flex-col gap-0.5 overflow-y-auto px-0.5"
                           onMouseLeave={() => setHoverStyle((prev) => ({ ...prev, opacity: 0, transition: 'opacity 0.2s ease-in' }))}
                         >
                           <div style={hoverStyle} className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-8 rounded-xl bg-accent" />
-                          {provider && provider.models.length > 0 ? (
-                            provider.models.map((modelID, idx) => {
-                              const ref = `${provider.name}/${modelID}`
+                          {visibleModels.length > 0 ? (
+                            visibleModels.map((modelID, idx) => {
+                              // visibleModels is derived from provider, so it
+                              // is only non-empty when provider exists.
+                              const ref = `${provider!.name}/${modelID}`
                               const active = ref === model
                               return (
                                 <button
@@ -748,7 +785,7 @@ export default function Composer({
                             })
                           ) : (
                             <div className="px-3 py-4 text-center text-[11.5px] text-muted-foreground/70">
-                              No models discovered yet.
+                              {provider && provider.models.length > 0 ? `No models match “${modelQuery}”.` : 'No models discovered yet.'}
                             </div>
                           )}
                         </div>
