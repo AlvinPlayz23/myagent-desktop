@@ -3,7 +3,7 @@
 @custom-variant dark (&:is(.dark, .dark *));
 
 /* ── design tokens ─────────────────────────────────────────────────────────
-   Restrained neutral surfaces, Inter / JetBrains Mono, and a 0.625rem base
+   Restrained neutral surfaces, Inter / Geist Mono, and a 0.625rem base
    radius. Light is default;
    the `.dark` class (toggled from prefers-color-scheme in main.tsx) flips it.
 
@@ -19,7 +19,7 @@
     "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
     sans-serif;
   --font-mono:
-    "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono",
+    "Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono",
     Consolas, "Liberation Mono", monospace;
 
   --color-warning-foreground: var(--warning-foreground);
