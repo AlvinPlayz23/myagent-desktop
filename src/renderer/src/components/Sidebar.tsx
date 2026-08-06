@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   Plus,
@@ -28,15 +28,18 @@ interface Menu {
 const MENU_WIDTH = 240
 const MENU_HEIGHT_ESTIMATE = 140
 
-// Sidebar text exists only in the expanded state. It clears out well ahead of
-// the width collapse and fades back in once that has mostly finished, so a
-// label is never caught mid-squeeze against the shrinking edge. `nowrap` keeps
-// it clipping cleanly under the edge instead of reflowing on the way out.
+// Sidebar text exists only in the expanded state. It clears ahead of the width
+// collapse and fades back in once that has mostly finished, so a label is never
+// caught mid-squeeze against the shrinking edge. `nowrap` keeps it clipping
+// cleanly under the edge instead of reflowing on the way out.
 //
-// The exit is deliberately much shorter than the entrance: AnimatePresence
-// holds the node mounted for the whole exit, and any of that time overlapping
-// the shrinking width is time spent watching text compress. Leading the width
-// rather than trailing it is most of what makes closing feel clean.
+// The exit is near-instant (opacity only, no filter blur) so every label is
+// fully gone before the aside's width transition even begins — the collapse
+// width carries an 80ms delay, and a nowrap label still on screen while the
+// panel narrows is exactly the horizontal "smudge" this avoids. Dropping the
+// blur off the exit also skips a full-subtree raster on the few layout-heavy
+// collapse frames; at these durations nobody resolves a blur radius anyway.
+// Blur stays on entry, where it is already isolated from the width motion. */
 function CollapseLabel({
   show,
   className,
@@ -51,9 +54,9 @@ function CollapseLabel({
       {show && (
         <motion.span
           className={cn('whitespace-nowrap', className)}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { duration: 0.16, delay: 0.1, ease: 'easeOut' } }}
-          exit={{ opacity: 0, transition: { duration: 0.06, ease: 'easeIn' } }}
+          initial={{ opacity: 0, filter: 'blur(4px)' }}
+          animate={{ opacity: 1, filter: 'blur(0px)', transition: { duration: 0.18, delay: 0.08, ease: 'easeOut' } }}
+          exit={{ opacity: 0, transition: { duration: 0.02, ease: 'easeIn' } }}
         >
           {children}
         </motion.span>
@@ -86,8 +89,6 @@ interface Props {
   archivedSessionIds: Set<string>
   onRename(id: string, currentTitle: string): void
   onArchive(id: string): void
-  /** Brand label shown when the sidebar is expanded. */
-  appName: string
 }
 
 export default function Sidebar({
@@ -105,12 +106,40 @@ export default function Sidebar({
   onSettings,
   archivedSessionIds,
   onRename,
-  onArchive,
-  appName
+  onArchive
 }: Props): JSX.Element {
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
   const [menu, setMenu] = useState<Menu | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  // The rail's *geometry* is what used to morph (see the layout notes on each
+  // button): every box below now keeps a constant size or a constant distance
+  // from the edge it is anchored to, so a hover highlight can only slide with
+  // its button, never grow. What remains is New Chat / Settings, whose
+  // highlight is a full-width row by design and therefore tracks the panel
+  // width. This suppresses that one for the duration of the transition.
+  //
+  // Two details matter, and both were missing before:
+  //   - `useLayoutEffect`, not `useEffect`. Passive effects run *after* paint,
+  //     so the frame that first showed the collapsed layout still had `hover:`
+  //     applied — the flash this is meant to prevent.
+  //   - the colour transition has to come off with it. Dropping only the
+  //     `hover:` class leaves `transition-colors` to fade the highlight out
+  //     over its own 150ms, i.e. exactly across the collapse, which is the
+  //     "rectangle that shrinks with the panel" all over again. Off means off.
+  const [settling, setSettling] = useState(false)
+  const firstRender = useRef(true)
+  useLayoutEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      return
+    }
+    setSettling(true)
+    // Covers the slower of the two directions: collapse is 80ms delay + 170ms,
+    // expand is 280ms.
+    const t = window.setTimeout(() => setSettling(false), 300)
+    return () => window.clearTimeout(t)
+  }, [collapsed])
 
   useEffect(() => {
     if (!menu) return
@@ -191,36 +220,68 @@ export default function Sidebar({
 
   return (
     <>
-    {/* No fill of its own — the sidebar rides directly on the window shell, so
-        whatever backdrop the host resolved shows through it. */}
-    {/* Asymmetric by design. Collapsing is a dismissal — the user has already
-        decided, so it should get out of the way; expanding is revealing content
-        and can afford to settle. The easing is a decelerating curve rather than
-        Tailwind's default ease-in-out, whose slow tail is most of what read as
-        sluggish on the way closed. */}
+    {/* Width is animated with a CSS transition rather than Framer Motion, and
+        deliberately asymmetric. Collapsing is a dismissal — the user has already
+        decided, so it should get out of the way with a short decelerating curve;
+        expanding is revealing content and can afford to settle, with an overshoot
+        bezier past the target for a slight spring feel.
+
+        The collapse's width transition carries an 80ms delay so the expanded
+        content's opacity exit clears *before* the panel moves — content fades →
+        panel slides shut, sequential, nothing competing for frames on the few
+        collapse frames (the 170ms collapse curve is ~95% done at 80ms, so without
+        the delay the entire exit would sit on the width's handful of meaningful
+        frames). Expand does the mirror image: the content blurs in after the
+        width has mostly settled, via its own 0.08s delay.
+
+        Why CSS and not Motion for `width`: width is a layout property that forces
+        the sibling `flex-1` main to reflow in lockstep. In this Electron/Chromium
+        renderer, JS-driven per-frame mutation of it (motion.aside animate/style)
+        gets the intermediate layout frames optimized away and snaps — while
+        compositor-only properties like opacity animate fine. The browser's
+        native transition engine drives width reliably, frame by frame. */}
     <aside
       className={cn(
-        'flex shrink-0 flex-col overflow-hidden transition-[width] ease-[cubic-bezier(0.32,0.72,0,1)]',
-        collapsed ? 'w-14 duration-[170ms]' : 'w-[260px] duration-[230ms]'
+        'flex shrink-0 flex-col overflow-hidden transition-[width]',
+        collapsed
+          ? 'w-14 duration-[170ms] delay-[80ms] ease-[cubic-bezier(0.32,0.72,0,1)]'
+          : 'w-[260px] duration-[280ms] ease-[cubic-bezier(0.34,1.4,0.64,1)]'
       )}
     >
-      <div className={cn('drag-region flex h-9 shrink-0 items-center overflow-hidden', collapsed ? 'justify-center' : 'pl-3.5')}>
-        <CollapseLabel
-          show={!collapsed}
-          className="select-none truncate text-[12.5px] font-semibold tracking-tight text-foreground"
-        >
-          {appName}
-        </CollapseLabel>
-      </div>
+      {/* Spacer only. The app title used to sit here, but it belongs to the
+          window rather than this panel, so it now lives in the titlebar strip
+          in App.tsx and stays put when the sidebar collapses. */}
+      <div className="drag-region h-9 shrink-0" />
 
-      <div className={cn('no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto', collapsed ? 'px-1.5' : 'px-2')}>
+      {/* The horizontal padding is deliberately the same in both states. It used
+          to drop to px-1.5 when collapsed, which shifted every child 2px at the
+          instant the class flipped — a jump layered on top of the width motion,
+          and 2px of it left the rail's icons off the panel's centre line. At
+          px-2 the numbers land exactly: collapsed content is 56 − 2×8 = 40px
+          wide, centred on 28 = half the rail. Every offset below is derived from
+          that, so the icons sit on one axis without any per-state nudging. */}
+      <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-2">
         {/* h-[52px] matches ChatHeader so the first sidebar row and the panel
             header share a baseline across the seam. */}
-        <div className={cn('flex h-[52px] shrink-0 items-center', collapsed ? 'justify-center' : 'pl-1')}>
+        {/* Anchored to the right edge in both states, and that is the whole
+            trick: the toggle is the button the pointer is on when the panel
+            collapses, so it is the one whose highlight was seen morphing. It
+            was `size-8` expanded and `h-9 w-full` collapsed, and `w-full`
+            resolves against the *pre-transition* width — so on click the grey
+            hover rect snapped from 32px to ~248px and only then shrank with the
+            panel. That is the "rectangle that grows".
+            Fixed size + fixed inset instead: the box never changes, it just
+            rides the right edge inward as the width transition carries it, and
+            `pr-1` inside a 40px content box parks it dead centre of the
+            collapsed rail (40 − 4 − 32 = 4px left, 4px right). Hover can stay
+            live through the transition because a constant box cannot morph —
+            it reads as ordinary feedback on a button that happens to move. */}
+        <div className="flex h-[52px] shrink-0 items-center justify-end pr-1">
           <button
             className={cn(
-              'grid place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-selected hover:text-foreground',
-              collapsed ? 'h-9 w-full' : 'size-8'
+              'grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors',
+              'hover:bg-selected hover:text-foreground',
+              'outline-none focus-visible:ring-2 focus-visible:ring-ring'
             )}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -230,10 +291,29 @@ export default function Sidebar({
           </button>
         </div>
 
+        {/* The icon is centred by *padding*, not by `justify-center`, and that is
+            the fix for the clip-in. Centring is relative to the box, so
+            `justify-center` re-centred the icon against the width the panel had
+            not finished leaving: on collapse it threw the icon ~100px right of
+            where it was drawn, held it there for the 80ms width delay, then
+            dragged it back left across the closing edge — read as a pop and a
+            clip. Padding is relative to the left edge, which does not move
+            (px-2 above is state-independent), so the icon simply stays where it
+            already was and the panel closes around it. 13px = (40 − 14) / 2,
+            which is also exactly centre once collapsed: the icon lands on its
+            final position at frame 0 and never travels at all.
+            `gap-2.5` stays in both states — inert with the label unmounted, and
+            leaving it in means the label does not shift during its own exit.
+            Hover is suppressed here (unlike the toggle) because the highlight is
+            a full-width row by design, so it genuinely does resize with the
+            panel; `transition-colors` goes with it, or it just fades out across
+            the collapse instead. */}
         <button
           className={cn(
-            'mb-3 flex h-9 shrink-0 items-center rounded-lg text-[12.5px] font-medium text-foreground transition-colors hover:bg-hover',
-            collapsed ? 'w-full justify-center' : 'w-full gap-2.5 px-3 text-left'
+            'mb-3 flex h-9 w-full shrink-0 items-center gap-2.5 rounded-lg text-left text-[12.5px] font-medium text-foreground',
+            !settling && 'transition-colors hover:bg-hover',
+            'outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            collapsed ? 'px-[13px]' : 'px-3'
           )}
           title={collapsed ? 'New Chat' : undefined}
           aria-label={collapsed ? 'New Chat' : undefined}
@@ -250,20 +330,29 @@ export default function Sidebar({
             fade so collapsing doesn't blank several regions independently, and
             timed like CollapseLabel so it clears before the width animates.
 
-            The pinned width is what stops the collapse looking sluggish: while
-            this is exiting the aside is already narrowing, and an auto-width
-            child would reflow every row inside it on the way out — text
-            re-wrapping and truncating frame by frame. Held at its expanded
-            width (260px aside − the px-2 rail) it simply slides under the
-            clip instead. */}
+            The exit is opacity-only (a filter blur here would raster a render
+            pass over the whole subtree on the few width-collapse frames — dropped
+            for the same reason as CollapseLabel). In tandem with the aside's 80ms
+            collapse delay it reads cleanly as: content fades out → panel slides
+            shut. Entry keeps the blur, isolated from the width motion by its own
+            0.08s delay.
+
+            The pinned width and the scroll parent's overflow-x-hidden are what
+            stop the collapse looking sluggish: while this is exiting the aside
+            is already narrowing, and an auto-width child would reflow every row
+            inside it on the way out — text re-wrapping and truncating frame by
+            frame. Held at its expanded width (260px aside − the px-2 rail) it
+            simply slides under the clip instead, and with overflow-x explicit
+            (per spec the unset axis computes to `auto` here) the scrollable
+            extent is not re-derived every frame as the container shrinks. */}
         <AnimatePresence initial={false}>
         {!collapsed && (
         <motion.div
           key="expanded"
           className="w-[244px] shrink-0"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { duration: 0.16, delay: 0.1, ease: 'easeOut' } }}
-          exit={{ opacity: 0, transition: { duration: 0.07, ease: 'easeIn' } }}
+          initial={{ opacity: 0, filter: 'blur(4px)' }}
+          animate={{ opacity: 1, filter: 'blur(0px)', transition: { duration: 0.2, delay: 0.08, ease: 'easeOut' } }}
+          exit={{ opacity: 0, transition: { duration: 0.08, ease: 'easeIn' } }}
         >
         {recent.length > 0 && (
           <div className="mb-4 space-y-0.5">
@@ -343,12 +432,8 @@ export default function Sidebar({
 
         {grouped.map((p, i) => {
           const open = isOpen(p, i)
-          // The layout transition is timed to the folder's own height
-          // animation below: the folders underneath slide up as it collapses,
-          // so a shorter curve here lands them before the shrink finishes and
-          // opens a gap.
           return (
-            <motion.div key={p.cwd} layout="position" transition={{ duration: 0.24, ease: EASE_OUT }}>
+            <motion.div key={p.cwd}>
               <div
                 className="group flex items-center rounded-lg transition-colors hover:bg-hover"
                 title={p.cwd}
@@ -375,6 +460,7 @@ export default function Sidebar({
               <AnimatePresence initial={false}>
                 {open && (
                   <motion.div
+                    key={p.cwd}
                     // Labels, not plain objects. Variant propagation is what
                     // carries `closed` down to the travel wrapper and the rows
                     // on exit — animating this container with object values
@@ -382,6 +468,10 @@ export default function Sidebar({
                     // frozen, which is exactly what "no close animation" looks
                     // like. Descendants therefore declare `variants` only and
                     // inherit the label from here.
+                    //
+                    // The explicit width keeps text from reflowing during exit:
+                    // session titles stay locked at their expanded layout instead
+                    // of rewrapping as the parent shrinks.
                     variants={{
                       open: {
                         height: 'auto',
@@ -406,7 +496,7 @@ export default function Sidebar({
                     initial="closed"
                     animate="open"
                     exit="closed"
-                    className="overflow-hidden"
+                    className="w-[244px] overflow-hidden"
                   >
                     {/* The rows travel *through* the opening height rather than
                         being revealed by it: they enter lifted and settle as
@@ -510,12 +600,22 @@ export default function Sidebar({
         </AnimatePresence>
 
       </div>
-      <div className={cn('shrink-0 py-2', collapsed ? 'px-1.5' : 'px-2')}>
+      {/* Same treatment as New Chat, for the same reasons — this row has the
+          identical always-mounted-icon shape, so it had the identical pop.
+          12.5px = (40 − 15) / 2 for the 15px gear, which puts it on the same
+          centre line as the icons above. The `settingsOpen` background is left
+          alone: it is a selection state, not hover, and blinking it off for the
+          length of the transition would be worse than letting it track the row.
+          It keeps `transition-colors` so opening and closing Settings still
+          cross-fades. */}
+      <div className="shrink-0 px-2 py-2">
         <button
           className={cn(
-            'flex h-9 items-center rounded-lg text-[12.5px] font-medium transition-colors',
-            collapsed ? 'w-full justify-center' : 'w-full gap-2 px-3 text-left',
-            settingsOpen ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-selected hover:text-foreground'
+            'flex h-9 w-full items-center gap-2 rounded-lg text-left text-[12.5px] font-medium',
+            collapsed ? 'px-[12.5px]' : 'px-3',
+            settingsOpen && 'bg-selected text-foreground transition-colors',
+            !settingsOpen && 'text-muted-foreground',
+            !settingsOpen && !settling && 'transition-colors hover:bg-selected hover:text-foreground'
           )}
           title={collapsed ? 'Settings' : undefined}
           aria-label="Settings"

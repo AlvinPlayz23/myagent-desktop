@@ -4,8 +4,9 @@ import { ArrowUp02, AddToList, ChevronDown, ChevronRight, Search01, Square, Tick
 import type { ProviderEntry, ProvidersInfo } from '../../../shared/protocol'
 import { cn } from '../util'
 import { commandMatches, parseCommand, type CommandName } from '../commands'
-import { composerFocus, composerModelPicker } from '../shortcuts'
+import { composerFocus, composerModelPicker, formatCombo } from '../shortcuts'
 import { BLOOM_FAST, bloomUp } from '../motion'
+import { loadRecentModels, rememberModel } from '../recentModels'
 
 const PROVIDER_DOT: Record<string, string> = {
   openai: '#10a37f',
@@ -66,9 +67,13 @@ export default function Composer({
   const [customModel, setCustomModel] = useState('')
   const [query, setQuery] = useState('')
   const [commandIndex, setCommandIndex] = useState(0)
+  const [recent, setRecent] = useState<string[]>(loadRecentModels)
+  /** Highlighted row in the picker's right-hand model list. */
+  const [modelIndex, setModelIndex] = useState(0)
   const area = useRef<HTMLTextAreaElement>(null)
   const modelMenu = useRef<HTMLDivElement>(null)
   const searchInput = useRef<HTMLInputElement>(null)
+  const modelList = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const close = (event: MouseEvent): void => {
@@ -174,6 +179,7 @@ export default function Composer({
     const index = ref.indexOf('/')
     if (index <= 0 || index === ref.length - 1 || !onModel) return
     onModel(ref.slice(0, index), ref.slice(index + 1))
+    setRecent(rememberModel(ref))
     setModelsOpen(false)
     setAddingCustomModel(false)
     setCustomModel('')
@@ -192,6 +198,86 @@ export default function Composer({
   }, [providers, searching, trimmedQuery])
 
   const totalMatches = matches.reduce((n, m) => n + m.models.length, 0)
+
+  // Every model the right-hand pane is currently showing, flattened in visual
+  // order. Searching spans all providers; otherwise it is the active provider's
+  // list. This is the sequence ↑/↓ walks, and the map gives each rendered row
+  // its index back without re-deriving it per row.
+  const visibleModels = useMemo<string[]>(() => {
+    if (searching) return matches.flatMap(({ provider: p, models }) => models.map((m) => `${p.name}/${m}`))
+    if (!provider) return []
+    return provider.models.map((m) => `${provider.name}/${m}`)
+  }, [searching, matches, provider])
+
+  const modelIndexByRef = useMemo(
+    () => new Map(visibleModels.map((ref, i) => [ref, i])),
+    [visibleModels]
+  )
+
+  /** Left-pane provider order, which ←/→ cycles through. */
+  const navProviders = useMemo<string[]>(
+    () => (searching ? matches.map((m) => m.provider.name) : providers?.providers.map((p) => p.name) ?? []),
+    [searching, matches, providers]
+  )
+
+  // Recents can outlive the provider that produced them (removed provider, or
+  // a stale localStorage entry), so they are filtered against live data here
+  // rather than pruned on write — re-adding a provider brings its history back.
+  const recentRefs = useMemo<string[]>(() => {
+    if (!providers) return []
+    // A known provider is the whole test: custom models are picked by ref and
+    // never join `models`, so requiring membership would silently drop exactly
+    // the entries most worth remembering.
+    return recent.filter((ref) => {
+      const slash = ref.indexOf('/')
+      return slash > 0 && providers.providers.some((p) => p.name === ref.slice(0, slash))
+    })
+  }, [recent, providers])
+
+  // Any change to what's on screen invalidates the highlight position.
+  useEffect(() => {
+    setModelIndex(0)
+  }, [query, activeProvider, modelsOpen])
+
+  // Keep the highlighted row in view when it moves off the end of the scroller.
+  useEffect(() => {
+    modelList.current
+      ?.querySelector<HTMLElement>(`[data-model-index="${modelIndex}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  }, [modelIndex, visibleModels.length])
+
+  const onPickerKey = (e: KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key === 'Escape') {
+      e.stopPropagation()
+      setModelsOpen(false)
+      return
+    }
+    // The custom-model sub-view is a text field; it owns its own keys.
+    if (addingCustomModel) return
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (visibleModels.length === 0) return
+      const step = e.key === 'ArrowDown' ? 1 : -1
+      setModelIndex((i) => (i + step + visibleModels.length) % visibleModels.length)
+      return
+    }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      // Focus lives in the search box, so once there is a query the caret has
+      // a stronger claim on horizontal arrows than provider switching does.
+      if (query.length > 0) return
+      e.preventDefault()
+      if (navProviders.length === 0) return
+      const at = Math.max(0, navProviders.indexOf(activeProvider ?? ''))
+      const step = e.key === 'ArrowRight' ? 1 : -1
+      setActiveProvider(navProviders[(at + step + navProviders.length) % navProviders.length])
+      return
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const ref = visibleModels[modelIndex]
+      if (ref) pickModel(ref)
+    }
+  }
 
   const activeProviderLabel = model?.includes('/') ? model.split('/', 1)[0] : null
   const shortModel = model?.includes('/') ? model.slice(model.indexOf('/') + 1) : model
@@ -308,12 +394,7 @@ export default function Composer({
                       animate="animate"
                       exit="exit"
                       transition={BLOOM_FAST}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') {
-                          e.stopPropagation()
-                          setModelsOpen(false)
-                        }
-                      }}
+                      onKeyDown={onPickerKey}
                     >
                       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
                         <Search01 size={13} className="shrink-0 text-muted-foreground" />
@@ -325,8 +406,10 @@ export default function Composer({
                           spellCheck={false}
                           className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground/65"
                         />
+                        {/* Was a hardcoded "⌘K" — the wrong key (the binding is
+                            mod+m) rendered with a Mac glyph on every platform. */}
                         <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground/70">
-                          {searching ? `${totalMatches} match${totalMatches === 1 ? '' : 'es'}` : '⌘K'}
+                          {searching ? `${totalMatches} match${totalMatches === 1 ? '' : 'es'}` : formatCombo('mod+m')}
                         </span>
                       </div>
 
@@ -360,6 +443,34 @@ export default function Composer({
                             </>
                           ) : (
                             <>
+                              {recentRefs.length > 0 && (
+                                <>
+                                  <div className="px-3 pb-1 pt-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
+                                    Recent
+                                  </div>
+                                  {recentRefs.map((ref) => {
+                                    const slash = ref.indexOf('/')
+                                    const name = ref.slice(0, slash)
+                                    const id = ref.slice(slash + 1)
+                                    return (
+                                      <button
+                                        key={ref}
+                                        type="button"
+                                        className={cn(
+                                          'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-mono text-[12px] transition-colors hover:bg-hover',
+                                          ref === model && 'bg-selected text-foreground'
+                                        )}
+                                        title={ref}
+                                        onClick={() => pickModel(ref)}
+                                      >
+                                        <ProviderDot name={name} />
+                                        <span className="min-w-0 flex-1 truncate">{id}</span>
+                                      </button>
+                                    )
+                                  })}
+                                  <div className="mx-2.5 my-1.5 border-t border-border" />
+                                </>
+                              )}
                               <div className="px-3 pb-1 pt-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground/70">
                                 Providers
                               </div>
@@ -392,7 +503,7 @@ export default function Composer({
                           )}
                         </div>
 
-                        <div className="min-w-0 flex-1 py-1.5">
+                        <div className="min-w-0 flex-1 py-1.5" ref={modelList}>
                           {searching ? (
                             <div className="max-h-72 overflow-y-auto overscroll-contain px-1">
                               {matches.length === 0 ? (
@@ -409,14 +520,18 @@ export default function Composer({
                                     {models.map((modelID) => {
                                       const ref = `${p.name}/${modelID}`
                                       const active = ref === model
+                                      const at = modelIndexByRef.get(ref)
                                       return (
                                         <button
                                           key={ref}
                                           type="button"
+                                          data-model-index={at}
                                           className={cn(
-                                            'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-mono text-[12px] transition-colors hover:bg-hover',
+                                            'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-mono text-[12px] transition-colors',
+                                            at === modelIndex ? 'bg-hover' : 'hover:bg-hover',
                                             active && 'bg-selected text-foreground'
                                           )}
+                                          onMouseEnter={() => at !== undefined && setModelIndex(at)}
                                           onClick={() => pickModel(ref)}
                                         >
                                           <span className="min-w-0 flex-1 truncate">{modelID}</span>
@@ -477,14 +592,18 @@ export default function Composer({
                                   {provider.models.map((modelID) => {
                                     const ref = `${provider.name}/${modelID}`
                                     const active = ref === model
+                                    const at = modelIndexByRef.get(ref)
                                     return (
                                       <button
                                         key={modelID}
                                         type="button"
+                                        data-model-index={at}
                                         className={cn(
-                                          'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-mono text-[12px] transition-colors hover:bg-hover',
+                                          'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-mono text-[12px] transition-colors',
+                                          at === modelIndex ? 'bg-hover' : 'hover:bg-hover',
                                           active && 'bg-selected text-foreground'
                                         )}
+                                        onMouseEnter={() => at !== undefined && setModelIndex(at)}
                                         onClick={() => pickModel(ref)}
                                       >
                                         <span className="min-w-0 flex-1 truncate">{modelID}</span>
@@ -516,6 +635,15 @@ export default function Composer({
                             </div>
                           )}
                         </div>
+                      </div>
+
+                      {/* The panel is keyboard-driven but gives no sign of it;
+                          without this the arrow keys are undiscoverable. */}
+                      <div className="flex items-center gap-3 border-t border-border px-3 py-1.5 text-[10.5px] text-muted-foreground/70">
+                        <span><span className="font-mono">↑↓</span> models</span>
+                        {!searching && <span><span className="font-mono">←→</span> providers</span>}
+                        <span><span className="font-mono">⏎</span> select</span>
+                        <span className="ml-auto"><span className="font-mono">esc</span> close</span>
                       </div>
                     </motion.div>
                   )}

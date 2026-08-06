@@ -11,7 +11,7 @@ export interface Preferences {
   toolActivityDisplay: ToolActivityDisplay
   /** 0 is more opaque; 100 lets more of the desktop material show through. */
   transparency: number
-  /** Display name shown at the top of the sidebar. */
+  /** Display name shown in the window's titlebar strip. */
   appName: string
 }
 
@@ -35,7 +35,7 @@ export function normalizeTransparency(value: number | undefined | null): number 
   return Number.isFinite(value) ? Math.min(100, Math.max(0, Math.round(value as number))) : defaults.transparency
 }
 
-/** Normalize a sidebar brand name; empty/whitespace falls back to default. */
+/** Normalize the app title; empty/whitespace falls back to default. */
 export function normalizeAppName(value: string | undefined | null): string {
   const trimmed = (value ?? '').trim().slice(0, APP_NAME_MAX)
   return trimmed || DEFAULT_APP_NAME

@@ -165,11 +165,11 @@ export default function Settings({ preferences, onChange, conn, detail, serverVe
             </section>
             <section className="settings-card mt-8"><Toggle checked={preferences.reducedMotion} title="Reduce motion" detail="Minimize interface animation and transitions." onChange={(reducedMotion) => onChange({ reducedMotion })} /></section>
             <section className="mt-8">
-              <h2 className="settings-heading mb-3">Branding</h2>
+              <h2 className="settings-heading mb-3">Title</h2>
               <label className="settings-card flex min-h-16 items-center justify-between gap-5 py-3.5">
                 <span className="min-w-0">
-                  <span className="block text-[13px] font-medium text-foreground">Sidebar name</span>
-                  <span className="mt-1 block text-[11.5px] leading-snug text-muted-foreground">Shown at the top of the sidebar.</span>
+                  <span className="block text-[13px] font-medium text-foreground">App title</span>
+                  <span className="mt-1 block text-[11.5px] leading-snug text-muted-foreground">Shown in the title bar at the top of the window.</span>
                 </span>
                 <input
                   type="text"

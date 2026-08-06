@@ -387,8 +387,16 @@ export default function App(): JSX.Element {
     <div className="app-shell flex h-screen w-full overflow-hidden">
       {/* Titlebar strip: shell-owned and full width, so it reads as one band
           across the sidebar and the inset panel below it. Safe to span the
-          sidebar because the sidebar's own top 36px is an empty spacer. */}
-      <div className="drag-region fixed inset-x-0 top-0 z-[5] h-9" />
+          sidebar because the sidebar's own top 36px is an empty spacer.
+
+          The app title lives here rather than inside the sidebar so that
+          collapsing the sidebar leaves it untouched — it is a property of the
+          window, not of a panel that comes and goes. */}
+      <div className="drag-region fixed inset-x-0 top-0 z-[5] flex h-9 items-center pl-3.5">
+        <span className="select-none truncate text-[12.5px] font-semibold tracking-tight text-foreground">
+          {normalizeAppName(preferences.appName)}
+        </span>
+      </div>
       <Sidebar
         sessions={state.sessions}
         projects={projectList}
@@ -405,7 +413,6 @@ export default function App(): JSX.Element {
         archivedSessionIds={new Set(archivedSessions.map((session) => session.id))}
         onRename={renameSession}
         onArchive={archiveSession}
-        appName={normalizeAppName(preferences.appName)}
       />
       <main className="main-panel surface-grain relative mt-9 flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Keyed by session as well as view: opening a different session is a
