@@ -218,7 +218,6 @@ export default function Chat({
             <ThinkingState />
           </div>
         )}
-        {chat.notice && <div className="self-center rounded-full border border-border bg-muted px-4.5 py-1.5 font-mono text-[11.5px] text-muted-foreground [animation:rise_0.3s_ease]">{chat.notice}</div>}
       </div>
     </div>
   )

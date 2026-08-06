@@ -95,6 +95,15 @@ export default function App(): JSX.Element {
     saveSessionPreferences(sessionPreferences)
   }, [sessionPreferences])
 
+  // Settled (non-retry) notices auto-dismiss after a few seconds so they don't
+  // linger in the composer. Live retry notices persist until the run resolves.
+  const noticeText = chat?.notice ?? null
+  useEffect(() => {
+    if (!noticeText || /retry/i.test(noticeText)) return
+    const timer = setTimeout(() => dispatch({ type: 'notice', text: null }), 5000)
+    return () => clearTimeout(timer)
+  }, [noticeText])
+
   const refreshSessions = useCallback(async () => {
     try {
       const sessions = await api.listSessions()
@@ -472,6 +481,8 @@ export default function App(): JSX.Element {
                 onModel={changeModel}
                 sendOnEnter={preferences.sendOnEnter}
                 queuedFollowUps={queuedFollowUps}
+                notice={chat.notice}
+                onDismissNotice={() => dispatch({ type: 'notice', text: null })}
                 onCommand={handleCommand}
               />
             </div>

@@ -275,6 +275,8 @@ interface Props {
   onModel?(provider: string, model: string): void
   sendOnEnter?: boolean
   queuedFollowUps?: string[]
+  notice?: string | null
+  onDismissNotice?(): void
   onCommand?(name: CommandName, argument: string): void
 }
 
@@ -291,6 +293,8 @@ export default function Composer({
   onModel,
   sendOnEnter = true,
   queuedFollowUps = [],
+  notice = null,
+  onDismissNotice,
   onCommand
 }: Props): JSX.Element {
   const [text, setText] = useState('')
@@ -483,6 +487,8 @@ export default function Composer({
   }, [])
 
   const hasAttachments = attachments.length > 0
+  // Whether the notice is a live retry (spinner) vs a settled terminal state.
+  const retrying = notice != null && /retry/i.test(notice)
   // Height of the connected slash-command tab: one row (~30px) per suggestion,
   // 2px gaps, plus the tab's vertical padding.
   const cmdCount = commandSuggestions.length
@@ -499,21 +505,6 @@ export default function Composer({
 
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col">
-      {queuedFollowUps.length > 0 && (
-        <motion.div
-          className="mb-2 flex items-center gap-2 rounded-xl border border-border bg-subtle px-3 py-2 text-[11.5px] text-muted-foreground"
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-        >
-          <AddToList size={14} strokeWidth={1.8} className="shrink-0" />
-          <span className="font-medium text-foreground">
-            {queuedFollowUps.length} follow-up{queuedFollowUps.length === 1 ? '' : 's'} queued
-          </span>
-          <span className="min-w-0 truncate">{queuedFollowUps[0]}</span>
-        </motion.div>
-      )}
-
       <input ref={fileInput} type="file" accept="image/*" multiple onChange={onFilesChosen} className="hidden" tabIndex={-1} aria-hidden />
 
       {/* Attachment tab — slides up from behind the input card. */}
@@ -584,6 +575,77 @@ export default function Composer({
               <span className="min-w-0 truncate">{command.title}</span>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Follow-ups tab — connected, slides up from behind the card (same style as attachments & slash commands). */}
+      <div
+        aria-hidden={queuedFollowUps.length === 0}
+        style={{ height: queuedFollowUps.length > 0 ? 40 : 0, transition: `height 0.4s ${SPRING}` }}
+        className="relative z-0 w-full overflow-hidden"
+      >
+        <div
+          style={{
+            position: 'absolute',
+            bottom: -8,
+            left: 20,
+            right: 20,
+            height: 40,
+            transform: queuedFollowUps.length > 0 ? 'translateY(0)' : 'translateY(100%)',
+            opacity: queuedFollowUps.length > 0 ? 1 : 0,
+            transition: `transform 0.4s ${SPRING}, opacity 0.3s ease-out`
+          }}
+          className="flex items-center gap-2 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted px-3"
+        >
+          <AddToList size={14} strokeWidth={1.8} className="shrink-0" />
+          <span className="whitespace-nowrap font-medium text-foreground">
+            {queuedFollowUps.length} follow-up{queuedFollowUps.length === 1 ? '' : 's'} queued
+          </span>
+          <span className="min-w-0 truncate text-muted-foreground">{queuedFollowUps[0]}</span>
+        </div>
+      </div>
+
+      {/* Notice tab — connected, slides up from behind the card (same style as
+          the other tabs), with the Thinking-style shimmer on the message. */}
+      <div
+        aria-hidden={!notice}
+        style={{ height: notice ? 40 : 0, transition: `height 0.4s ${SPRING}` }}
+        className="relative z-0 w-full overflow-hidden"
+      >
+        <div
+          style={{
+            position: 'absolute',
+            bottom: -8,
+            left: 20,
+            right: 20,
+            height: 40,
+            transform: notice ? 'translateY(0)' : 'translateY(100%)',
+            opacity: notice ? 1 : 0,
+            transition: `transform 0.4s ${SPRING}, opacity 0.3s ease-out`
+          }}
+          className="flex items-center gap-2 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted px-3"
+        >
+          {retrying ? (
+            <span className="size-3 shrink-0 animate-spin rounded-full border-[1.5px] border-warning border-t-transparent" aria-hidden />
+          ) : (
+            <span className="size-2 shrink-0 rounded-full bg-muted-foreground/60" aria-hidden />
+          )}
+          {retrying ? (
+            <span className="shimmer-text min-w-0 flex-1 truncate whitespace-nowrap text-[11.5px] font-medium">{notice}</span>
+          ) : (
+            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[11.5px] font-medium text-muted-foreground">{notice}</span>
+          )}
+          {!retrying && (
+            <button
+              type="button"
+              onClick={onDismissNotice}
+              className="grid size-5 shrink-0 place-items-center rounded-md text-muted-foreground/70 transition-colors hover:bg-hover hover:text-foreground"
+              aria-label="Dismiss notice"
+              title="Dismiss"
+            >
+              <CloseGlyph />
+            </button>
+          )}
         </div>
       </div>
 
