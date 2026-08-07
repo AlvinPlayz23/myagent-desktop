@@ -85,7 +85,7 @@ export default function ProviderLogo({
       draggable={false}
       onError={() => setFailed(true)}
       style={{ width: size, height: size }}
-      className={cn('shrink-0 object-contain', className)}
+      className={cn('shrink-0 object-contain dark:brightness-0 dark:invert', className)}
     />
   )
 }

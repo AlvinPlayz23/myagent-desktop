@@ -3,6 +3,9 @@
 
 export type Role = 'user' | 'assistant' | 'toolResult'
 
+// Canonical reasoning-effort levels (mirrors llm.Effort in the Go backend).
+export type ReasoningEffort = '' | 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
 export interface ContentBlock {
   type: 'text' | 'thinking' | 'image' | 'toolCall'
   text?: string
@@ -133,6 +136,7 @@ export interface SessionInfo {
   sessionId: string
   model: string
   cwd: string
+  effort?: ReasoningEffort
   messages?: Message[]
 }
 
@@ -155,6 +159,16 @@ export interface ProviderEntry {
   source: 'config' | 'auth'
   baseUrl?: string
   hasApiKey?: boolean
+  reasoningDialect?: 'openai' | 'openrouter' | 'deepseek'
+  origin?: 'builtin' | 'custom' | 'builtin_override'
+  modelDetails?: ProviderModelDetails[]
+}
+
+export interface ProviderModelDetails {
+  id: string
+  reasoningKnown: boolean
+  reasoning: boolean
+  supportedEfforts?: ReasoningEffort[]
 }
 
 export interface ProvidersInfo {
@@ -175,6 +189,7 @@ export interface ProviderInput {
   model: string
   apiKey: string
   builtin: boolean
+  reasoningDialect?: 'openai' | 'openrouter' | 'deepseek'
 }
 
 export type RpcResult<T = unknown> = { ok: true; result: T } | { ok: false; error: RpcError }
