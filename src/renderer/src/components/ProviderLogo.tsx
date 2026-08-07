@@ -10,9 +10,7 @@ const PROVIDER_DOT: Record<string, string> = {
   ollama: '#6366f1',
   openrouter: '#ec4899',
   lmstudio: '#14b8a6',
-  vllm: '#8b5cf6',
-  aihubmix: '#0ea5e9',
-  zenmux: '#f59e0b'
+  vllm: '#8b5cf6'
 }
 
 function dotColor(name: string): string {
