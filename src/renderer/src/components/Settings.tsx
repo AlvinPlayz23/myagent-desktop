@@ -181,8 +181,8 @@ function ToggleRow({
         >
           <span
             className={cn(
-              'absolute top-0.5 size-4 rounded-full bg-background shadow-xs transition-transform duration-200',
-              checked ? 'translate-x-4' : 'translate-x-0.5'
+              'absolute left-0 top-0.5 size-4 rounded-full shadow-sm transition-transform duration-200',
+              checked ? 'translate-x-[18px] bg-primary-foreground' : 'translate-x-0.5 bg-white'
             )}
           />
         </button>
