@@ -7,37 +7,13 @@ import { cn } from '../util'
 import { commandMatches, parseCommand, type CommandName } from '../commands'
 import { composerFocus, composerModelPicker } from '../shortcuts'
 import { BLOOM_FAST, bloomUp } from '../motion'
+import ProviderLogo from './ProviderLogo'
 
 // ----------------------------------------------------------------------
 // Physics & Colors
 // ----------------------------------------------------------------------
 const SPRING_TRANSITION = "max-width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), height 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
 const EASE_SPRING = "cubic-bezier(0.175, 0.885, 0.32, 1.275)"
-
-const PROVIDER_DOT: Record<string, string> = {
-  openai: '#10a37f',
-  anthropic: '#d97706',
-  ollama: '#6366f1',
-  openrouter: '#ec4899',
-  lmstudio: '#14b8a6',
-  vllm: '#8b5cf6',
-  aihubmix: '#0ea5e9',
-  zenmux: '#f59e0b'
-}
-
-function dotColor(name: string): string {
-  return PROVIDER_DOT[name] ?? '#9ca3af'
-}
-
-function ProviderDot({ name, size = 8 }: { name: string; size?: number }): JSX.Element {
-  return (
-    <span
-      className="shrink-0 rounded-full inline-block"
-      style={{ width: size, height: size, backgroundColor: dotColor(name) }}
-      aria-hidden
-    />
-  )
-}
 
 // ----------------------------------------------------------------------
 // Sub-components requested by USER
@@ -87,7 +63,7 @@ function ModelIcon({ model, className }: { model: string; className?: string }):
   const src = icons[model]
   if (!src) {
     const providerName = model.includes('/') ? model.split('/', 1)[0] : 'openai'
-    return <ProviderDot name={providerName} size={14} />
+    return <ProviderLogo providerId={providerName} size={14} className={className} />
   }
 
   return (
@@ -1087,7 +1063,7 @@ export default function Composer({
                             <ChevronRight size={14} className="rotate-180" />
                           </button>
                           <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11.5px] font-semibold text-foreground">
-                            {activeProvider && <ProviderDot name={activeProvider} />}
+                            {activeProvider && <ProviderLogo providerId={activeProvider} size={14} />}
                             <MorphingText text={activeProvider ?? 'provider'} />
                           </span>
                           <button

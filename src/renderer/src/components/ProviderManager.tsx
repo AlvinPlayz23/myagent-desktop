@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import type { ProviderEntry, ProviderInput, ProvidersInfo } from '../../../shared/protocol'
 import { Globe02, Check, Plus, Wrench01, Sparkles } from './ui/icons'
+import ProviderLogo from './ProviderLogo'
 import { cn } from '../util'
 
 const blank: ProviderInput = { name: '', baseUrl: '', model: '', apiKey: '', builtin: false }
@@ -145,11 +146,18 @@ export default function ProviderManager({
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <span className="block truncate text-xs font-semibold text-foreground">{provider.name}</span>
-                    <span className="block truncate font-mono text-[10.5px] text-muted-foreground/70">
-                      {provider.baseUrl || 'Default Endpoint'}
-                    </span>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ProviderLogo
+                      providerId={provider.name}
+                      size={34}
+                      className="rounded-lg bg-background ring-1 ring-border/70 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <span className="block truncate text-xs font-semibold text-foreground">{provider.name}</span>
+                      <span className="block truncate font-mono text-[10.5px] text-muted-foreground/70">
+                        {provider.baseUrl || 'Default Endpoint'}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1.5">
