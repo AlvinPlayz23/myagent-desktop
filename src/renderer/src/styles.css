@@ -102,37 +102,37 @@
 
 :root {
   color-scheme: light;
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --window-radius: 0px;
-  --background: #f8f4ec;
-  --shell: #ece7dd;
-  --shell-rgb: 240 236 228;
-  --shell-opacity: 0.66;
+  --background: #ffffff;
+  --shell: #f5f5f5;
+  --shell-rgb: 245 245 245;
+  --shell-opacity: 0.88;
   --shell-translucent: rgb(var(--shell-rgb) / var(--shell-opacity));
   --shell-clear: rgb(var(--shell-rgb) / var(--shell-opacity));
   --sidebar: var(--shell);
-  --elevated: #fdfbf6;
-  --subtle: rgba(30, 25, 20, 0.035);
-  --hover: rgba(30, 25, 20, 0.055);
-  --selected: rgba(30, 25, 20, 0.075);
-  --code: #f1ece3;
-  --foreground: #1f1c19;
-  --card: #fdfbf6;
-  --card-foreground: #1f1c19;
-  --popover: #fdfbf6;
-  --popover-foreground: #1f1c19;
-  --primary: #1f1c19;
-  --primary-foreground: #f8f4ec;
+  --elevated: #ffffff;
+  --subtle: rgba(0, 0, 0, 0.030);
+  --hover: rgba(0, 0, 0, 0.050);
+  --selected: rgba(0, 0, 0, 0.080);
+  --code: #f2f2f2;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: rgba(255, 255, 255, 0.98);
+  --popover-foreground: #1a1a1a;
+  --primary: #121212;
+  --primary-foreground: #ffffff;
   --secondary: rgba(0, 0, 0, 0.04);
-  --secondary-foreground: #1f1c19;
+  --secondary-foreground: #1a1a1a;
   --muted: rgba(0, 0, 0, 0.04);
-  --muted-foreground: #736b63;
+  --muted-foreground: #555555;
   --accent: rgba(0, 0, 0, 0.05);
-  --accent-foreground: #1f1c19;
+  --accent-foreground: #1a1a1a;
   --destructive: #ef4444;
-  --border: rgba(50, 40, 30, 0.09);
-  --input: rgba(50, 40, 30, 0.09);
-  --ring: #1f1c19;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.10);
+  --ring: #121212;
   --destructive-foreground: #dc2626;
   --info: #3b82f6;
   --info-foreground: #2563eb;
@@ -142,47 +142,45 @@
   --warning-foreground: #d97706;
 }
 
-/* Neutral dark mode: hue-free zinc surfaces with the same semantic scale as
-   the reference theme. Light mode above intentionally keeps myagent's warm
-   paper palette unchanged. */
+/* Sharp neutral dark mode — near-black surfaces, glass-border shadows, no warm hues. */
 .dark {
   color-scheme: dark;
-  --background: #0d0d0f;
-  --shell: #141416;
-  --shell-rgb: 20 20 22;
-  --shell-opacity: 0.58;
+  --background: #070707;
+  --shell: #0e0e0e;
+  --shell-rgb: 14 14 14;
+  --shell-opacity: 0.72;
   --shell-translucent: rgb(var(--shell-rgb) / var(--shell-opacity));
   --shell-clear: rgb(var(--shell-rgb) / var(--shell-opacity));
-  --sidebar: #141416;
-  --elevated: #17171a;
-  --subtle: rgb(255 255 255 / 0.035);
-  --hover: rgb(255 255 255 / 0.055);
-  --selected: rgb(255 255 255 / 0.09);
-  --code: #09090b;
-  --foreground: oklch(0.985 0 0);
-  --card: #141416;
-  --card-foreground: oklch(0.985 0 0);
-  --popover: #17171a;
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: #141416;
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 7%);
-  --input: oklch(1 0 0 / 11%);
-  --ring: oklch(0.556 0 0);
-  --destructive-foreground: oklch(0.704 0.191 22.216);
-  --info: oklch(0.65 0.15 250);
-  --info-foreground: oklch(0.75 0.13 250);
-  --success: oklch(0.7 0.16 155);
-  --success-foreground: oklch(0.8 0.14 155);
-  --warning: oklch(0.78 0.16 75);
-  --warning-foreground: oklch(0.84 0.14 75);
+  --sidebar: #0e0e0e;
+  --elevated: #141414;
+  --subtle: rgba(255, 255, 255, 0.030);
+  --hover: rgba(255, 255, 255, 0.055);
+  --selected: rgba(255, 255, 255, 0.090);
+  --code: #0e0e0e;
+  --foreground: #fbfbfb;
+  --card: #1d1d1d;
+  --card-foreground: #fbfbfb;
+  --popover: rgba(29, 29, 29, 0.92);
+  --popover-foreground: #caccd2;
+  --primary: #f8f8f8;
+  --primary-foreground: #1d1d1d;
+  --secondary: rgba(255, 255, 255, 0.06);
+  --secondary-foreground: #fbfbfb;
+  --muted: rgba(255, 255, 255, 0.04);
+  --muted-foreground: rgba(251, 251, 251, 0.55);
+  --accent: rgba(255, 255, 255, 0.06);
+  --accent-foreground: #fbfbfb;
+  --destructive: #f87171;
+  --border: rgba(44, 47, 54, 0.52);
+  --input: rgba(255, 255, 255, 0.10);
+  --ring: rgba(255, 255, 255, 0.30);
+  --destructive-foreground: #fca5a5;
+  --info: #60a5fa;
+  --info-foreground: #93c5fd;
+  --success: #34d399;
+  --success-foreground: #6ee7b7;
+  --warning: #fbbf24;
+  --warning-foreground: #fcd34d;
 }
 
 @layer base {
@@ -232,6 +230,30 @@
   background-size: 256px 256px;
 }
 
+@utility grid-noise {
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--foreground) 3.5%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--foreground) 3.5%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 24px 24px;
+}
+
+@utility card-textured {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    0 4px 20px -4px rgba(0, 0, 0, 0.25);
+}
+
+
 /* ── window shell ───────────────────────────────────────────────────────────
    The sidebar has no fill of its own; it rides directly on this. `data-backdrop`
    is written to <html> once at boot from the mode the main process resolved
@@ -271,8 +293,8 @@
   --selected: rgba(255, 255, 255, 0.14);
 }
 [data-backdrop]:not([data-backdrop='none']):not(.dark) .app-shell {
-  --hover: rgba(30, 25, 20, 0.06);
-  --selected: rgba(30, 25, 20, 0.11);
+  --hover: rgba(0, 0, 0, 0.06);
+  --selected: rgba(0, 0, 0, 0.10);
 }
 
 /* The chat panel. Opaque by definition; the grain lives here now that the body
@@ -646,4 +668,39 @@
   font-size: 0.7rem;
   line-height: 1;
   white-space: nowrap;
+}
+
+/* ── flat chip ──────────────────────────────────────────────────────────────
+   Composer control pills (model picker, effort, attach). Clean flat surface
+   with a single border — no inset glass highlights, no multi-layer shadows.
+   Reads as a quiet, tactile control that recedes until hovered. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  outline: none;
+}
+.chip:hover {
+  background: var(--hover);
+  border-color: var(--input);
+  color: var(--foreground);
+}
+.chip.chip-active {
+  background: var(--selected);
+  border-color: var(--input);
+  color: var(--foreground);
+}
+.chip:disabled {
+  opacity: 0.40;
+  cursor: default;
+  pointer-events: none;
 }

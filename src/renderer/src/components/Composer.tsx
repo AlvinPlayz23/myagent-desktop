@@ -1,12 +1,18 @@
-import { useCallback, useEffect, useRef, useState, KeyboardEvent, ClipboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, KeyboardEvent, ClipboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { AddToList, ChevronDown, ChevronRight, Search01, Tick01 } from './ui/icons'
-import type { ContentBlock, ProvidersInfo } from '../../../shared/protocol'
+import { AddToList, ChevronRight, Search01, Tick01 } from './ui/icons'
+import type { ContentBlock, ProvidersInfo, ReasoningEffort } from '../../../shared/protocol'
 import { cn } from '../util'
 import { commandMatches, parseCommand, type CommandName } from '../commands'
 import { composerFocus, composerModelPicker } from '../shortcuts'
 import { BLOOM_FAST, bloomUp } from '../motion'
+
+// ----------------------------------------------------------------------
+// Physics & Colors
+// ----------------------------------------------------------------------
+const SPRING_TRANSITION = "max-width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), height 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+const EASE_SPRING = "cubic-bezier(0.175, 0.885, 0.32, 1.275)"
 
 const PROVIDER_DOT: Record<string, string> = {
   openai: '#10a37f',
@@ -19,16 +25,6 @@ const PROVIDER_DOT: Record<string, string> = {
   zenmux: '#f59e0b'
 }
 
-const SPRING = 'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-
-/** Effort levels are UI-only for now — the backend does not consume them yet. */
-const EFFORTS = ['Low', 'Medium', 'Max'] as const
-
-const MAX_ATTACHMENTS = 6
-const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
-const MAX_TOTAL_ATTACHMENT_BYTES = 20 * 1024 * 1024
-const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
-
 function dotColor(name: string): string {
   return PROVIDER_DOT[name] ?? '#9ca3af'
 }
@@ -36,32 +32,91 @@ function dotColor(name: string): string {
 function ProviderDot({ name, size = 8 }: { name: string; size?: number }): JSX.Element {
   return (
     <span
-      className="shrink-0 rounded-full"
+      className="shrink-0 rounded-full inline-block"
       style={{ width: size, height: size, backgroundColor: dotColor(name) }}
       aria-hidden
     />
   )
 }
 
-// ── Inline glyphs (thin-stroke set from the new composer design) ────────────
-function ArrowUpGlyph(): JSX.Element {
+// ----------------------------------------------------------------------
+// Sub-components requested by USER
+// ----------------------------------------------------------------------
+
+function MorphingText({ text }: { text: string }): JSX.Element {
+  const [width, setWidth] = useState<number | "auto">("auto")
+  const spanRef = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    if (spanRef.current) {
+      setWidth(spanRef.current.offsetWidth)
+    }
+  }, [text])
+
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+    <span
+      className="relative inline-flex items-center justify-center overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]"
+      style={{ width }}
+    >
+      <span ref={spanRef} className="invisible whitespace-nowrap px-1">
+        {text}
+      </span>
+      <span
+        key={text}
+        className="absolute inset-0 flex items-center justify-center whitespace-nowrap animate-in fade-in zoom-in-95 duration-300"
+      >
+        {text}
+      </span>
+    </span>
+  )
+}
+
+function ModelIcon({ model, className }: { model: string; className?: string }): JSX.Element {
+  const icons: Record<string, string> = {
+    "Composer 2.5": "https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/cursor-ai-code-icon_j4vnux.svg",
+    "Gemini 3.5 Flash": "https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/google-gemini-icon_l6kk5q.svg",
+    "GPT 5.5": "https://res.cloudinary.com/drhx7imeb/image/upload/v1781695269/openai-icon_zozuib.svg",
+    "Opus 4.8": "https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/Claude_AI_symbol_yqfzlc.svg",
+    "GLM 5.2": "https://res.cloudinary.com/drhx7imeb/image/upload/v1781695269/z-ai-icon_xi4xvo.svg"
+  }
+
+  const filters: Record<string, string> = {
+    "GPT 5.5": "dark:invert",
+  }
+
+  const src = icons[model]
+  if (!src) {
+    const providerName = model.includes('/') ? model.split('/', 1)[0] : 'openai'
+    return <ProviderDot name={providerName} size={14} />
+  }
+
+  return (
+    <img
+      src={src}
+      alt={model}
+      className={cn("object-contain", filters[model], className)}
+    />
+  )
+}
+
+function ArrowUpIcon(): JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <path d="M7 12V2M7 2L2.5 6.5M7 2L11.5 6.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
 
-function MicGlyph(): JSX.Element {
+function MicIcon(): JSX.Element {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <rect x="5" y="1" width="4" height="7" rx="2" stroke="currentColor" strokeWidth="1.5" />
       <path d="M2.75 6.5V7a4.25 4.25 0 0 0 8.5 0v-.5M7 11.25V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }
 
-function StopGlyph(): JSX.Element {
+function StopIcon(): JSX.Element {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" fill="currentColor" />
@@ -69,7 +124,7 @@ function StopGlyph(): JSX.Element {
   )
 }
 
-function PlusGlyph(): JSX.Element {
+function PlusIcon(): JSX.Element {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <path d="M7 2.5V11.5M2.5 7H11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -77,7 +132,7 @@ function PlusGlyph(): JSX.Element {
   )
 }
 
-function CloseGlyph(): JSX.Element {
+function CloseIcon(): JSX.Element {
   return (
     <svg width="9" height="9" viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <path d="M2.5 2.5L11.5 11.5M11.5 2.5L2.5 11.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -85,33 +140,22 @@ function CloseGlyph(): JSX.Element {
   )
 }
 
-/** A label whose container width animates as the text swaps, with a soft fade. */
-function MorphingText({ text }: { text: string }): JSX.Element {
-  const [width, setWidth] = useState<number | 'auto'>('auto')
-  const measure = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    if (measure.current) setWidth(measure.current.offsetWidth)
-  }, [text])
+function DynamicBarsIcon({ level }: { level: string }): JSX.Element {
+  const isMediumOrHigh = level === "Medium" || level === "High" || level === "Max" || level === "XHigh" || level === "Max Effort"
+  const isHigh = level === "High" || level === "Max" || level === "XHigh" || level === "Max Effort"
+
   return (
-    <span
-      className="relative inline-flex items-center justify-center overflow-hidden align-middle"
-      style={{ width, transition: `width 0.3s ${SPRING}` }}
-    >
-      <span ref={measure} className="invisible whitespace-nowrap px-0.5">
-        {text}
-      </span>
-      <motion.span
-        key={text}
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.22, ease: 'easeOut' }}
-        className="absolute inset-0 flex items-center justify-center whitespace-nowrap"
-      >
-        {text}
-      </motion.span>
-    </span>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <rect x="1.5" y="8" width="2.5" height="4.5" rx="1" fill="currentColor" className="transition-opacity duration-300" opacity={1} />
+      <rect x="5.75" y="5" width="2.5" height="7.5" rx="1" fill="currentColor" className="transition-opacity duration-300" opacity={isMediumOrHigh ? 1 : 0.3} />
+      <rect x="10" y="2" width="2.5" height="10.5" rx="1" fill="currentColor" className="transition-opacity duration-300" opacity={isHigh ? 1 : 0.3} />
+    </svg>
   )
 }
+
+// ----------------------------------------------------------------------
+// Attachments
+// ----------------------------------------------------------------------
 
 interface Attachment {
   id: string
@@ -123,6 +167,11 @@ interface Attachment {
   width?: number
   height?: number
 }
+
+const MAX_ATTACHMENTS = 6
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
+const MAX_TOTAL_ATTACHMENT_BYTES = 20 * 1024 * 1024
+const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 
 function readImage(file: File): Promise<Attachment> {
   return new Promise((resolve, reject) => {
@@ -169,14 +218,9 @@ function AttachmentThumb({
   const [hovered, setHovered] = useState(false)
   const ref = useRef<HTMLButtonElement>(null)
   return (
-    <motion.button
+    <button
       ref={ref}
       type="button"
-      layout
-      initial={{ opacity: 0, y: -12, scale: 0.9 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.85 }}
-      transition={{ duration: 0.28, ease: [0.175, 0.885, 0.32, 1.275], delay: index * 0.035 }}
       onMouseDown={(e) => e.preventDefault()}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -184,32 +228,31 @@ function AttachmentThumb({
         e.stopPropagation()
         if (ref.current) onOpen(attachment, ref.current.getBoundingClientRect())
       }}
-      className="group relative size-12 shrink-0 overflow-hidden rounded-xl border border-border bg-muted outline-none transition-transform duration-200 hover:scale-[1.04] active:scale-[0.96]"
+      style={{ animationDelay: `${index * 35}ms`, animationFillMode: "backwards" }}
+      className={cn(
+        "group relative size-12 shrink-0 overflow-hidden rounded-xl border border-border bg-muted outline-none",
+        "transition-transform duration-200 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] hover:scale-[1.04] active:scale-[0.96]",
+        "animate-in fade-in slide-in-from-top-3 zoom-in-90 duration-400"
+      )}
       aria-label={`Open preview of ${attachment.name}`}
     >
       <img src={attachment.url} alt={attachment.name} className="attachment-image size-full object-cover" draggable={false} />
-      <span className={cn('absolute inset-0 flex items-start justify-end transition-colors duration-200', hovered && 'bg-black/25')}>
+      <span className={cn("absolute inset-0 flex items-start justify-end bg-black/0 transition-colors duration-200", hovered && "bg-black/25")}>
         <span
           role="button"
           tabIndex={-1}
-          onMouseDown={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-          }}
-          onClick={(e) => {
-            e.stopPropagation()
-            onRemove(attachment.id)
-          }}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={(e) => { e.stopPropagation(); onRemove(attachment.id); }}
           className={cn(
-            'm-1 flex size-4 items-center justify-center rounded-full bg-background/90 text-foreground/70 shadow-sm transition-all duration-200 hover:scale-110 hover:bg-background hover:text-foreground',
-            hovered ? 'scale-100 opacity-100' : 'pointer-events-none scale-50 opacity-0'
+            "m-1 flex size-4 items-center justify-center rounded-full bg-background/90 text-foreground/70 shadow-sm transition-all duration-200 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] hover:bg-background hover:text-foreground hover:scale-110",
+            hovered ? "opacity-100 scale-100" : "opacity-0 scale-50 pointer-events-none"
           )}
           aria-label={`Remove ${attachment.name}`}
         >
-          <CloseGlyph />
+          <CloseIcon />
         </span>
       </span>
-    </motion.button>
+    </button>
   )
 }
 
@@ -223,82 +266,103 @@ function AttachmentGalleryModal({
   onClose: () => void
 }): JSX.Element {
   const [phase, setPhase] = useState<'opening' | 'open' | 'closing'>('opening')
-  const [target, setTarget] = useState<{ top: number; left: number; width: number; height: number } | null>(null)
+  const [targetRect, setTargetRect] = useState<{
+    top: number
+    left: number
+    width: number
+    height: number
+    radius: number
+  } | null>(null)
 
   useEffect(() => {
     const maxW = Math.min(window.innerWidth * 0.86, 560)
     const maxH = Math.min(window.innerHeight * 0.78, 720)
-    const nw = attachment.width || 800
-    const nh = attachment.height || 600
-    const scale = Math.min(maxW / nw, maxH / nh, 1.6)
-    const width = nw * scale
-    const height = nh * scale
-    setTarget({ top: (window.innerHeight - height) / 2, left: (window.innerWidth - width) / 2, width, height })
+    const naturalW = attachment.width || 800
+    const naturalH = attachment.height || 600
+    const scale = Math.min(maxW / naturalW, maxH / naturalH, 1.6)
+
+    const width = naturalW * scale
+    const height = naturalH * scale
+
+    setTargetRect({
+      top: (window.innerHeight - height) / 2,
+      left: (window.innerWidth - width) / 2,
+      width,
+      height,
+      radius: 20
+    })
+
     const raf = requestAnimationFrame(() => setPhase('open'))
     return () => cancelAnimationFrame(raf)
   }, [attachment])
 
-  const close = useCallback(() => setPhase('closing'), [])
+  const handleClose = useCallback(() => setPhase('closing'), [])
 
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent): void => {
-      if (e.key === 'Escape') close()
+      if (e.key === 'Escape') handleClose()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [close])
+  }, [handleClose])
 
   const isOpen = phase === 'open'
   const isClosing = phase === 'closing'
-  const geo =
-    isOpen && target
-      ? { ...target, radius: 20 }
-      : { top: originRect.top, left: originRect.left, width: originRect.width, height: originRect.height, radius: 12 }
 
-  const ease = isClosing ? 'ease-out' : SPRING
-  const dur = isClosing ? '0.3s' : '0.45s'
-  const flip = `top ${dur} ${ease}, left ${dur} ${ease}, width ${dur} ${ease}, height ${dur} ${ease}, border-radius ${dur} ${ease}`
+  const geometry = isOpen && targetRect
+    ? targetRect
+    : { top: originRect.top, left: originRect.left, width: originRect.width, height: originRect.height, radius: 12 }
+
+  const animEasing = isClosing ? 'ease-out' : 'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+  const animDur = isClosing ? '0.3s' : '0.45s'
+  const flipTransition = `top ${animDur} ${animEasing}, left ${animDur} ${animEasing}, width ${animDur} ${animEasing}, height ${animDur} ${animEasing}, border-radius ${animDur} ${animEasing}`
 
   return (
-    <div className="fixed inset-0 z-[100]" onClick={close} role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-background/70 backdrop-blur-md transition-opacity duration-300" style={{ opacity: isOpen ? 1 : 0 }} />
+    <div className="fixed inset-0 z-[100]" onClick={handleClose} role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-md transition-opacity duration-400" style={{ opacity: isOpen ? 1 : 0 }} />
       <div
         style={{
           position: 'fixed',
-          top: geo.top,
-          left: geo.left,
-          width: geo.width,
-          height: geo.height,
-          borderRadius: geo.radius,
-          transition: flip,
-          overflow: 'hidden',
-          boxShadow: isOpen ? '0 24px 60px -12px rgb(0 0 0 / 0.35)' : '0 0 0 0 rgb(0 0 0 / 0)'
+          top: geometry.top, left: geometry.left, width: geometry.width, height: geometry.height,
+          borderRadius: geometry.radius, transition: flipTransition, overflow: 'hidden',
+          boxShadow: isOpen ? '0 24px 60px -12px rgb(0 0 0 / 0.35)' : '0 0px 0px 0px rgb(0 0 0 / 0)'
         }}
         className="bg-muted"
-        onTransitionEnd={() => {
-          if (phase === 'closing') onClose()
-        }}
+        onTransitionEnd={() => { if (phase === 'closing') onClose(); }}
         onClick={(e) => e.stopPropagation()}
       >
         <img src={attachment.url} alt={attachment.name} className="attachment-image size-full object-cover" draggable={false} />
       </div>
+
       <button
-        type="button"
-        onClick={close}
-        style={{ opacity: isOpen ? 1 : 0, transform: isOpen ? 'scale(1)' : 'scale(0.7)' }}
+        type="button" onClick={handleClose}
+        style={{ opacity: isOpen ? 1 : 0, transform: isOpen ? "scale(1)" : "scale(0.7)" }}
         className={cn(
-          'fixed right-4 top-4 flex size-9 items-center justify-center rounded-full bg-card/90 text-foreground/70 shadow-md backdrop-blur-sm transition-all duration-300 hover:bg-card hover:text-foreground',
-          !isOpen && 'pointer-events-none'
+          "fixed right-4 top-4 flex size-9 items-center justify-center rounded-full bg-card/90 text-foreground/70 shadow-md backdrop-blur-sm",
+          "transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] hover:bg-card hover:text-foreground",
+          !isOpen && "pointer-events-none"
         )}
-        aria-label="Close preview"
       >
-        <span className="scale-150">
-          <CloseGlyph />
-        </span>
+        <span className="scale-150"><CloseIcon /></span>
       </button>
     </div>
   )
 }
+
+// ----------------------------------------------------------------------
+// Main Props & Component
+// ----------------------------------------------------------------------
+
+const EFFORTS: { label: string; value: ReasoningEffort }[] = [
+  { label: 'Default', value: '' },
+  { label: 'Off', value: 'off' },
+  { label: 'Minimal', value: 'minimal' },
+  { label: 'Low', value: 'low' },
+  { label: 'Medium', value: 'medium' },
+  { label: 'High', value: 'high' },
+  { label: 'XHigh', value: 'xhigh' },
+  { label: 'Max', value: 'max' }
+]
 
 interface Props {
   running: boolean
@@ -308,6 +372,8 @@ interface Props {
   model?: string
   providers?: ProvidersInfo
   onModel?(provider: string, model: string): void
+  effort?: ReasoningEffort
+  onSetEffort?(effort: ReasoningEffort): void
   sendOnEnter?: boolean
   queuedFollowUps?: string[]
   notice?: string | null
@@ -326,6 +392,8 @@ export default function Composer({
   model,
   providers,
   onModel,
+  effort = '',
+  onSetEffort,
   sendOnEnter = true,
   queuedFollowUps = [],
   notice = null,
@@ -342,19 +410,24 @@ export default function Composer({
   const [readingAttachments, setReadingAttachments] = useState(false)
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
 
-  // UI-only extras adopted from the new composer design.
-  const [effortIndex, setEffortIndex] = useState(1)
   const [effortMenuOpen, setEffortMenuOpen] = useState(false)
   const effortMenuRef = useRef<HTMLDivElement>(null)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [activeAttachment, setActiveAttachment] = useState<{ attachment: Attachment; rect: DOMRect } | null>(null)
+
+  // Voice recording & Web Audio API
   const [isRecording, setIsRecording] = useState(false)
   const [audioData, setAudioData] = useState<number[]>(() => new Array(5).fill(0))
+
+  const streamRef = useRef<MediaStream | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const rafRef = useRef<number | null>(null)
+  const recognitionRef = useRef<any>(null)
+  const demoIntervalRef = useRef<number | null>(null)
 
   const area = useRef<HTMLTextAreaElement>(null)
   const modelMenu = useRef<HTMLDivElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
-  const recordTimer = useRef<number | null>(null)
   const submittingRef = useRef(false)
   const attachmentReads = useRef(0)
   const attachmentQueue = useRef<Promise<void>>(Promise.resolve())
@@ -369,8 +442,6 @@ export default function Composer({
     return () => document.removeEventListener('mousedown', close)
   }, [])
 
-  // Publish imperative handles so app-level shortcuts (focus composer, open
-  // model picker) can drive this Composer without prop drilling.
   useEffect(() => {
     composerFocus.current = () => area.current?.focus()
     composerModelPicker.current = () => setModelsOpen(true)
@@ -380,7 +451,6 @@ export default function Composer({
     }
   }, [])
 
-  // When the picker opens, select the provider that owns the current model.
   useEffect(() => {
     if (!modelsOpen) {
       setHoverStyle(HOVER_HIDDEN)
@@ -390,7 +460,6 @@ export default function Composer({
     const initial =
       fromModel && providers?.providers.some((p) => p.name === fromModel) ? fromModel : providers?.providers[0]?.name ?? null
     setActiveProvider(initial)
-    // Fresh search each time the picker opens.
     setModelQuery('')
   }, [modelsOpen, model, providers])
 
@@ -427,7 +496,7 @@ export default function Composer({
       setAttachmentError(null)
       if (area.current) area.current.style.height = 'auto'
     } catch {
-      // The parent surfaces the RPC error; retain the draft for retry.
+      // Retain draft on error
     } finally {
       submittingRef.current = false
       setSubmitting(false)
@@ -473,7 +542,6 @@ export default function Composer({
 
   const hasText = text.trim().length > 0
   const provider = providers?.providers.find((entry) => entry.name === activeProvider)
-  // Models filtered by the picker's search box (case-insensitive substring).
   const query = modelQuery.trim().toLowerCase()
   const visibleModels = provider?.models.filter((m) => !query || m.toLowerCase().includes(query)) ?? []
 
@@ -487,6 +555,14 @@ export default function Composer({
   const activeProviderLabel = model?.includes('/') ? model.split('/', 1)[0] : null
   const shortModel = model?.includes('/') ? model.slice(model.indexOf('/') + 1) : model
 
+  const effortLockedOff = useMemo(() => {
+    const entry = providers?.providers.find((p) => p.name === activeProviderLabel)
+    const detail = entry?.modelDetails?.find((d) => d.id === shortModel)
+    return detail != null && detail.reasoningKnown && !detail.reasoning
+  }, [providers, activeProviderLabel, shortModel])
+  const currentEffort = effortLockedOff ? 'off' : effort
+  const currentEffortLabel = EFFORTS.find((item) => item.value === currentEffort)?.label ?? 'Default'
+
   const cycleProvider = (step: number): void => {
     const list = providers?.providers ?? []
     if (list.length === 0) return
@@ -495,22 +571,109 @@ export default function Composer({
     setHoverStyle(HOVER_HIDDEN)
   }
 
-  // ── Mock voice recording ──────────────────────────────────────────────────
-  const stopRecording = useCallback((): void => {
-    if (recordTimer.current) {
-      window.clearInterval(recordTimer.current)
-      recordTimer.current = null
+  // --- Voice Recording Logic ---
+  const stopRecording = useCallback(() => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop() } catch {}
+      recognitionRef.current = null
+    }
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close() } catch {}
+      audioContextRef.current = null
+    }
+    if (demoIntervalRef.current) {
+      window.clearInterval(demoIntervalRef.current)
+      demoIntervalRef.current = null
     }
     setIsRecording(false)
     setAudioData(new Array(5).fill(0))
   }, [])
 
-  const startRecording = useCallback((): void => {
+  const startRecording = useCallback(async () => {
+    let stream: MediaStream | null = null
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      }
+    } catch (err) {
+      // Microphone access denied or unavailable
+    }
+
     setIsRecording(true)
-    recordTimer.current = window.setInterval(() => {
-      setAudioData(Array.from({ length: 5 }, () => Math.random() * 0.8 + 0.1))
-    }, 120)
-  }, [])
+
+    if (stream) {
+      streamRef.current = stream
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+      if (AudioCtx) {
+        const audioCtx = new AudioCtx()
+        audioContextRef.current = audioCtx
+        const analyser = audioCtx.createAnalyser()
+        analyser.fftSize = 64
+        const source = audioCtx.createMediaStreamSource(stream)
+        source.connect(analyser)
+        const dataArray = new Uint8Array(analyser.frequencyBinCount)
+
+        const updateVisualizer = () => {
+          analyser.getByteFrequencyData(dataArray)
+          const bands = new Array(5).fill(0)
+          const step = Math.floor(dataArray.length / 5)
+          for (let i = 0; i < 5; i++) {
+            let sum = 0;
+            for (let j = 0; j < step; j++) {
+              sum += dataArray[i * step + j]
+            }
+            bands[i] = sum / step / 255
+          }
+          setAudioData(bands)
+          rafRef.current = requestAnimationFrame(updateVisualizer)
+        }
+        updateVisualizer()
+      }
+
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition()
+        recognition.continuous = true
+        recognition.interimResults = true
+
+        recognition.onresult = (event: any) => {
+          let finalTranscript = ""
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript
+            }
+          }
+          if (finalTranscript) {
+            setText((prev) => (prev ? prev + " " : "") + finalTranscript)
+            grow()
+          }
+        }
+
+        recognition.onerror = () => stopRecording()
+        recognition.onend = () => stopRecording()
+        recognitionRef.current = recognition
+        try { recognition.start() } catch {}
+      }
+    } else {
+      demoIntervalRef.current = window.setInterval(() => {
+        setAudioData(Array.from({ length: 5 }, () => Math.random() * 0.8 + 0.1))
+      }, 120)
+    }
+  }, [stopRecording])
+
+  useEffect(() => {
+    return () => {
+      stopRecording()
+    }
+  }, [stopRecording])
 
   const removeAttachment = (id: string): void => {
     if (submittingRef.current) return
@@ -588,28 +751,27 @@ export default function Composer({
     addFiles(files)
   }
 
-  // Clean up the mock recording timer on unmount.
-  useEffect(() => {
-    return () => {
-      if (recordTimer.current) window.clearInterval(recordTimer.current)
-    }
-  }, [])
   const hasAttachments = attachments.length > 0
   const canSubmit = (hasText || hasAttachments) && !readingAttachments
-  // Whether the notice is a live retry (spinner) vs a settled terminal state.
   const retrying = notice != null && /retry/i.test(notice)
-  // Height of the connected slash-command tab: one row (~30px) per suggestion,
-  // 2px gaps, plus the tab's vertical padding.
   const cmdCount = commandSuggestions.length
   const cmdHeight = cmdCount > 0 ? cmdCount * 30 + (cmdCount - 1) * 2 + 14 : 0
-  const showStop = running || isRecording
-  const showSend = !running && !isRecording && canSubmit
 
-  const onActionClick = (): void => {
-    if (running) onStop()
-    else if (isRecording) stopRecording()
-    else if (canSubmit) void submit(false)
-    else startRecording()
+  const showArrow = canSubmit && !isRecording && !running
+  const showStop = running || isRecording
+  const showMic = !canSubmit && !isRecording && !running
+
+  const onActionButtonClick = (e: React.MouseEvent): void => {
+    e.preventDefault()
+    if (isRecording) {
+      stopRecording()
+    } else if (running) {
+      onStop()
+    } else if (canSubmit) {
+      void submit(false)
+    } else {
+      startRecording()
+    }
   }
 
   return (
@@ -627,16 +789,16 @@ export default function Composer({
           >
             <span>{attachmentError}</span>
             <button type="button" onClick={() => setAttachmentError(null)} className="grid size-8 shrink-0 place-items-center rounded-lg text-destructive-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive-foreground" aria-label="Dismiss attachment error">
-              <CloseGlyph />
+              <CloseIcon />
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Attachment tab — slides up from behind the input card. */}
+      {/* Attachment tab */}
       <div
         aria-hidden={!hasAttachments}
-        style={{ height: hasAttachments ? 68 : 0, transition: `height 0.4s ${SPRING}` }}
+        style={{ height: hasAttachments ? 68 : 0, transition: `height 0.4s ${EASE_SPRING}` }}
         className="relative z-0 w-full overflow-hidden"
       >
         <div
@@ -648,28 +810,26 @@ export default function Composer({
             height: 68,
             transform: hasAttachments ? 'translateY(0)' : 'translateY(100%)',
             opacity: hasAttachments ? 1 : 0,
-            transition: `transform 0.4s ${SPRING}, opacity 0.3s ease-out`
+            transition: `transform 0.4s ${EASE_SPRING}, opacity 0.3s ease-out`
           }}
-          className="no-scrollbar flex items-start gap-2 overflow-x-auto rounded-t-2xl border border-b-0 border-border bg-muted px-2 pb-1 pt-2"
+          className="no-scrollbar flex items-start gap-2 overflow-x-auto rounded-t-2xl border border-b-0 border-border bg-card px-2 pb-1 pt-2"
         >
-          <AnimatePresence initial={false}>
-            {attachments.map((attachment, index) => (
-              <AttachmentThumb
-                key={attachment.id}
-                attachment={attachment}
-                index={index}
-                onRemove={removeAttachment}
-                onOpen={(a, rect) => setActiveAttachment({ attachment: a, rect })}
-              />
-            ))}
-          </AnimatePresence>
+          {attachments.map((attachment, index) => (
+            <AttachmentThumb
+              key={attachment.id}
+              attachment={attachment}
+              index={index}
+              onRemove={removeAttachment}
+              onOpen={(a, rect) => setActiveAttachment({ attachment: a, rect })}
+            />
+          ))}
         </div>
       </div>
 
-      {/* Slash-command tab — connected, slides up from behind the card (same style as attachments). */}
+      {/* Slash-command tab */}
       <div
         aria-hidden={cmdCount === 0}
-        style={{ height: cmdCount > 0 ? cmdHeight : 0, transition: `height 0.4s ${SPRING}` }}
+        style={{ height: cmdCount > 0 ? cmdHeight : 0, transition: `height 0.4s ${EASE_SPRING}` }}
         className="relative z-0 w-full overflow-hidden"
       >
         <div
@@ -681,7 +841,7 @@ export default function Composer({
             height: cmdHeight || 1,
             transform: cmdCount > 0 ? 'translateY(0)' : 'translateY(100%)',
             opacity: cmdCount > 0 ? 1 : 0,
-            transition: `transform 0.4s ${SPRING}, opacity 0.3s ease-out`
+            transition: `transform 0.4s ${EASE_SPRING}, opacity 0.3s ease-out`
           }}
           className="flex flex-col gap-0.5 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted px-1.5 pb-2 pt-1.5"
         >
@@ -704,10 +864,10 @@ export default function Composer({
         </div>
       </div>
 
-      {/* Follow-ups tab — connected, slides up from behind the card (same style as attachments & slash commands). */}
+      {/* Follow-ups tab */}
       <div
         aria-hidden={queuedFollowUps.length === 0}
-        style={{ height: queuedFollowUps.length > 0 ? 40 : 0, transition: `height 0.4s ${SPRING}` }}
+        style={{ height: queuedFollowUps.length > 0 ? 40 : 0, transition: `height 0.4s ${EASE_SPRING}` }}
         className="relative z-0 w-full overflow-hidden"
       >
         <div
@@ -719,7 +879,7 @@ export default function Composer({
             height: 40,
             transform: queuedFollowUps.length > 0 ? 'translateY(0)' : 'translateY(100%)',
             opacity: queuedFollowUps.length > 0 ? 1 : 0,
-            transition: `transform 0.4s ${SPRING}, opacity 0.3s ease-out`
+            transition: `transform 0.4s ${EASE_SPRING}, opacity 0.3s ease-out`
           }}
           className="flex items-center gap-2 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted px-3"
         >
@@ -731,11 +891,10 @@ export default function Composer({
         </div>
       </div>
 
-      {/* Notice tab — connected, slides up from behind the card (same style as
-          the other tabs), with the Thinking-style shimmer on the message. */}
+      {/* Notice tab */}
       <div
         aria-hidden={!notice}
-        style={{ height: notice ? 40 : 0, transition: `height 0.4s ${SPRING}` }}
+        style={{ height: notice ? 40 : 0, transition: `height 0.4s ${EASE_SPRING}` }}
         className="relative z-0 w-full overflow-hidden"
       >
         <div
@@ -747,7 +906,7 @@ export default function Composer({
             height: 40,
             transform: notice ? 'translateY(0)' : 'translateY(100%)',
             opacity: notice ? 1 : 0,
-            transition: `transform 0.4s ${SPRING}, opacity 0.3s ease-out`
+            transition: `transform 0.4s ${EASE_SPRING}, opacity 0.3s ease-out`
           }}
           className="flex items-center gap-2 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted px-3"
         >
@@ -769,12 +928,13 @@ export default function Composer({
               aria-label="Dismiss notice"
               title="Dismiss"
             >
-              <CloseGlyph />
+              <CloseIcon />
             </button>
           )}
         </div>
       </div>
 
+      {/* Main Input Card with ol-ui & user prompt-input styling */}
       <div className={cn('relative z-10 rounded-[26px] p-px transition-colors duration-200', running ? 'bg-input' : 'bg-transparent')}>
         <div
           onMouseDown={(e) => {
@@ -783,15 +943,15 @@ export default function Composer({
               area.current?.focus()
             }
           }}
-          className="relative overflow-visible rounded-[24px] border border-border bg-elevated shadow-sm transition-[border-color,box-shadow] focus-within:border-input focus-within:ring-1 focus-within:ring-input"
+          className="relative overflow-visible rounded-[24px] border border-border bg-card shadow-sm transition-[border-color,box-shadow] focus-within:border-ring/40 focus-within:ring-1 focus-within:ring-ring/20 hover:border-border/80"
         >
-          <div className="px-4 pb-[58px] pt-4">
+          <div className="px-4 pb-[54px] pt-4">
             <textarea
               ref={area}
               value={text}
               rows={1}
               disabled={isRecording || submitting}
-              placeholder={placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything.')}
+              placeholder={placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything')}
               onChange={(e) => {
                 setText(e.target.value)
                 setCommandIndex(0)
@@ -799,13 +959,13 @@ export default function Composer({
               }}
               onKeyDown={onKey}
               onPaste={onPaste}
-              className="min-h-[72px] max-h-[220px] w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/65 disabled:opacity-70"
+              className="min-h-[64px] max-h-[220px] w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-relaxed text-foreground outline-none placeholder:font-medium placeholder:text-muted-foreground/70 disabled:opacity-70"
             />
           </div>
 
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-2.5 pb-2.5">
             {/* Left controls: model picker · effort · attach */}
-            <div className="flex min-w-0 items-center gap-0.5">
+            <div className="flex min-w-0 items-center gap-1">
               {providers && onModel && (
                 <div className="relative" ref={modelMenu}>
                   <button
@@ -816,31 +976,30 @@ export default function Composer({
                       setModelsOpen((v) => !v)
                     }}
                     className={cn(
-                      'group flex h-8 max-w-[220px] items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-medium text-muted-foreground outline-none transition-colors hover:bg-accent/60 hover:text-foreground disabled:opacity-60',
-                      modelsOpen && 'bg-accent/60 text-foreground'
+                      'chip group h-8 max-w-[220px] px-2.5 flex items-center gap-1.5',
+                      modelsOpen && 'chip-active'
                     )}
                     disabled={running}
                     aria-label={`Select model. Current: ${model || 'none'}`}
                     title={model || 'Select model'}
                   >
-                    {activeProviderLabel ? <ProviderDot name={activeProviderLabel} /> : <span className="h-2 w-2 shrink-0 rounded-full bg-input" aria-hidden />}
-                    <MorphingText text={shortModel || 'model'} />
-                    <ChevronDown size={13} className="shrink-0 opacity-70 group-hover:opacity-100" />
+                    <ModelIcon model={shortModel || 'GPT 5.5'} className="size-3.5 opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <span className="truncate select-none text-xs font-medium">
+                      <MorphingText text={shortModel || 'Select Model'} />
+                    </span>
                   </button>
 
-                  {/* Compact animated model dropdown with provider tabs. */}
                   <AnimatePresence>
                     {modelsOpen && (
                       <motion.div
                         style={{ transformOrigin: 'bottom left' }}
-                        className="absolute bottom-full left-0 z-50 mb-2.5 w-60 max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-border bg-popover/95 p-1 shadow-xl backdrop-blur-md"
+                        className="absolute bottom-full left-0 z-50 mb-2.5 w-60 max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-border bg-card p-1 shadow-lg"
                         variants={bloomUp}
                         initial="initial"
                         animate="animate"
                         exit="exit"
                         transition={BLOOM_FAST}
                       >
-                        {/* Search: filters the active provider's model list. */}
                         <div className="relative mb-1 flex items-center">
                           <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground/60" strokeWidth={1.8} />
                           <input
@@ -869,7 +1028,6 @@ export default function Composer({
                           />
                         </div>
 
-                        {/* Animated model list for the active provider */}
                         <div
                           className="relative flex max-h-52 flex-col gap-0.5 overflow-y-auto px-0.5"
                           onMouseLeave={() => setHoverStyle((prev) => ({ ...prev, opacity: 0, transition: 'opacity 0.2s ease-in' }))}
@@ -877,8 +1035,6 @@ export default function Composer({
                           <div style={hoverStyle} className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-8 rounded-xl bg-accent" />
                           {visibleModels.length > 0 ? (
                             visibleModels.map((modelID, idx) => {
-                              // visibleModels is derived from provider, so it
-                              // is only non-empty when provider exists.
                               const ref = `${provider!.name}/${modelID}`
                               const active = ref === model
                               return (
@@ -890,7 +1046,7 @@ export default function Composer({
                                     setHoverStyle((prev) => ({
                                       opacity: 1,
                                       transform: `translateY(${idx * 34}px) scale(1)`,
-                                      transition: prev.opacity === 0 ? 'opacity 0.15s ease-out' : `transform 0.3s ${SPRING}, opacity 0.15s ease`
+                                      transition: prev.opacity === 0 ? 'opacity 0.15s ease-out' : `transform 0.3s ${EASE_SPRING}, opacity 0.15s ease`
                                     }))
                                   }
                                   onClick={(e) => {
@@ -899,7 +1055,10 @@ export default function Composer({
                                   }}
                                   className="group relative flex h-8 w-full shrink-0 items-center justify-between rounded-xl px-2.5 text-left text-xs font-medium text-foreground/80 outline-none active:scale-[0.98]"
                                 >
-                                  <span className="min-w-0 truncate">{modelID}</span>
+                                  <span className="flex items-center gap-2 min-w-0 truncate">
+                                    <ModelIcon model={modelID} className="size-3.5 opacity-85 group-hover:opacity-100 transition-opacity shrink-0" />
+                                    <span className="truncate">{modelID}</span>
+                                  </span>
                                   {active && <Tick01 size={12} className="ml-2 shrink-0 text-muted-foreground" />}
                                 </button>
                               )
@@ -913,7 +1072,6 @@ export default function Composer({
 
                         <div className="mx-1 mb-1 mt-1 border-t border-border" />
 
-                        {/* Provider selector: < [provider] > */}
                         <div className="flex items-center justify-between gap-1 px-0.5 pb-0.5 pt-0.5">
                           <button
                             type="button"
@@ -952,60 +1110,70 @@ export default function Composer({
                 </div>
               )}
 
-              {/* Effort (UI-only) — left-click cycles; right-click opens a
-                  horizontal picker popup styled like the pill itself. */}
+              {/* Reasoning Effort Button with DynamicBarsIcon */}
               <div className="relative" ref={effortMenuRef}>
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => setEffortIndex((i) => (i + 1) % EFFORTS.length)}
+                  disabled={effortLockedOff || !onSetEffort}
+                  onClick={() => {
+                    const index = EFFORTS.findIndex((item) => item.value === currentEffort)
+                    const next = EFFORTS[(index + 1) % EFFORTS.length]
+                    onSetEffort?.(next.value)
+                  }}
                   onContextMenu={(e) => {
                     e.preventDefault()
                     setEffortMenuOpen((v) => !v)
                   }}
                   className={cn(
-                    'flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-medium text-muted-foreground outline-none transition-colors hover:bg-accent/60 hover:text-foreground',
-                    effortMenuOpen && 'bg-accent/60 text-foreground'
+                    'chip group h-8 px-2.5 flex items-center gap-1.5',
+                    effortMenuOpen && 'chip-active'
                   )}
-                  title="Reasoning effort (right-click to pick)"
+                  title={
+                    effortLockedOff
+                      ? 'This model does not support reasoning'
+                      : 'Reasoning effort (right-click to pick)'
+                  }
                   aria-haspopup="menu"
                   aria-expanded={effortMenuOpen}
                 >
-                  <MorphingText text={EFFORTS[effortIndex]} />
+                  <DynamicBarsIcon level={currentEffortLabel} />
+                  <span className="text-xs font-medium select-none transition-colors">
+                    <MorphingText text={currentEffortLabel} />
+                  </span>
                 </button>
 
-                {/* Right-click popup: a horizontal row of effort pills. */}
                 <AnimatePresence>
-                  {effortMenuOpen && (
+                  {effortMenuOpen && !effortLockedOff && (
                     <motion.div
                       style={{ transformOrigin: 'bottom left' }}
-                      className="absolute bottom-full left-0 z-50 mb-2.5 flex items-center gap-1 rounded-2xl border border-border bg-popover/95 p-1 shadow-xl backdrop-blur-md"
+                      className="absolute bottom-full left-0 z-50 mb-2.5 flex max-w-[260px] items-center gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1 shadow-lg"
                       variants={bloomUp}
                       initial="initial"
                       animate="animate"
                       exit="exit"
                       transition={BLOOM_FAST}
                     >
-                      {EFFORTS.map((effort) => {
-                        const active = effort === EFFORTS[effortIndex]
+                      {EFFORTS.map(({ label, value }) => {
+                        const activeItem = value === currentEffort
                         return (
                           <button
-                            key={effort}
+                            key={value}
                             type="button"
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={(e) => {
                               e.stopPropagation()
-                              setEffortIndex(EFFORTS.indexOf(effort))
+                              onSetEffort?.(value)
                               setEffortMenuOpen(false)
                             }}
                             className={cn(
-                              'flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-medium whitespace-nowrap outline-none transition-colors',
-                              active
+                              'flex h-7 items-center gap-1 rounded-full px-2.5 text-[11.5px] font-medium whitespace-nowrap outline-none transition-colors',
+                              activeItem
                                 ? 'bg-primary text-primary-foreground'
                                 : 'text-muted-foreground hover:bg-hover hover:text-foreground'
                             )}
                           >
-                            {effort}
+                            {label}
                           </button>
                         )
                       })}
@@ -1014,29 +1182,34 @@ export default function Composer({
                 </AnimatePresence>
               </div>
 
-              {/* Attach (mock) */}
+              {/* Attach button */}
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => fileInput.current?.click()}
                 disabled={submitting || attachments.length >= MAX_ATTACHMENTS}
-                className="flex size-8 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                className="chip size-8 justify-center px-0 flex items-center"
                 title="Attach images"
               >
-                <PlusGlyph />
+                <PlusIcon />
               </button>
             </div>
 
-            {/* Right controls: visualizer · queue · action */}
+            {/* Right controls: voice visualizer · queue · action button */}
             <div className="flex shrink-0 items-center gap-1.5">
+              {/* Audio Wave Visualizer Overlay */}
               <div
                 className={cn(
-                  'flex h-8 items-center justify-end gap-[3px] overflow-hidden transition-all duration-300',
-                  isRecording ? 'w-14 opacity-100' : 'w-0 opacity-0'
+                  'flex h-8 items-center justify-end gap-[3px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]',
+                  isRecording ? 'w-16 opacity-100' : 'w-0 opacity-0 pointer-events-none'
                 )}
               >
                 {audioData.map((val, i) => (
-                  <div key={i} className="w-1 rounded-full bg-primary transition-[height] duration-75 ease-out" style={{ height: `${Math.max(4, val * 22)}px` }} />
+                  <div
+                    key={i}
+                    className="w-1 rounded-full bg-primary transition-[height] duration-75 ease-out"
+                    style={{ height: `${Math.max(4, val * 24)}px` }}
+                  />
                 ))}
               </div>
 
@@ -1052,45 +1225,28 @@ export default function Composer({
                 </button>
               )}
 
-              <motion.button
+              {/* Action Button: Morphing ArrowUp / Mic / Stop */}
+              <button
                 type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }}
-                onClick={onActionClick}
+                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onClick={onActionButtonClick}
                 disabled={submitting}
-                className="relative flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xs outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                title={running ? 'Stop the run' : isRecording ? 'Stop recording' : showSend ? 'Send' : 'Voice input (demo)'}
-                aria-label={running ? 'Stop generation' : isRecording ? 'Stop recording' : showSend ? 'Send message' : 'Voice input'}
-                whileTap={{ scale: 0.96 }}
-                transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
+                aria-label={showArrow ? "Send prompt" : showStop ? "Stop recording or generation" : "Use voice input"}
+                style={{ borderRadius: 9999 }}
+                className="flex h-8 w-8 items-center justify-center bg-primary text-primary-foreground transition-all duration-300 hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-default shadow-sm disabled:opacity-50"
               >
-                <span
-                  className={cn(
-                    'absolute inset-0 flex items-center justify-center transition-all duration-300',
-                    showSend ? 'opacity-100 rotate-0 blur-none' : 'pointer-events-none rotate-45 opacity-0 blur-[1px]'
-                  )}
-                >
-                  <ArrowUpGlyph />
+                <span className="relative flex h-full w-full items-center justify-center">
+                  <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showArrow ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 rotate-45 blur-[1px] pointer-events-none")}>
+                    <ArrowUpIcon />
+                  </span>
+                  <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showMic ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 -rotate-45 blur-[1px] pointer-events-none")}>
+                    <MicIcon />
+                  </span>
+                  <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showStop ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 rotate-45 blur-[1px] pointer-events-none")}>
+                    <StopIcon />
+                  </span>
                 </span>
-                <span
-                  className={cn(
-                    'absolute inset-0 flex items-center justify-center transition-all duration-300',
-                    !running && !isRecording && !showSend ? 'opacity-100 rotate-0 blur-none' : 'pointer-events-none -rotate-45 opacity-0 blur-[1px]'
-                  )}
-                >
-                  <MicGlyph />
-                </span>
-                <span
-                  className={cn(
-                    'absolute inset-0 flex items-center justify-center transition-all duration-300',
-                    showStop ? 'opacity-100 rotate-0 blur-none' : 'pointer-events-none rotate-45 opacity-0 blur-[1px]'
-                  )}
-                >
-                  <StopGlyph />
-                </span>
-              </motion.button>
+              </button>
             </div>
           </div>
         </div>

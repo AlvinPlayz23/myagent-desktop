@@ -6,6 +6,7 @@ import type {
   ProvidersInfo,
   RpcError,
   SessionInfo,
+  ReasoningEffort,
   SessionMeta,
   ServerPush
 } from '../../shared/protocol'
@@ -40,8 +41,8 @@ export const api = {
   pickFolder: (): Promise<string | null> => window.myagent.pickFolder(),
   onPush: (cb: (push: ServerPush) => void): (() => void) => window.myagent.onPush(cb),
 
-  createSession: (cwd?: string, provider?: string, model?: string): Promise<SessionInfo> =>
-    call('session.create', { cwd, provider, model }),
+  createSession: (cwd?: string, provider?: string, model?: string, effort?: ReasoningEffort): Promise<SessionInfo> =>
+    call('session.create', { cwd, provider, model, effort }),
   resumeSession: (sessionId: string): Promise<SessionInfo & { messages: Message[] }> =>
     call('session.resume', { sessionId }),
   listSessions: async (): Promise<SessionMeta[]> => {
@@ -56,8 +57,10 @@ export const api = {
     call('session.followUp', { sessionId, content }),
   abort: (sessionId: string): Promise<void> => call('session.abort', { sessionId }),
   compact: (sessionId: string): Promise<void> => call('session.compact', { sessionId }),
-  setModel: (sessionId: string, provider: string, model: string): Promise<void> =>
-    call('session.setModel', { sessionId, provider, model }),
+  setModel: (sessionId: string, provider: string, model: string): Promise<{ effort: ReasoningEffort }> =>
+    call<{ effort?: ReasoningEffort }>('session.setModel', { sessionId, provider, model }).then((result) => ({ effort: result.effort ?? '' })),
+  setEffort: (sessionId: string, effort: ReasoningEffort): Promise<{ effort: ReasoningEffort }> =>
+    call<{ effort?: ReasoningEffort }>('session.setEffort', { sessionId, effort }).then((result) => ({ effort: result.effort ?? '' })),
   renameSession: (sessionId: string, title: string): Promise<{ title: string }> =>
     call('session.rename', { sessionId, title }),
   closeSession: (sessionId: string): Promise<void> => call('session.close', { sessionId }),

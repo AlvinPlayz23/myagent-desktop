@@ -7,6 +7,7 @@ import type {
   SessionMeta,
   ToolResult
 } from '../../shared/protocol'
+import type { ReasoningEffort } from '../../shared/protocol'
 
 // Tool execution is a first-class timeline activity. It is deliberately
 // separate from assistant messages so the presentation can be expanded,
@@ -49,6 +50,7 @@ export interface ChatState {
   sessionId: string
   cwd: string
   model: string
+  effort: ReasoningEffort
   items: ChatItem[]
   streaming: Message | null
   toolRuns: Record<string, ToolRun>
@@ -234,11 +236,12 @@ function trackThinking(chat: ChatState, partial: Message): Record<number, Thinki
   return spans
 }
 
-export function newChat(sessionId: string, cwd: string, model: string): ChatState {
+export function newChat(sessionId: string, cwd: string, model: string, effort: ReasoningEffort = ''): ChatState {
   return {
     sessionId,
     cwd,
     model,
+    effort,
     items: [],
     streaming: null,
     toolRuns: {},
@@ -517,6 +520,7 @@ export type Action =
   | { type: 'localUser'; sessionId: string; localId: string; content: ContentBlock[] }
   | { type: 'rollbackLocalUser'; sessionId: string; localId: string }
   | { type: 'model'; model: string }
+  | { type: 'effort'; sessionId: string; effort: ReasoningEffort }
   | { type: 'notice'; text: string | null }
   | { type: 'chatNotice'; sessionId: string; text: string | null }
   | { type: 'home'; cwd?: string }
@@ -620,6 +624,11 @@ export function reducer(state: AppState, action: Action): AppState {
       const chat = activeChat(state)
       if (!chat) return state
       return withChat(state, { ...chat, model: action.model })
+    }
+    case 'effort': {
+      const chat = state.chats[action.sessionId]
+      if (!chat) return state
+      return withChat(state, { ...chat, effort: action.effort })
     }
     case 'notice': {
       const chat = activeChat(state)

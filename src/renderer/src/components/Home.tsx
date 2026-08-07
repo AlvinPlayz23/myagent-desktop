@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ChevronDown, Folder01, FolderAdd, Rotate01 } from './ui/icons'
-import type { ContentBlock, ProvidersInfo } from '../../../shared/protocol'
+import type { ContentBlock, ProvidersInfo, ReasoningEffort } from '../../../shared/protocol'
 import Composer from './Composer'
 import { Button } from './ui/Button'
 import { cn } from '../util'
@@ -15,7 +15,7 @@ interface Props {
   selected: string | null
   onSelect(cwd: string): void
   onAddProject(): void
-  onSend(content: ContentBlock[], model?: string): Promise<void>
+  onSend(content: ContentBlock[], model?: string, effort?: ReasoningEffort): Promise<void>
   onRetry(): void
   providers: ProvidersInfo
   notice?: string | null
@@ -41,6 +41,7 @@ export default function Home({
 }: Props): JSX.Element {
   const [open, setOpen] = useState(false)
   const [model, setModel] = useState(providers.defaultModel ?? '')
+  const [effort, setEffort] = useState<ReasoningEffort>('medium')
   const pop = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -151,14 +152,32 @@ export default function Home({
 
             <Composer
               running={false}
-              onSend={(content) => onSend(content, model || undefined)}
+              onSend={(content) => {
+                const modelRef = model || providers.defaultModel
+                const divider = modelRef.indexOf('/')
+                const provider = divider > 0 ? modelRef.slice(0, divider) : ''
+                const modelID = divider > 0 ? modelRef.slice(divider + 1) : modelRef
+                const detail = providers.providers
+                  .find((entry) => entry.name === provider)
+                  ?.modelDetails?.find((item) => item.id === modelID)
+                const effectiveEffort = detail?.reasoningKnown && !detail.reasoning ? 'off' : effort
+                return onSend(content, model || undefined, effectiveEffort)
+              }}
               onStop={() => {}}
               placeholder={`Start a session in ${current?.name ?? 'this project'}…`}
               model={model || providers.defaultModel}
               providers={providers}
               notice={notice}
               onDismissNotice={onDismissNotice}
-              onModel={(provider, selectedModel) => setModel(`${provider}/${selectedModel}`)}
+              onModel={(provider, selectedModel) => {
+                setModel(`${provider}/${selectedModel}`)
+                const detail = providers.providers
+                  .find((entry) => entry.name === provider)
+                  ?.modelDetails?.find((item) => item.id === selectedModel)
+                if (detail?.reasoningKnown && !detail.reasoning) setEffort('off')
+              }}
+              effort={effort}
+              onSetEffort={setEffort}
               sendOnEnter={sendOnEnter}
               onCommand={onCommand}
             />

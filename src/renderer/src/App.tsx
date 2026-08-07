@@ -20,7 +20,7 @@ import type { CommandName } from './commands'
 import CommandModal from './components/CommandModal'
 import RenameSessionModal from './components/RenameSessionModal'
 import { matchShortcut, composerFocus, composerModelPicker, type ShortcutId } from './shortcuts'
-import type { ContentBlock } from '../../shared/protocol'
+import type { ContentBlock, ReasoningEffort } from '../../shared/protocol'
 
 export default function App(): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -150,7 +150,7 @@ export default function App(): JSX.Element {
               .then((info) =>
                 dispatch({
                   type: 'openChat',
-                  chat: loadHistory(newChat(info.sessionId, info.cwd, info.model), info.messages)
+                  chat: loadHistory(newChat(info.sessionId, info.cwd, info.model, info.effort ?? ''), info.messages)
                 })
               )
               .catch(() => {})
@@ -193,7 +193,7 @@ export default function App(): JSX.Element {
       const info = await api.resumeSession(id)
       dispatch({
         type: 'openChat',
-        chat: loadHistory(newChat(info.sessionId, info.cwd, info.model), info.messages)
+        chat: loadHistory(newChat(info.sessionId, info.cwd, info.model, info.effort ?? ''), info.messages)
       })
     } catch (err) {
       dispatch({ type: 'loading', value: false })
@@ -246,7 +246,7 @@ export default function App(): JSX.Element {
 
   // Home composer: create a session in the selected project, then prompt.
   const homeSend = useCallback(
-    async (content: ContentBlock[], modelRef?: string) => {
+    async (content: ContentBlock[], modelRef?: string, effort?: ReasoningEffort) => {
       const cwd = state.homeCwd ?? projectList[0]?.cwd
       if (!cwd) return
       setHomeNotice(null)
@@ -254,10 +254,10 @@ export default function App(): JSX.Element {
         const divider = modelRef?.indexOf('/') ?? -1
         const provider = divider > 0 ? modelRef?.slice(0, divider) : undefined
         const model = divider > 0 ? modelRef?.slice(divider + 1) : undefined
-        const info = await api.createSession(cwd, provider, model)
+        const info = await api.createSession(cwd, provider, model, effort)
         const sessionId = info.sessionId
         const localId = crypto.randomUUID()
-        dispatch({ type: 'trackChat', chat: newChat(sessionId, info.cwd, info.model) })
+        dispatch({ type: 'trackChat', chat: newChat(sessionId, info.cwd, info.model, info.effort ?? effort) })
         dispatch({ type: 'localUser', sessionId, localId, content })
         try {
           await api.prompt(sessionId, content)
@@ -331,10 +331,27 @@ export default function App(): JSX.Element {
     async (provider: string, model: string) => {
       if (!chat) return
       try {
-        await api.setModel(chat.sessionId, provider, model)
+        const result = await api.setModel(chat.sessionId, provider, model)
         dispatch({ type: 'model', model: `${provider}/${model}` })
+        dispatch({ type: 'effort', sessionId: chat.sessionId, effort: result.effort })
       } catch (err) {
         dispatch({ type: 'notice', text: err instanceof Error ? err.message : String(err) })
+      }
+    },
+    [chat]
+  )
+
+  const changeEffort = useCallback(
+    async (effort: ReasoningEffort) => {
+      if (!chat) return
+      const previous = chat.effort
+      dispatch({ type: 'effort', sessionId: chat.sessionId, effort })
+      try {
+        const result = await api.setEffort(chat.sessionId, effort)
+        dispatch({ type: 'effort', sessionId: chat.sessionId, effort: result.effort })
+      } catch (err) {
+        dispatch({ type: 'effort', sessionId: chat.sessionId, effort: previous })
+        dispatch({ type: 'chatNotice', sessionId: chat.sessionId, text: err instanceof Error ? err.message : String(err) })
       }
     },
     [chat]
@@ -447,45 +464,22 @@ export default function App(): JSX.Element {
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((value) => !value)}
         settingsOpen={view === 'settings'}
-        onSettings={() => setView('settings')}
+        onSettings={() => setView((v) => (v === 'settings' ? 'content' : 'settings'))}
         archivedSessionIds={new Set(archivedSessions.map((session) => session.id))}
         onRename={renameSession}
         onArchive={archiveSession}
       />
       <main className="main-panel surface-grain relative mt-9 flex min-w-0 flex-1 flex-col overflow-hidden">
-        {/* Keyed by session as well as view: opening a different session is a
-            new surface arriving, and should bloom in the same way the Home
-            screen does, rather than swapping its contents underneath.
-
-            initial is left on so the first paint blooms too — this replaces the
-            CSS entrance Home used to carry itself. */}
         <AnimatePresence mode="wait">
         <motion.div
-          key={view === 'settings' ? 'settings' : chat ? `chat-${chat.sessionId}` : 'home'}
+          key={chat ? `chat-${chat.sessionId}` : 'home'}
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
           variants={bloomPanel}
           initial="initial"
           animate="animate"
           exit="exit"
         >
-        {view === 'settings' ? (
-          <Settings
-            preferences={preferences}
-            onChange={(patch) => setPreferences((current) => ({ ...current, ...patch }))}
-            conn={state.conn}
-            detail={state.connDetail}
-            serverVersion={state.serverVersion}
-            onReconnect={bootstrap}
-            archivedSessions={archivedSessions}
-            onOpenArchived={openSession}
-            onRestore={restoreSession}
-            providers={state.providers}
-            onSaveProvider={async (input) => { const providers = await api.saveProvider(input); dispatch({ type: 'providers', providers }) }}
-            onDeleteProvider={async (name) => { const providers = await api.deleteProvider(name); dispatch({ type: 'providers', providers }) }}
-            onDefaultProvider={async (name, model) => { const providers = await api.setDefaultProvider(name, model); dispatch({ type: 'providers', providers }) }}
-            onDiscoverProvider={async (name, apiKey) => { const models = await api.discoverProviderModels(name, apiKey); const providers = await api.providers(); dispatch({ type: 'providers', providers }); return models }}
-          />
-        ) : chat ? (
+        {chat ? (
           <>
             <ChatHeader
               chat={chat}
@@ -508,6 +502,8 @@ export default function App(): JSX.Element {
                 model={chat.model}
                 providers={state.providers}
                 onModel={changeModel}
+                effort={chat.effort}
+                onSetEffort={(effort) => void changeEffort(effort)}
                 sendOnEnter={preferences.sendOnEnter}
                 queuedFollowUps={queuedFollowUps.filter((pending) => pending.sessionId === chat.sessionId).map((pending) => pending.label)}
                 notice={chat.notice}
@@ -537,6 +533,7 @@ export default function App(): JSX.Element {
         )}
         </motion.div>
         </AnimatePresence>
+
         <StatusBar
           conn={state.conn}
           detail={state.connDetail}
@@ -545,6 +542,28 @@ export default function App(): JSX.Element {
         />
       </main>
       <WindowControls />
+      <AnimatePresence>
+        {view === 'settings' && (
+          <Settings
+            key="settings-modal"
+            preferences={preferences}
+            onChange={(patch) => setPreferences((current) => ({ ...current, ...patch }))}
+            conn={state.conn}
+            detail={state.connDetail}
+            serverVersion={state.serverVersion}
+            onReconnect={bootstrap}
+            archivedSessions={archivedSessions}
+            onOpenArchived={openSession}
+            onRestore={restoreSession}
+            providers={state.providers}
+            onSaveProvider={async (input) => { const providers = await api.saveProvider(input); dispatch({ type: 'providers', providers }) }}
+            onDeleteProvider={async (name) => { const providers = await api.deleteProvider(name); dispatch({ type: 'providers', providers }) }}
+            onDefaultProvider={async (name, model) => { const providers = await api.setDefaultProvider(name, model); dispatch({ type: 'providers', providers }) }}
+            onDiscoverProvider={async (name, apiKey) => { const models = await api.discoverProviderModels(name, apiKey); const providers = await api.providers(); dispatch({ type: 'providers', providers }); return models }}
+            onClose={() => setView('content')}
+          />
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {modal === 'help' && <CommandModal key="help" onClose={() => setModal(null)} />}
       </AnimatePresence>
