@@ -12,6 +12,7 @@ import Home from './components/Home'
 import ChatHeader from './components/ChatHeader'
 import Settings from './components/Settings'
 import WindowControls from './components/WindowControls'
+import TabBar from './components/TabBar'
 import { applyTheme, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
@@ -413,6 +414,16 @@ export default function App(): JSX.Element {
     compact: () => { if (chat && !chat.running) compact() },
     modelPicker: () => composerModelPicker.current?.(),
     toggleDebug: () => setDebugOpen((value) => !value),
+    closeTab: () => { if (chat) dispatch({ type: 'closeTab', sessionId: chat.sessionId }) },
+    switchTab1: () => { const id = state.tabOrder[0]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
+    switchTab2: () => { const id = state.tabOrder[1]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
+    switchTab3: () => { const id = state.tabOrder[2]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
+    switchTab4: () => { const id = state.tabOrder[3]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
+    switchTab5: () => { const id = state.tabOrder[4]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
+    switchTab6: () => { const id = state.tabOrder[5]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
+    switchTab7: () => { const id = state.tabOrder[6]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
+    switchTab8: () => { const id = state.tabOrder[7]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
+    switchTab9: () => { const id = state.tabOrder[8]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
     commands: () => setModal('help')
   }
 
@@ -440,13 +451,6 @@ export default function App(): JSX.Element {
   return (
     <MotionConfig reducedMotion={preferences.reducedMotion ? 'always' : 'user'}>
     <div className="app-shell flex h-screen w-full overflow-hidden">
-      {/* Titlebar strip: shell-owned and full width, so it reads as one band
-          across the sidebar and the inset panel below it. Safe to span the
-          sidebar because the sidebar's own top 36px is an empty spacer.
-
-          The app title lives here rather than inside the sidebar so that
-          collapsing the sidebar leaves it untouched — it is a property of the
-          window, not of a panel that comes and goes. */}
       <div className="drag-region fixed inset-x-0 top-0 z-[5] flex h-9 items-center pl-3.5">
         <span className="select-none truncate text-[12.5px] font-semibold tracking-tight text-foreground">
           {normalizeAppName(preferences.appName)}
@@ -470,6 +474,16 @@ export default function App(): JSX.Element {
         onArchive={archiveSession}
       />
       <main className="main-panel surface-grain relative mt-9 flex min-w-0 flex-1 flex-col overflow-hidden">
+        <TabBar
+          tabOrder={state.tabOrder}
+          chats={state.chats}
+          sessions={state.sessions}
+          activeId={state.activeId}
+          runningIds={runningIds}
+          appName={normalizeAppName(preferences.appName)}
+          onSelect={(id) => dispatch({ type: 'focusChat', sessionId: id })}
+          onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
+        />
         <AnimatePresence mode="wait">
         <motion.div
           key={chat ? `chat-${chat.sessionId}` : 'home'}

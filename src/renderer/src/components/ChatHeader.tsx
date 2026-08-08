@@ -53,16 +53,6 @@ export default function ChatHeader({
   return (
     <header className="flex h-[52px] shrink-0 items-center gap-2 px-4">
       <div className="pointer-events-none flex min-w-0 select-none items-center gap-2">
-        <span className="truncate text-[14px] font-medium text-foreground">
-          {title || project}
-        </span>
-        <span className="shrink-0 truncate text-[12.5px] text-muted-foreground">{project}</span>
-        {chat.running && (
-          <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2 py-px text-[10.5px] font-medium uppercase tracking-wider text-success-foreground">
-            <span className="size-1.5 rounded-full bg-success [animation:work-pulse_1.6s_ease-in-out_infinite]" />
-            Running
-          </span>
-        )}
       </div>
 
       <div className="no-drag relative ml-auto flex items-center gap-1">
@@ -105,8 +95,12 @@ export default function ChatHeader({
               animate="animate"
               exit="exit"
               transition={BLOOM_FAST}
-              className="absolute right-0 top-9 z-50 w-[200px] origin-top-right overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-xl shadow-black/25"
+              className="absolute right-0 top-9 z-50 w-[220px] origin-top-right overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-xl shadow-black/25"
             >
+              <div className="px-3 py-2 border-b border-border/60">
+                <div className="truncate text-[13px] font-semibold text-foreground">{title || project}</div>
+                {title && <div className="truncate text-[11px] text-muted-foreground mt-0.5">{project}</div>}
+              </div>
               <button
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-foreground transition-colors hover:bg-hover"
                 onClick={() => {

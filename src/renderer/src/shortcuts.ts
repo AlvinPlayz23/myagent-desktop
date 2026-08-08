@@ -18,6 +18,9 @@ export type ShortcutId =
   | 'modelPicker'
   | 'toggleDebug'
   | 'commands'
+  | 'closeTab'
+  | 'switchTab1' | 'switchTab2' | 'switchTab3' | 'switchTab4' | 'switchTab5'
+  | 'switchTab6' | 'switchTab7' | 'switchTab8' | 'switchTab9'
   // Composer-local shortcuts below are documented here but handled inside
   // Composer; the global listener ignores them.
   | 'send'
@@ -52,6 +55,16 @@ export const shortcuts: Shortcut[] = [
   { id: 'modelPicker', description: 'Open the model picker', combo: 'mod+m', category: 'Agent', global: true },
   { id: 'toggleDebug', description: 'Toggle the LLM debug panel', combo: 'mod+j', category: 'Panels', global: true },
   { id: 'commands', description: 'Open the commands reference', combo: 'mod+/', category: 'Panels', global: true },
+  { id: 'closeTab', description: 'Close the current tab', combo: 'mod+w', category: 'Navigation', global: true },
+  { id: 'switchTab1', description: 'Switch to tab 1', combo: 'mod+1', category: 'Navigation', global: true },
+  { id: 'switchTab2', description: 'Switch to tab 2', combo: 'mod+2', category: 'Navigation', global: true },
+  { id: 'switchTab3', description: 'Switch to tab 3', combo: 'mod+3', category: 'Navigation', global: true },
+  { id: 'switchTab4', description: 'Switch to tab 4', combo: 'mod+4', category: 'Navigation', global: true },
+  { id: 'switchTab5', description: 'Switch to tab 5', combo: 'mod+5', category: 'Navigation', global: true },
+  { id: 'switchTab6', description: 'Switch to tab 6', combo: 'mod+6', category: 'Navigation', global: true },
+  { id: 'switchTab7', description: 'Switch to tab 7', combo: 'mod+7', category: 'Navigation', global: true },
+  { id: 'switchTab8', description: 'Switch to tab 8', combo: 'mod+8', category: 'Navigation', global: true },
+  { id: 'switchTab9', description: 'Switch to tab 9', combo: 'mod+9', category: 'Navigation', global: true },
   { id: 'send', description: 'Send the message', combo: 'enter', category: 'Composer', global: false },
   { id: 'newline', description: 'Insert a new line', combo: 'shift+enter', category: 'Composer', global: false },
   { id: 'queueFollowUp', description: 'Queue a follow-up while the agent is busy', combo: 'mod+enter', category: 'Composer', global: false }

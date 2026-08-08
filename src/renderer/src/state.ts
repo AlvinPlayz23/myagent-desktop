@@ -83,6 +83,8 @@ export interface AppState {
   // activeId picks the one shown in the main pane.
   chats: Record<string, ChatState>
   activeId: string | null
+  // Ordered list of open tab session IDs (subset of chats keys).
+  tabOrder: string[]
   loading: boolean
   fatal: string | null
   // Project cwd preselected in the home screen's dropdown.
@@ -121,6 +123,7 @@ export const initialState: AppState = {
   providers: { providers: [], defaultModel: '' },
   chats: {},
   activeId: null,
+  tabOrder: [],
   loading: false,
   fatal: null,
   homeCwd: null,
@@ -513,6 +516,7 @@ export type Action =
   | { type: 'trackChat'; chat: ChatState }
   | { type: 'focusChat'; sessionId: string }
   | { type: 'closeChat' }
+  | { type: 'closeTab'; sessionId: string }
   | { type: 'loading'; value: boolean }
   | { type: 'fatal'; message: string | null }
   | { type: 'event'; sessionId: string; event: AgentEvent }
@@ -555,15 +559,36 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, sessions: action.sessions }
     case 'providers':
       return { ...state, providers: action.providers }
-    case 'openChat':
-      return { ...withChat(state, action.chat), activeId: action.chat.sessionId, loading: false }
-    case 'trackChat':
-      return withChat(state, action.chat)
-    case 'focusChat':
+    case 'openChat': {
+      const id = action.chat.sessionId
+      const tabOrder = state.tabOrder.includes(id) ? state.tabOrder : [...state.tabOrder, id]
+      return { ...withChat(state, action.chat), activeId: id, tabOrder, loading: false }
+    }
+    case 'trackChat': {
+      const id = action.chat.sessionId
+      const tabOrder = state.tabOrder.includes(id) ? state.tabOrder : [...state.tabOrder, id]
+      return { ...withChat(state, action.chat), tabOrder }
+    }
+    case 'focusChat': {
       if (!state.chats[action.sessionId]) return state
-      return { ...state, activeId: action.sessionId, loading: false }
+      const id = action.sessionId
+      const tabOrder = state.tabOrder.includes(id) ? state.tabOrder : [...state.tabOrder, id]
+      return { ...state, activeId: id, tabOrder, loading: false }
+    }
     case 'closeChat':
       return { ...state, activeId: null }
+    case 'closeTab': {
+      const id = action.sessionId
+      const newOrder = state.tabOrder.filter((t) => t !== id)
+      const newChats = { ...state.chats }
+      delete newChats[id]
+      let newActive = state.activeId
+      if (state.activeId === id) {
+        const idx = state.tabOrder.indexOf(id)
+        newActive = newOrder[idx] ?? newOrder[idx - 1] ?? null
+      }
+      return { ...state, chats: newChats, tabOrder: newOrder, activeId: newActive, loading: false }
+    }
     case 'loading':
       return { ...state, loading: action.value }
     case 'fatal':
