@@ -116,15 +116,47 @@ function CloseIcon(): JSX.Element {
   )
 }
 
+// Four arc segments of a ring, filled clockwise from 12 o'clock as effort rises.
+const ARC_PATHS = ((): string[] => {
+  const C = 7
+  const R = 4.6
+  const SPAN = 68
+  const GAP = 22
+  const point = (deg: number): string => {
+    const rad = ((deg - 90) * Math.PI) / 180
+    return `${(C + R * Math.cos(rad)).toFixed(3)} ${(C + R * Math.sin(rad)).toFixed(3)}`
+  }
+  return [0, 1, 2, 3].map((i) => {
+    const start = i * (SPAN + GAP) + GAP / 2
+    return `M ${point(start)} A ${R} ${R} 0 0 1 ${point(start + SPAN)}`
+  })
+})()
+
+const EFFORT_ARCS: Record<string, number> = {
+  Low: 1,
+  Medium: 2,
+  High: 3,
+  XHigh: 4,
+  Max: 4
+}
+
 function DynamicBarsIcon({ level }: { level: string }): JSX.Element {
-  const isMediumOrHigh = level === "Medium" || level === "High" || level === "Max" || level === "XHigh" || level === "Max Effort"
-  const isHigh = level === "High" || level === "Max" || level === "XHigh" || level === "Max Effort"
+  const filled = EFFORT_ARCS[level] ?? 0
+  const isMax = level === 'Max'
 
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <rect x="1.5" y="8" width="2.5" height="4.5" rx="1" fill="currentColor" className="transition-opacity duration-300" opacity={1} />
-      <rect x="5.75" y="5" width="2.5" height="7.5" rx="1" fill="currentColor" className="transition-opacity duration-300" opacity={isMediumOrHigh ? 1 : 0.3} />
-      <rect x="10" y="2" width="2.5" height="10.5" rx="1" fill="currentColor" className="transition-opacity duration-300" opacity={isHigh ? 1 : 0.3} />
+      {ARC_PATHS.map((d, i) => (
+        <path
+          key={d}
+          d={d}
+          stroke={isMax ? '#3b82f6' : 'currentColor'}
+          strokeWidth="1.9"
+          strokeLinecap="round"
+          className="transition-all duration-300"
+          opacity={i < filled ? 1 : 0.28}
+        />
+      ))}
     </svg>
   )
 }
