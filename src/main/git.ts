@@ -68,6 +68,18 @@ function classify(xy: string, untracked: boolean): GitFileStatus {
   return 'modified'
 }
 
+/** Index differs from HEAD (first porcelain v2 status char). */
+function isStaged(xy: string): boolean {
+  const x = xy[0] ?? ' '
+  return x !== '.' && x !== ' '
+}
+
+/** Staged, but with further unstaged edits on top — porcelain XY like `MM`. */
+function isPartial(xy: string): boolean {
+  const y = xy[1] ?? ' '
+  return isStaged(xy) && y !== '.' && y !== ' '
+}
+
 function parseAheadBehind(value: string): { ahead: number; behind: number } {
   const m = value.match(/^\+(\d+)\s+-(\d+)$/)
   if (!m) return { ahead: 0, behind: 0 }
@@ -191,7 +203,8 @@ export async function status(cwd: string): Promise<GitStatus> {
       files.push({
         path,
         status: classify(xy, false),
-        staged: (xy[0] ?? ' ') !== '.' && (xy[0] ?? ' ') !== ' ',
+        staged: isStaged(xy),
+        partial: isPartial(xy),
         insertions: (unstagedStats.get(path)?.insertions ?? 0) + (stagedStats.get(path)?.insertions ?? 0),
         deletions: (unstagedStats.get(path)?.deletions ?? 0) + (stagedStats.get(path)?.deletions ?? 0)
       })
@@ -209,7 +222,8 @@ export async function status(cwd: string): Promise<GitStatus> {
         path,
         origPath: origPath || undefined,
         status: classify(xy, false),
-        staged: (xy[0] ?? ' ') !== '.' && (xy[0] ?? ' ') !== ' ',
+        staged: isStaged(xy),
+        partial: isPartial(xy),
         insertions: (unstagedStats.get(path)?.insertions ?? 0) + (stagedStats.get(path)?.insertions ?? 0),
         deletions: (unstagedStats.get(path)?.deletions ?? 0) + (stagedStats.get(path)?.deletions ?? 0)
       })

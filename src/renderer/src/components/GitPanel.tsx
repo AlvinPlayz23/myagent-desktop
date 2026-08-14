@@ -89,13 +89,39 @@ function FileRow({
     <div className="group">
       <div
         className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-hover"
-        title={file.path}
+        title={file.partial ? `${file.path}\n(partially staged - has unstaged changes)` : file.path}
       >
         <button
           type="button"
           onClick={onToggle}
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left outline-none"
         >
+          {/* Staged marker. Only staged rows render it: alignment only has to
+              hold within a section, and a spacer on every unstaged row would
+              cost filename width in a 320px panel. FileRow is keyed on path and
+              the two lists render into different parents, so staging unmounts
+              and remounts the row -- this animation therefore doubles as
+              confirmation the click landed. A partially staged file (porcelain
+              `MM`: staged edits plus newer unstaged ones) shows a dash instead
+              of a tick, since a tick would overstate what is in the index --
+              a dash is the conventional "some but not all" signal, whereas an
+              empty circle would read as plain unchecked. */}
+          {file.staged && (
+            <motion.span
+              role="img"
+              aria-label={file.partial ? 'Partially staged' : 'Staged'}
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.16, ease: [0.2, 0, 0, 1] }}
+              className="grid size-3.5 shrink-0 place-items-center rounded-full bg-success/15 text-success"
+            >
+              {file.partial ? (
+                <span className="block h-0.5 w-[6px] rounded-full bg-current" />
+              ) : (
+                <Check size={11} />
+              )}
+            </motion.span>
+          )}
           <span className={cn('w-3 shrink-0 text-center font-mono text-[10px] font-bold', meta.tone)}>
             {meta.badge}
           </span>

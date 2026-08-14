@@ -222,6 +222,12 @@ export interface GitFileChange {
   status: GitFileStatus
   /** True when the index copy differs from HEAD. */
   staged: boolean
+  /**
+   * True when the file is staged *and* has further unstaged edits on top
+   * (porcelain XY of `MM` and friends). Such a path appears once, under
+   * Staged, so the UI needs this to avoid claiming it is fully staged.
+   */
+  partial?: boolean
   insertions: number
   deletions: number
 }
