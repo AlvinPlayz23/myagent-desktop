@@ -4,7 +4,7 @@
 export type Role = 'user' | 'assistant' | 'toolResult'
 
 // Canonical reasoning-effort levels (mirrors llm.Effort in the Go backend).
-export type ReasoningEffort = '' | 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+export type ReasoningEffort = '' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 export interface ContentBlock {
   type: 'text' | 'thinking' | 'image' | 'toolCall'
@@ -203,6 +203,72 @@ export type RpcResult<T = unknown> = { ok: true; result: T } | { ok: false; erro
  */
 export type BackdropMode = 'acrylic' | 'mica' | 'vibrancy' | 'transparent' | 'none'
 
+// ---------------------------------------------------------------------------
+// Git
+// ---------------------------------------------------------------------------
+
+export type GitFileStatus =
+  | 'modified'
+  | 'added'
+  | 'deleted'
+  | 'renamed'
+  | 'untracked'
+  | 'conflicted'
+
+export interface GitFileChange {
+  path: string
+  /** Pre-rename path, present only for renames. */
+  origPath?: string
+  status: GitFileStatus
+  /** True when the index copy differs from HEAD. */
+  staged: boolean
+  insertions: number
+  deletions: number
+}
+
+export interface GitStatus {
+  isRepo: boolean
+  branch: string | null
+  upstream: string | null
+  ahead: number
+  behind: number
+  files: GitFileChange[]
+  insertions: number
+  deletions: number
+}
+
+export interface GitBranch {
+  name: string
+  upstream: string | null
+  current: boolean
+  modified: string
+}
+
+export interface GitCommit {
+  hash: string
+  shortHash: string
+  author: string
+  date: string
+  subject: string
+}
+
+export interface GitApi {
+  status(cwd: string): Promise<RpcResult<GitStatus>>
+  diff(cwd: string, path?: string, staged?: boolean): Promise<RpcResult<string>>
+  branches(cwd: string): Promise<RpcResult<GitBranch[]>>
+  log(cwd: string, limit?: number): Promise<RpcResult<GitCommit[]>>
+  stage(cwd: string, paths: string[]): Promise<RpcResult<void>>
+  unstage(cwd: string, paths: string[]): Promise<RpcResult<void>>
+  discard(cwd: string, paths: string[]): Promise<RpcResult<void>>
+  commit(cwd: string, message: string, amend?: boolean): Promise<RpcResult<string>>
+  push(cwd: string): Promise<RpcResult<string>>
+  pull(cwd: string): Promise<RpcResult<string>>
+  fetch(cwd: string): Promise<RpcResult<string>>
+  checkout(cwd: string, branch: string): Promise<RpcResult<void>>
+  createBranch(cwd: string, name: string): Promise<RpcResult<void>>
+  init(cwd: string): Promise<RpcResult<void>>
+}
+
 // API exposed on window.myagent by the preload script.
 export interface MyagentApi {
   connect(): Promise<RpcResult<{ name: string; version: string }>>
@@ -217,4 +283,5 @@ export interface MyagentApi {
   windowMaximized(): Promise<boolean>
   onWindowMaximized(cb: (maximized: boolean) => void): () => void
   onPush(cb: (push: ServerPush) => void): () => void
+  git: GitApi
 }

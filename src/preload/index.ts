@@ -21,6 +21,22 @@ const api: MyagentApi = {
     const listener = (_e: unknown, push: ServerPush): void => cb(push)
     ipcRenderer.on('myagent:push', listener)
     return () => ipcRenderer.removeListener('myagent:push', listener)
+  },
+  git: {
+    status: (cwd) => ipcRenderer.invoke('myagent:git:status', cwd),
+    diff: (cwd, path, staged) => ipcRenderer.invoke('myagent:git:diff', cwd, path, staged),
+    branches: (cwd) => ipcRenderer.invoke('myagent:git:branches', cwd),
+    log: (cwd, limit) => ipcRenderer.invoke('myagent:git:log', cwd, limit),
+    stage: (cwd, paths) => ipcRenderer.invoke('myagent:git:stage', cwd, paths),
+    unstage: (cwd, paths) => ipcRenderer.invoke('myagent:git:unstage', cwd, paths),
+    discard: (cwd, paths) => ipcRenderer.invoke('myagent:git:discard', cwd, paths),
+    commit: (cwd, message, amend) => ipcRenderer.invoke('myagent:git:commit', cwd, message, amend),
+    push: (cwd) => ipcRenderer.invoke('myagent:git:push', cwd),
+    pull: (cwd) => ipcRenderer.invoke('myagent:git:pull', cwd),
+    fetch: (cwd) => ipcRenderer.invoke('myagent:git:fetch', cwd),
+    checkout: (cwd, branch) => ipcRenderer.invoke('myagent:git:checkout', cwd, branch),
+    createBranch: (cwd, name) => ipcRenderer.invoke('myagent:git:createBranch', cwd, name),
+    init: (cwd) => ipcRenderer.invoke('myagent:git:init', cwd)
   }
 }
 

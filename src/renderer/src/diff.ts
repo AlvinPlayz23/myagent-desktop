@@ -155,3 +155,56 @@ export function buildToolDiff(run: ToolRun): ToolDiff | null {
 
   return null
 }
+
+// parseUnifiedDiff converts `git diff` output into the same ToolDiff shape the
+// edit/write cards render, so source control reuses DiffView. Unlike
+// buildToolDiff, line numbers come from the @@ hunk headers and are real
+// file offsets. Returns null when the patch contains no hunks (binary files,
+// pure mode changes).
+export function parseUnifiedDiff(patch: string): ToolDiff | null {
+  const blocks: DiffBlock[] = []
+  let lines: DiffLine[] = []
+  let additions = 0
+  let deletions = 0
+  let oldNo = 0
+  let newNo = 0
+
+  const flush = (header?: string): void => {
+    if (lines.length > 0) blocks.push({ header, lines })
+    lines = []
+  }
+
+  let pendingHeader: string | undefined
+  for (const raw of patch.split('\n')) {
+    if (raw.startsWith('diff --git') || raw.startsWith('index ')) continue
+    if (raw.startsWith('--- ') || raw.startsWith('+++ ')) continue
+
+    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@ ?(.*)$/.exec(raw)
+    if (hunk) {
+      flush(pendingHeader)
+      oldNo = Number(hunk[1])
+      newNo = Number(hunk[2])
+      pendingHeader = hunk[3].trim() || undefined
+      continue
+    }
+
+    if (raw.startsWith('+')) {
+      lines.push({ kind: 'add', newNo, text: raw.slice(1) })
+      newNo++
+      additions++
+    } else if (raw.startsWith('-')) {
+      lines.push({ kind: 'del', oldNo, text: raw.slice(1) })
+      oldNo++
+      deletions++
+    } else if (raw.startsWith(' ') || raw === '') {
+      lines.push({ kind: 'ctx', oldNo, newNo, text: raw.slice(1) })
+      oldNo++
+      newNo++
+    }
+    // '\ No newline at end of file' and any other metadata is dropped.
+  }
+  flush(pendingHeader)
+
+  if (blocks.length === 0) return null
+  return { additions, deletions, blocks }
+}

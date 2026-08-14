@@ -1,5 +1,5 @@
 import { HugeiconsIcon, type HugeiconsIconProps } from '@hugeicons/react'
-import { Globe2, Keyboard } from 'lucide-react'
+import { Globe2, Keyboard, GitBranch, GitCommitVertical, GitPullRequestArrow, RefreshCw, Undo2, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
 import {
   Add01Icon,
   AddToListIcon,
@@ -69,6 +69,13 @@ export const Folder02 = makeIcon(Folder02Icon)
 export const FolderAdd = makeIcon(FolderAddIcon)
 export const Globe02 = Globe2
 export const Keyboard01 = Keyboard
+export const GitBranch01 = GitBranch
+export const GitCommit01 = GitCommitVertical
+export const GitPullRequest01 = GitPullRequestArrow
+export const Refresh01 = RefreshCw
+export const Undo01 = Undo2
+export const ArrowDownTray = ArrowDownToLine
+export const ArrowUpTray = ArrowUpFromLine
 export const LayoutAlignLeft = makeIcon(LayoutAlignLeftIcon)
 export const LayoutAlignRight = makeIcon(LayoutAlignRightIcon)
 export const Loading03 = makeIcon(Loading03Icon)

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Archive01, ArrowShrink01, Cpu, Edit01, MoreHorizontal } from './ui/icons'
+import { Archive01, ArrowShrink01, Cpu, Edit01, GitBranch01, MoreHorizontal } from './ui/icons'
 import type { ChatState } from '../state'
 import { BLOOM_FAST, bloomDown } from '../motion'
 import { baseName, cn } from '../util'
@@ -15,6 +15,8 @@ interface Props {
   onToggleDebug(): void
   // debug-panel: whether the drawer is currently open (drives the toggle's active state)
   debugOpen: boolean
+  onToggleGit(): void
+  gitOpen: boolean
 }
 
 export default function ChatHeader({
@@ -24,7 +26,9 @@ export default function ChatHeader({
   onRename,
   onArchive,
   onToggleDebug,
-  debugOpen
+  debugOpen,
+  onToggleGit,
+  gitOpen
 }: Props): JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -56,6 +60,19 @@ export default function ChatHeader({
       </div>
 
       <div className="no-drag relative ml-auto flex items-center gap-1">
+        <button
+          className={cn(
+            'grid size-8 place-items-center rounded-full transition-colors',
+            gitOpen
+              ? 'bg-selected text-foreground'
+              : 'text-muted-foreground hover:bg-hover hover:text-foreground'
+          )}
+          title={gitOpen ? 'Close source control' : 'Open source control'}
+          aria-pressed={gitOpen}
+          onClick={onToggleGit}
+        >
+          <GitBranch01 size={15} strokeWidth={1.8} />
+        </button>
         {/* debug-panel: toggle button for the LLM debug drawer (also closes it) */}
         <button
           className={cn(

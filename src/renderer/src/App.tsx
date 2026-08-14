@@ -13,6 +13,7 @@ import ChatHeader from './components/ChatHeader'
 import Settings from './components/Settings'
 import WindowControls from './components/WindowControls'
 import TabBar from './components/TabBar'
+import GitPanel from './components/GitPanel'
 import { applyTheme, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
@@ -29,6 +30,7 @@ export default function App(): JSX.Element {
   const [view, setView] = useState<'content' | 'settings'>('content')
   // debug-panel: drawer open/closed state
   const [debugOpen, setDebugOpen] = useState(false)
+  const [gitOpen, setGitOpen] = useState(false)
   const [preferences, setPreferences] = useState<Preferences>(loadPreferences)
   const [queuedFollowUps, setQueuedFollowUps] = useState<{ id: string; sessionId: string; content: ContentBlock[]; label: string }[]>([])
   const [homeNotice, setHomeNotice] = useState<string | null>(null)
@@ -473,7 +475,8 @@ export default function App(): JSX.Element {
         onRename={renameSession}
         onArchive={archiveSession}
       />
-      <main className="main-panel surface-grain relative mt-9 flex min-w-0 flex-1 flex-col overflow-hidden">
+      <main className="main-panel surface-grain relative mt-9 flex min-w-0 flex-1 overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TabBar
           tabOrder={state.tabOrder}
           chats={state.chats}
@@ -506,6 +509,8 @@ export default function App(): JSX.Element {
               onArchive={() => archiveSession(chat.sessionId)}
               onToggleDebug={() => setDebugOpen((v) => !v)}
               debugOpen={debugOpen}
+              onToggleGit={() => setGitOpen((v) => !v)}
+              gitOpen={gitOpen}
             />
             <Chat key={chat.sessionId} chat={chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} />
             <div className="shrink-0 px-4 pb-4 pt-2 sm:px-7">
@@ -554,6 +559,30 @@ export default function App(): JSX.Element {
           version={state.serverVersion}
           chat={chat}
         />
+        </div>
+
+        <AnimatePresence initial={false}>
+          {gitOpen && (
+            <motion.aside
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
+              className="shrink-0 overflow-hidden border-l border-border/60 bg-card/40"
+            >
+              <div className="h-full w-[320px]">
+                {/* Keyed on cwd so switching to a different project remounts
+                    the panel: fresh status, fresh poll timer, and no chance of
+                    the previous repo's in-flight reply landing here. */}
+                <GitPanel
+                  key={chat?.cwd ?? 'none'}
+                  cwd={chat?.cwd ?? null}
+                  onClose={() => setGitOpen(false)}
+                />
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
       </main>
       <WindowControls />
       <AnimatePresence>

@@ -4,6 +4,7 @@ import { release } from 'os'
 import { startServer, SpawnedServer } from './server'
 import { RpcClient } from './rpc'
 import type { AgentEvent, BackdropMode, RpcResult, ServerPush } from '../shared/protocol'
+import * as git from './git'
 
 let win: BrowserWindow | null = null
 let server: SpawnedServer | null = null
@@ -293,6 +294,41 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('myagent:backdrop', (): BackdropMode => backdrop)
+
+  // Every git handler funnels through one wrapper so a failed command comes
+  // back as { ok: false } with git's own stderr instead of an unhandled reject.
+  const gitHandle = <A extends unknown[], T>(
+    channel: string,
+    fn: (...args: A) => Promise<T>
+  ): void => {
+    ipcMain.handle(channel, async (_e, ...args: A): Promise<RpcResult<T>> => {
+      try {
+        return { ok: true, result: await fn(...args) }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return { ok: false, error: { code: -32001, message } }
+      }
+    })
+  }
+
+  gitHandle('myagent:git:status', (cwd: string) => git.status(cwd))
+  gitHandle('myagent:git:diff', (cwd: string, path?: string, staged?: boolean) =>
+    git.diff(cwd, path, staged)
+  )
+  gitHandle('myagent:git:branches', (cwd: string) => git.branches(cwd))
+  gitHandle('myagent:git:log', (cwd: string, limit?: number) => git.log(cwd, limit))
+  gitHandle('myagent:git:stage', (cwd: string, paths: string[]) => git.stage(cwd, paths))
+  gitHandle('myagent:git:unstage', (cwd: string, paths: string[]) => git.unstage(cwd, paths))
+  gitHandle('myagent:git:discard', (cwd: string, paths: string[]) => git.discard(cwd, paths))
+  gitHandle('myagent:git:commit', (cwd: string, message: string, amend?: boolean) =>
+    git.commit(cwd, message, amend)
+  )
+  gitHandle('myagent:git:push', (cwd: string) => git.push(cwd))
+  gitHandle('myagent:git:pull', (cwd: string) => git.pull(cwd))
+  gitHandle('myagent:git:fetch', (cwd: string) => git.fetch(cwd))
+  gitHandle('myagent:git:checkout', (cwd: string, branch: string) => git.checkout(cwd, branch))
+  gitHandle('myagent:git:createBranch', (cwd: string, name: string) => git.createBranch(cwd, name))
+  gitHandle('myagent:git:init', (cwd: string) => git.init(cwd))
 
   ipcMain.handle('myagent:window:minimize', () => win?.minimize())
   ipcMain.handle('myagent:window:toggleMaximize', () => {

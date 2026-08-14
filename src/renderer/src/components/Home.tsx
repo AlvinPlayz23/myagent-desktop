@@ -160,7 +160,7 @@ export default function Home({
                 const detail = providers.providers
                   .find((entry) => entry.name === provider)
                   ?.modelDetails?.find((item) => item.id === modelID)
-                const effectiveEffort = detail?.reasoningKnown && !detail.reasoning ? 'off' : effort
+                const effectiveEffort = detail?.reasoningKnown && !detail.reasoning ? '' : effort
                 return onSend(content, model || undefined, effectiveEffort)
               }}
               onStop={() => {}}
@@ -174,7 +174,7 @@ export default function Home({
                 const detail = providers.providers
                   .find((entry) => entry.name === provider)
                   ?.modelDetails?.find((item) => item.id === selectedModel)
-                if (detail?.reasoningKnown && !detail.reasoning) setEffort('off')
+                if (detail?.reasoningKnown && !detail.reasoning) setEffort('')
               }}
               effort={effort}
               onSetEffort={setEffort}

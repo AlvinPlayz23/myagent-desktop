@@ -4,6 +4,11 @@ import { existsSync } from 'fs'
 import { join, resolve } from 'path'
 import { app } from 'electron'
 
+// Cap on the startup log buffers. They exist only to explain a failed launch,
+// so a few KB is plenty; without a bound a chatty server grows them for the
+// entire lifetime of the app.
+const LOG_TAIL = 16 * 1024
+
 export interface SpawnedServer {
   url: string
   token: string
@@ -63,15 +68,20 @@ export function startServer(): Promise<SpawnedServer> {
     }
 
     proc.stdout?.on('data', (chunk: Buffer) => {
+      if (settled) return // startup line already seen; don't retain server logs
       stdout += chunk.toString()
       const m = stdout.match(/connect:\s+(ws:\/\/\S+)/)
-      if (m && !settled) {
+      if (m) {
         settled = true
         clearTimeout(timer)
         resolvePromise({ url: m[1], token, stop })
       }
     })
     proc.stderr?.on('data', (chunk: Buffer) => {
+      // Same as stdout: the buffer exists purely to explain a startup failure,
+      // so stop appending once startup settled. The length cap bounds the
+      // pre-settle window, where a chatty server could otherwise grow it.
+      if (settled || stderr.length >= LOG_TAIL) return
       stderr += chunk.toString()
     })
     proc.on('error', (err) => {

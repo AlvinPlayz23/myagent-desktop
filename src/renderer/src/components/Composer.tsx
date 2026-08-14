@@ -363,8 +363,6 @@ function AttachmentGalleryModal({
 
 const EFFORTS: { label: string; value: ReasoningEffort }[] = [
   { label: 'Default', value: '' },
-  { label: 'Off', value: 'off' },
-  { label: 'Minimal', value: 'minimal' },
   { label: 'Low', value: 'low' },
   { label: 'Medium', value: 'medium' },
   { label: 'High', value: 'high' },
@@ -563,12 +561,12 @@ export default function Composer({
   const activeProviderLabel = model?.includes('/') ? model.split('/', 1)[0] : null
   const shortModel = model?.includes('/') ? model.slice(model.indexOf('/') + 1) : model
 
-  const effortLockedOff = useMemo(() => {
+  const effortUnsupported = useMemo(() => {
     const entry = providers?.providers.find((p) => p.name === activeProviderLabel)
     const detail = entry?.modelDetails?.find((d) => d.id === shortModel)
     return detail != null && detail.reasoningKnown && !detail.reasoning
   }, [providers, activeProviderLabel, shortModel])
-  const currentEffort = effortLockedOff ? 'off' : effort
+  const currentEffort = effortUnsupported ? '' : effort
   const currentEffortLabel = EFFORTS.find((item) => item.value === currentEffort)?.label ?? 'Default'
 
   const cycleProvider = (step: number): void => {
@@ -1123,7 +1121,7 @@ export default function Composer({
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
-                  disabled={effortLockedOff || !onSetEffort}
+                  disabled={effortUnsupported || !onSetEffort}
                   onClick={() => {
                     const index = EFFORTS.findIndex((item) => item.value === currentEffort)
                     const next = EFFORTS[(index + 1) % EFFORTS.length]
@@ -1138,7 +1136,7 @@ export default function Composer({
                     effortMenuOpen && 'chip-active'
                   )}
                   title={
-                    effortLockedOff
+                    effortUnsupported
                       ? 'This model does not support reasoning'
                       : 'Reasoning effort (right-click to pick)'
                   }
@@ -1152,7 +1150,7 @@ export default function Composer({
                 </button>
 
                 <AnimatePresence>
-                  {effortMenuOpen && !effortLockedOff && (
+                  {effortMenuOpen && !effortUnsupported && (
                     <motion.div
                       style={{ transformOrigin: 'bottom left' }}
                       className="absolute bottom-full left-0 z-50 mb-2.5 flex max-w-[260px] items-center gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1 shadow-lg"
