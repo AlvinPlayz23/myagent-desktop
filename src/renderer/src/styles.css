@@ -24,6 +24,7 @@
 
   --color-warning-foreground: var(--warning-foreground);
   --color-warning: var(--warning);
+  --color-busy: var(--busy);
   --color-code: var(--code);
   --color-selected: var(--selected);
   --color-hover: var(--hover);
@@ -140,6 +141,9 @@
   --success-foreground: #059669;
   --warning: #f59e0b;
   --warning-foreground: #d97706;
+  /* "A run is live." Pink rather than amber: running is routine, not a
+     warning, and the harsh yellow read as one. */
+  --busy: #db2777;
 }
 
 /* Sharp neutral dark mode — near-black surfaces, glass-border shadows, no warm hues. */
@@ -181,6 +185,7 @@
   --success-foreground: #6ee7b7;
   --warning: #fbbf24;
   --warning-foreground: #fcd34d;
+  --busy: #f472b6;
 }
 
 @layer base {

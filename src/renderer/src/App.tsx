@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { bloomPanel } from './motion'
 import { api, ApiError } from './api'
 import { activeChat, contentMatches, contentText, initialState, loadHistory, newChat, reducer } from './state'
+import { createStreamCoalescer } from './streamCoalescer'
 import { baseName } from './util'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
@@ -73,12 +74,12 @@ export default function App(): JSX.Element {
   // this variable controls how strongly our shell is painted over it.
   useEffect(() => {
     const transparency = normalizeTransparency(preferences.transparency)
-    const opacity = 0.94 - transparency / 100 * 0.56
+    const opacity = preferences.transparencyEnabled ? 0.94 - transparency / 100 * 0.56 : 1
     document.documentElement.style.setProperty('--shell-opacity', opacity.toFixed(3))
     // Windows 10 needs a native DWM call for actual desktop blur. Other hosts
     // ignore this renderer-to-main update and keep their native material.
-    void window.myagent.setTransparency(transparency)
-  }, [preferences.transparency])
+    void window.myagent.setTransparency(preferences.transparencyEnabled ? transparency : 0)
+  }, [preferences.transparency, preferences.transparencyEnabled])
 
   // How the window blends with the desktop is fixed for the process lifetime —
   // resolve it once and hand it to CSS, which owns every visual consequence.
@@ -135,6 +136,10 @@ export default function App(): JSX.Element {
   }, [refreshSessions])
 
   useEffect(() => {
+    const coalescer = createStreamCoalescer({
+      emit: (sessionId, event) => dispatch({ type: 'event', sessionId, event }),
+      isActive: (sessionId) => sessionId === activeSession.current
+    })
     const off = api.onPush((push) => {
       switch (push.kind) {
         case 'hello':
@@ -170,17 +175,21 @@ export default function App(): JSX.Element {
               return next
             })
           }
-          dispatch({ type: 'event', sessionId: push.sessionId, event: push.event })
+          coalescer.push(push.sessionId, push.event)
           break
         case 'done':
           setQueuedFollowUps((current) => current.filter((pending) => pending.sessionId !== push.sessionId))
+          coalescer.drop(push.sessionId)
           dispatch({ type: 'done', sessionId: push.sessionId, error: push.error })
           refreshSessions()
           break
       }
     })
     bootstrap()
-    return off
+    return () => {
+      off()
+      coalescer.dispose()
+    }
   }, [bootstrap, refreshSessions])
 
   const openSession = useCallback(async (id: string) => {
@@ -246,6 +255,10 @@ export default function App(): JSX.Element {
   }, [])
 
   const selectHomeCwd = useCallback((cwd: string) => dispatch({ type: 'home', cwd }), [])
+
+  const toggleSidebar = useCallback(() => setSidebarCollapsed((value) => !value), [])
+  const toggleSettings = useCallback(() => setView((v) => (v === 'settings' ? 'content' : 'settings')), [])
+  const openSettings = useCallback(() => setView('settings'), [])
 
   // Home composer: create a session in the selected project, then prompt.
   const homeSend = useCallback(
@@ -398,10 +411,24 @@ export default function App(): JSX.Element {
     [sessionPreferences, state.sessions]
   )
 
-  const runningIds = useMemo(
-    () => new Set(Object.values(state.chats).filter((c) => c.running).map((c) => c.sessionId)),
+  const archivedSessionIds = useMemo(
+    () => new Set(archivedSessions.map((session) => session.id)),
+    [archivedSessions]
+  )
+
+  // Keyed through a string so the Set keeps its identity while chats churn on
+  // every streaming event; memoized panes (Sidebar, TabBar) then skip
+  // re-rendering for deltas that do not change which sessions are running.
+  const runningKey = useMemo(
+    () =>
+      Object.values(state.chats)
+        .filter((c) => c.running)
+        .map((c) => c.sessionId)
+        .sort()
+        .join(','),
     [state.chats]
   )
+  const runningIds = useMemo(() => new Set(runningKey ? runningKey.split(',') : []), [runningKey])
 
   // Map each global shortcut id to the callback that should run. Held in a ref
   // so the keydown listener (subscribed once) always calls the latest closures
@@ -409,8 +436,8 @@ export default function App(): JSX.Element {
   const shortcutsRef = useRef<Partial<Record<ShortcutId, (() => void) | null>>>({})
   shortcutsRef.current = {
     newTask: goHome,
-    toggleSidebar: () => setSidebarCollapsed((value) => !value),
-    openSettings: () => setView('settings'),
+    toggleSidebar,
+    openSettings,
     focusComposer: () => composerFocus.current?.(),
     stop: () => { if (chat?.running) stop() },
     compact: () => { if (chat && !chat.running) compact() },
@@ -468,10 +495,10 @@ export default function App(): JSX.Element {
         onAddProject={addProject}
         onHome={goHome}
         collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((value) => !value)}
+        onToggle={toggleSidebar}
         settingsOpen={view === 'settings'}
-        onSettings={() => setView((v) => (v === 'settings' ? 'content' : 'settings'))}
-        archivedSessionIds={new Set(archivedSessions.map((session) => session.id))}
+        onSettings={toggleSettings}
+        archivedSessionIds={archivedSessionIds}
         onRename={renameSession}
         onArchive={archiveSession}
       />
@@ -539,6 +566,7 @@ export default function App(): JSX.Element {
             fatal={state.fatal}
             projects={projectList}
             selected={state.homeCwd}
+            appName={normalizeAppName(preferences.appName)}
             onSelect={selectHomeCwd}
             onAddProject={addProject}
             onSend={homeSend}

@@ -13,6 +13,7 @@ interface Props {
   fatal: string | null
   projects: { cwd: string; name: string }[]
   selected: string | null
+  appName: string
   onSelect(cwd: string): void
   onAddProject(): void
   onSend(content: ContentBlock[], model?: string, effort?: ReasoningEffort): Promise<void>
@@ -29,6 +30,7 @@ export default function Home({
   fatal,
   projects,
   selected,
+  appName,
   onSelect,
   onAddProject,
   onSend,
@@ -57,9 +59,6 @@ export default function Home({
   return (
     <div className="drag-region flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6">
       <div className="no-drag flex w-full max-w-2xl flex-col items-center gap-3 pb-16">
-        <div className="flex items-center text-[30px] font-semibold tracking-tight text-foreground">
-          What do you want to work on?
-        </div>
         {fatal ? (
           <div className="flex w-full max-w-xl flex-col items-center gap-4">
             <pre className="max-h-48 w-full overflow-auto rounded-xl border border-destructive/30 bg-destructive/8 p-4 font-mono text-[12px] leading-relaxed text-destructive-foreground">
@@ -87,18 +86,22 @@ export default function Home({
           </Button>
         ) : (
           <div className="flex w-full flex-col gap-3">
-            <div className="relative self-center" ref={pop}>
-              <button
-                className="flex h-9 max-w-[280px] items-center gap-2 rounded-full border border-border bg-elevated px-4 shadow-xs transition-colors hover:border-input hover:bg-hover"
-                onClick={() => setOpen(!open)}
-                title={current?.cwd}
-              >
-                <Folder01 size={14} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
-                <span className="truncate text-[13px] font-medium text-foreground">
-                  {current?.name ?? 'project'}
-                </span>
-                <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
-              </button>
+            <div className="flex items-center justify-between gap-4 px-5">
+              <div className="min-w-0 truncate text-[17px] font-semibold tracking-[-0.025em] text-foreground">
+                {appName}
+              </div>
+              <div className="relative shrink-0" ref={pop}>
+                <button
+                  className="flex h-8 max-w-[280px] items-center gap-2 rounded-full border border-border bg-elevated px-3.5 shadow-xs transition-colors hover:border-input hover:bg-hover"
+                  onClick={() => setOpen(!open)}
+                  title={current?.cwd}
+                >
+                  <Folder01 size={14} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
+                  <span className="truncate text-[13px] font-medium text-foreground">
+                    {current?.name ?? 'project'}
+                  </span>
+                  <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
+                </button>
 
               <AnimatePresence>
                 {open && (
@@ -148,6 +151,7 @@ export default function Home({
                   </motion.div>
                 )}
               </AnimatePresence>
+              </div>
             </div>
 
             <Composer

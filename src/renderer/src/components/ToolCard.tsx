@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   ComputerTerminal,
@@ -48,7 +48,7 @@ function resultText(run: ToolRun): string {
 
 const MAX_PREVIEW = 5000
 
-export default function ToolCard({ run }: { run: ToolRun }): JSX.Element {
+function ToolCard({ run }: { run: ToolRun }): JSX.Element {
   const [open, setOpen] = useState(false)
   const [full, setFull] = useState(false)
   const Icon = ICONS[run.name] ?? Wrench01
@@ -167,3 +167,5 @@ export default function ToolCard({ run }: { run: ToolRun }): JSX.Element {
     </div>
   )
 }
+
+export default memo(ToolCard)

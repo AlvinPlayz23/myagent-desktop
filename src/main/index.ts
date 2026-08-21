@@ -13,6 +13,7 @@ let hello: { name: string; version: string; protocol: number } | null = null
 let connecting: Promise<RpcResult<{ name: string; version: string }>> | null = null
 let appTheme: 'light' | 'dark' | null = null
 let transparency = 50
+let transparencyEnabled = true
 
 function push(p: ServerPush): void {
   win?.webContents.send('myagent:push', p)
@@ -105,6 +106,7 @@ function chromeColor(): string {
 }
 
 function shellOpacity(): number {
+  if (!transparencyEnabled) return 1
   return 0.94 - Math.min(100, Math.max(0, transparency)) / 100 * 0.56
 }
 
@@ -289,7 +291,8 @@ app.whenReady().then(() => {
     applyWindows10Acrylic()
   })
   ipcMain.handle('myagent:setTransparency', (_e, value: number) => {
-    transparency = Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 50
+    transparencyEnabled = Number.isFinite(value) && value > 0
+    transparency = transparencyEnabled ? Math.min(100, Math.max(0, value)) : 0
     applyWindows10Acrylic()
   })
 

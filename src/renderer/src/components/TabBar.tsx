@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { cn } from '../util'
 import type { SessionMeta } from '../../../shared/protocol'
 import type { ChatState } from '../state'
@@ -57,7 +58,7 @@ interface Props {
   onClose(id: string): void
 }
 
-export default function TabBar({
+function TabBar({
   tabOrder,
   chats,
   sessions,
@@ -91,3 +92,19 @@ export default function TabBar({
     </div>
   )
 }
+
+// chats changes identity on every streaming event; only the cwd of each
+// tabbed session is read (label fallback), so compare just that instead of
+// the map itself. With stable runningIds this keeps the tab strip idle while
+// a background or foreground session streams.
+export default memo(
+  TabBar,
+  (prev, next) =>
+    prev.activeId === next.activeId &&
+    prev.appName === next.appName &&
+    prev.runningIds === next.runningIds &&
+    prev.sessions === next.sessions &&
+    prev.tabOrder.length === next.tabOrder.length &&
+    prev.tabOrder.every((id, i) => id === next.tabOrder[i]) &&
+    prev.tabOrder.every((id) => prev.chats[id]?.cwd === next.chats[id]?.cwd)
+)

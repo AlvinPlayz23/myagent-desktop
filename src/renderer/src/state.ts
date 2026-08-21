@@ -581,7 +581,19 @@ export function reducer(state: AppState, action: Action): AppState {
       const id = action.sessionId
       const newOrder = state.tabOrder.filter((t) => t !== id)
       const newChats = { ...state.chats }
-      delete newChats[id]
+      // A LIVE run survives its tab. Deleting the chat unconditionally dropped
+      // it from `chats`, and with it from `runningIds` — so closing the tab of
+      // a running session (⌘W) orphaned the run: the agent kept working
+      // server-side while nothing in the UI tracked it, and every remaining
+      // `event`/`done` push for it was silently discarded, because both of
+      // those cases bail when the chat is missing.
+      //
+      // Closing a tab is a VIEW action, not an abort (`stop` is the abort).
+      // So a running chat stays tracked, just untabbed: it keeps folding
+      // events, still reports through `runningIds`, and `focusChat` can
+      // re-attach a tab for it straight from the sidebar. `done` reaps it once
+      // the run actually ends.
+      if (!newChats[id]?.running) delete newChats[id]
       let newActive = state.activeId
       if (state.activeId === id) {
         const idx = state.tabOrder.indexOf(id)
@@ -601,6 +613,21 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'done': {
       const chat = state.chats[action.sessionId]
       if (!chat) return state
+      // Reap a DETACHED run: `closeTab` kept this chat tracked only so the run
+      // could finish and report. With no tab left there is nothing to render
+      // it, and the transcript is on disk (re-openable from the sidebar), so
+      // holding it would just grow `chats` for the life of the process.
+      //
+      // NOTE: this path deliberately drops the run's outcome, so a detached
+      // run that FAILED currently resolves to nothing visible. This branch is
+      // the hook for the planned unseen marker: record `done` vs `error` for
+      // `action.sessionId` here (App.tsx already calls `refreshSessions()` on
+      // the same push, so the sidebar re-sorts either way).
+      if (!state.tabOrder.includes(action.sessionId)) {
+        const remaining = { ...state.chats }
+        delete remaining[action.sessionId]
+        return { ...state, chats: remaining }
+      }
       const aborted = action.error?.toLowerCase().includes('abort')
       const err = action.error?.toLowerCase() ?? ''
       // Map raw backend errors to friendly user-facing wording. Go's
