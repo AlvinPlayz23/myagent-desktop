@@ -377,6 +377,13 @@ export default function Settings({
                 </SettingsSection>
 
                 <SettingsSection title="Window & Interface">
+                  <ToggleRow
+                    checked={preferences.transparencyEnabled}
+                    title="Desktop transparency"
+                    detail="Show the desktop material through the app window. Turn this off for a solid, lower-compositing surface."
+                    onChange={(transparencyEnabled) => onChange({ transparencyEnabled })}
+                  />
+
                   <SettingsRow
                     title="Window transparency"
                     description="Adjust desktop backdrop blending intensity for acrylic and mica materials."
@@ -391,6 +398,7 @@ export default function Settings({
                         max="100"
                         step="1"
                         value={preferences.transparency}
+                        disabled={!preferences.transparencyEnabled}
                         onChange={(event) => onChange({ transparency: Number(event.target.value) })}
                         className="transparency-slider min-w-0 flex-1"
                       />

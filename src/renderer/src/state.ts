@@ -55,6 +55,10 @@ export interface ChatState {
   streaming: Message | null
   toolRuns: Record<string, ToolRun>
   running: boolean
+  // A prompt was dispatched but `agent_start` has not arrived yet, so `running`
+  // still reads false. Closing the tab in that window must not drop the chat,
+  // or every later stream event and the final `done` hit missing-chat guards.
+  awaitingStart: boolean
   notice: string | null
   cost: number
   lastTokens: number
@@ -249,6 +253,7 @@ export function newChat(sessionId: string, cwd: string, model: string, effort: R
     streaming: null,
     toolRuns: {},
     running: false,
+    awaitingStart: false,
     notice: null,
     cost: 0,
     lastTokens: 0,
@@ -313,6 +318,7 @@ export function loadHistory(chat: ChatState, messages: Message[]): ChatState {
     lastTokens,
     streaming: null,
     pendingUsers: [],
+    awaitingStart: false,
     streamStartedAt: null,
     thinkingSpans: {}
   }
@@ -325,6 +331,7 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
       return {
         ...chat,
         running: true,
+        awaitingStart: false,
         notice: null,
         items: [
           ...chat.items,
@@ -334,7 +341,7 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
     }
 
     case 'agent_end':
-      return finishTurn({ ...chat, running: false, streaming: null })
+      return finishTurn({ ...chat, running: false, awaitingStart: false, streaming: null })
 
     case 'retry':
       return {
@@ -548,7 +555,7 @@ export function reducer(state: AppState, action: Action): AppState {
           ...state,
           conn: action.state,
           connDetail: action.detail,
-          chats: active ? { [active.sessionId]: { ...active, running: false, streaming: null } } : {}
+          chats: active ? { [active.sessionId]: { ...active, running: false, awaitingStart: false, streaming: null } } : {}
         }
       }
       return { ...state, conn: action.state, connDetail: action.detail }
@@ -581,7 +588,23 @@ export function reducer(state: AppState, action: Action): AppState {
       const id = action.sessionId
       const newOrder = state.tabOrder.filter((t) => t !== id)
       const newChats = { ...state.chats }
-      delete newChats[id]
+      // A LIVE run survives its tab. Deleting the chat unconditionally dropped
+      // it from `chats`, and with it from `runningIds` — so closing the tab of
+      // a running session (⌘W) orphaned the run: the agent kept working
+      // server-side while nothing in the UI tracked it, and every remaining
+      // `event`/`done` push for it was silently discarded, because both of
+      // those cases bail when the chat is missing.
+      //
+      // Closing a tab is a VIEW action, not an abort (`stop` is the abort).
+      // So a running chat stays tracked, just untabbed: it keeps folding
+      // events, still reports through `runningIds`, and `focusChat` can
+      // re-attach a tab for it straight from the sidebar. `done` reaps it once
+      // the run actually ends.
+      //
+      // The same protection covers the prompt-in-flight window: after
+      // `localUser` but before `agent_start`, `running` still reads false, so
+      // `awaitingStart` carries the "a request is out" signal instead.
+      if (!newChats[id]?.running && !newChats[id]?.awaitingStart) delete newChats[id]
       let newActive = state.activeId
       if (state.activeId === id) {
         const idx = state.tabOrder.indexOf(id)
@@ -601,6 +624,21 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'done': {
       const chat = state.chats[action.sessionId]
       if (!chat) return state
+      // Reap a DETACHED run: `closeTab` kept this chat tracked only so the run
+      // could finish and report. With no tab left there is nothing to render
+      // it, and the transcript is on disk (re-openable from the sidebar), so
+      // holding it would just grow `chats` for the life of the process.
+      //
+      // NOTE: this path deliberately drops the run's outcome, so a detached
+      // run that FAILED currently resolves to nothing visible. This branch is
+      // the hook for the planned unseen marker: record `done` vs `error` for
+      // `action.sessionId` here (App.tsx already calls `refreshSessions()` on
+      // the same push, so the sidebar re-sorts either way).
+      if (!state.tabOrder.includes(action.sessionId)) {
+        const remaining = { ...state.chats }
+        delete remaining[action.sessionId]
+        return { ...state, chats: remaining }
+      }
       const aborted = action.error?.toLowerCase().includes('abort')
       const err = action.error?.toLowerCase() ?? ''
       // Map raw backend errors to friendly user-facing wording. Go's
@@ -616,6 +654,7 @@ export function reducer(state: AppState, action: Action): AppState {
       return withChat(state, {
         ...chat,
         running: false,
+        awaitingStart: false,
         streaming: null,
         notice: friendly,
         items: finishTurn(chat).items
@@ -633,16 +672,21 @@ export function reducer(state: AppState, action: Action): AppState {
         ...chat,
         items: [...chat.items, { kind: 'msg', msg, localId: action.localId }],
         pendingUsers: [...chat.pendingUsers, { id: action.localId }],
+        awaitingStart: true,
         notice: null
       })
     }
     case 'rollbackLocalUser': {
       const chat = state.chats[action.sessionId]
       if (!chat) return state
+      // Another prompt may still be in flight: the flag must track the
+      // surviving pending entries, not just this rollback.
+      const pendingUsers = chat.pendingUsers.filter((pending) => pending.id !== action.localId)
       return withChat(state, {
         ...chat,
         items: chat.items.filter((item) => item.kind !== 'msg' || item.localId !== action.localId),
-        pendingUsers: chat.pendingUsers.filter((pending) => pending.id !== action.localId)
+        pendingUsers,
+        awaitingStart: pendingUsers.length > 0
       })
     }
     case 'model': {

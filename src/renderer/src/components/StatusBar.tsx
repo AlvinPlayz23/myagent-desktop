@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { motion } from 'motion/react'
 import type { ChatState, ConnState } from '../state'
 import { cn } from '../util'
@@ -23,7 +24,7 @@ const DOT: Record<ConnState, string> = {
   disconnected: 'bg-destructive'
 }
 
-export default function StatusBar({ conn, detail, version, chat }: Props): JSX.Element {
+function StatusBar({ conn, detail, version, chat }: Props): JSX.Element {
   return (
     <footer className="flex h-7 shrink-0 items-center gap-2.5 px-4 text-[11px] text-muted-foreground">
       <motion.span
@@ -61,3 +62,18 @@ export default function StatusBar({ conn, detail, version, chat }: Props): JSX.E
     </footer>
   )
 }
+
+// The active ChatState gets a new identity on every streaming event, but the
+// status bar only reads running/lastTokens/cost, which move on message
+// boundaries — not per delta. Comparing those fields keeps the footer idle
+// while text streams.
+export default memo(
+  StatusBar,
+  (prev, next) =>
+    prev.conn === next.conn &&
+    prev.detail === next.detail &&
+    prev.version === next.version &&
+    prev.chat?.running === next.chat?.running &&
+    prev.chat?.lastTokens === next.chat?.lastTokens &&
+    prev.chat?.cost === next.chat?.cost
+)

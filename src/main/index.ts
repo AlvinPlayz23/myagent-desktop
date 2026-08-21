@@ -13,6 +13,7 @@ let hello: { name: string; version: string; protocol: number } | null = null
 let connecting: Promise<RpcResult<{ name: string; version: string }>> | null = null
 let appTheme: 'light' | 'dark' | null = null
 let transparency = 50
+let transparencyEnabled = true
 
 function push(p: ServerPush): void {
   win?.webContents.send('myagent:push', p)
@@ -105,6 +106,7 @@ function chromeColor(): string {
 }
 
 function shellOpacity(): number {
+  if (!transparencyEnabled) return 1
   return 0.94 - Math.min(100, Math.max(0, transparency)) / 100 * 0.56
 }
 
@@ -160,6 +162,23 @@ function applyWindows10Acrylic(): void {
     if (!win || win.isDestroyed()) return
     const apply = bindComposition()
     if (!apply) return
+
+    // State 0 is ACCENT_DISABLED. Transparency off — or the slider parked on
+    // Solid — must clear whatever policy an earlier call latched, not stack an
+    // opaque blur layer over the desktop.
+    if (!transparencyEnabled || transparency <= 0) {
+      try {
+        const ok = apply(nativeHandle(win), {
+          Attribute: 19,
+          DataPointer: { State: 0, Flags: 0, Color: 0, Animation: 0 },
+          Size: 16
+        })
+        if (!ok) console.warn('Windows 10 blur clear rejected by DWM; material may linger')
+      } catch {
+        // Nothing to recover: the window just keeps its previous material.
+      }
+      return
+    }
 
     const dark = appTheme === 'dark' || (appTheme === null && nativeTheme.shouldUseDarkColors)
     // Matches the --shell-rgb tokens in the renderer's styles.css.
@@ -288,8 +307,11 @@ app.whenReady().then(() => {
     if (backdrop === 'none') win?.setBackgroundColor(chromeColor())
     applyWindows10Acrylic()
   })
-  ipcMain.handle('myagent:setTransparency', (_e, value: number) => {
-    transparency = Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 50
+  ipcMain.handle('myagent:setTransparency', (_e, enabled: boolean, value: number) => {
+    // The toggle and the slider travel separately: a zero slider with the
+    // toggle on is Solid, not "off", and must not be inferred from the value.
+    transparencyEnabled = enabled !== false && Number.isFinite(value) && value > 0
+    transparency = transparencyEnabled ? Math.min(100, Math.max(0, value)) : 0
     applyWindows10Acrylic()
   })
 

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { Message } from '../../../shared/protocol'
 import Markdown from './Markdown'
 import Thinking from './Thinking'
@@ -27,7 +28,7 @@ interface Props {
   copyable?: boolean
 }
 
-export default function MessageView({ msg, streaming, messageSize = 'default', showThinking = true, thinkingDurations, copyable = false }: Props): JSX.Element | null {
+function MessageView({ msg, streaming, messageSize = 'default', showThinking = true, thinkingDurations, copyable = false }: Props): JSX.Element | null {
   const messageClass = messageSize === 'compact' ? 'text-[12px]' : messageSize === 'large' ? 'text-[15px]' : 'text-[13.5px]'
   if (msg.role === 'user') {
     const text = msg.content.filter((block) => block.type === 'text').map((block) => block.text ?? '').join('')
@@ -81,6 +82,17 @@ export default function MessageView({ msg, streaming, messageSize = 'default', s
             )
           }
           if (block.type === 'text' && block.text) {
+            // While the message is still streaming the text is rendered as a
+            // plain pre-wrapped node: react-markdown would re-parse the whole
+            // growing transcript on every delta. The full parse runs once the
+            // message finalizes and this branch stops matching.
+            if (streaming) {
+              return (
+                <div key={i} className={cn('chat-markdown whitespace-pre-wrap', messageClass)}>
+                  {block.text}
+                </div>
+              )
+            }
             return <div key={i} className={messageClass}><Markdown text={block.text} /></div>
           }
           if (block.type === 'image' && block.data && block.mimeType) {
@@ -110,3 +122,5 @@ export default function MessageView({ msg, streaming, messageSize = 'default', s
     </div>
   )
 }
+
+export default memo(MessageView)

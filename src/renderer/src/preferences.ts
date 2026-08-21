@@ -9,6 +9,8 @@ export interface Preferences {
   autoScroll: boolean
   sendOnEnter: boolean
   toolActivityDisplay: ToolActivityDisplay
+  /** Whether the desktop material should be visible through the app shell. */
+  transparencyEnabled: boolean
   /** 0 is more opaque; 100 lets more of the desktop material show through. */
   transparency: number
   /** Display name shown in the window's titlebar strip. */
@@ -26,6 +28,7 @@ export const defaults: Preferences = {
   autoScroll: true,
   sendOnEnter: true,
   toolActivityDisplay: 'compact',
+  transparencyEnabled: true,
   transparency: 50,
   appName: DEFAULT_APP_NAME
 }
@@ -48,6 +51,7 @@ export function loadPreferences(): Preferences {
       ...defaults,
       ...stored,
       toolActivityDisplay: stored.toolActivityDisplay === 'expanded' || stored.toolActivityDisplay === 'hidden' ? stored.toolActivityDisplay : 'compact',
+      transparencyEnabled: stored.transparencyEnabled !== false,
       transparency: normalizeTransparency(stored.transparency),
       appName: normalizeAppName(stored.appName ?? defaults.appName)
     }

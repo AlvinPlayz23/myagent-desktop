@@ -5,7 +5,7 @@ import type { ChatItem, ChatState } from '../state'
 import type { Message } from '../../../shared/protocol'
 import type { ToolActivityDisplay } from '../preferences'
 import MessageView from './MessageView'
-import ThinkingState from './ThinkingState'
+import Working from './Working'
 import ToolGroup, { type WorkEntry } from './ToolGroup'
 
 // Rises a timeline entry in as it appends to a live conversation. Rows that
@@ -223,7 +223,7 @@ export default function Chat({
         )}
         {chat.running && !chat.streaming && (
           <div className="px-1.5 py-1.5">
-            <ThinkingState />
+            <Working />
           </div>
         )}
       </div>

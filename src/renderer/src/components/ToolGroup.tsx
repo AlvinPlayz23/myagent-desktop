@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ChevronRight } from './ui/icons'
 import type { Message } from '../../../shared/protocol'
@@ -29,7 +29,7 @@ function EntryView({ entry }: { entry: WorkEntry }): JSX.Element {
 //   compact   tools inline while running; once the work settles they fold
 //             behind a collapsed "Worked for …" divider the user can expand
 //   hidden    nothing, except tool failures which always stay visible
-export default function ToolGroup({
+function ToolGroup({
   entries,
   display,
   live = false
@@ -134,3 +134,32 @@ export default function ToolGroup({
     </section>
   )
 }
+
+// Chat rebuilds the entries array on every render, but the underlying runs,
+// messages, and thinking entries keep their identities across pure streaming
+// updates. Comparing by identity lets a text delta skip re-rendering every
+// tool card and folded message in the timeline.
+function sameEntries(a: WorkEntry[], b: WorkEntry[]): boolean {
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  return a.every((entry, i) => {
+    const other = b[i]
+    if (entry.kind !== other.kind) return false
+    if (entry.kind === 'tool') return entry.run === (other as typeof entry).run
+    if (entry.kind === 'message') return entry.msg === (other as typeof entry).msg
+    return (
+      entry.id === (other as typeof entry).id &&
+      entry.text === (other as typeof entry).text &&
+      entry.redacted === (other as typeof entry).redacted &&
+      entry.durationMs === (other as typeof entry).durationMs
+    )
+  })
+}
+
+export default memo(
+  ToolGroup,
+  (prev, next) =>
+    prev.display === next.display &&
+    prev.live === next.live &&
+    sameEntries(prev.entries, next.entries)
+)

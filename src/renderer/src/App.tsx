@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { bloomPanel } from './motion'
 import { api, ApiError } from './api'
 import { activeChat, contentMatches, contentText, initialState, loadHistory, newChat, reducer } from './state'
+import { createStreamCoalescer, type StreamCoalescer } from './streamCoalescer'
 import { baseName } from './util'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
@@ -73,12 +74,13 @@ export default function App(): JSX.Element {
   // this variable controls how strongly our shell is painted over it.
   useEffect(() => {
     const transparency = normalizeTransparency(preferences.transparency)
-    const opacity = 0.94 - transparency / 100 * 0.56
+    // A zero slider reads as Solid: fully opaque shell, no blur request.
+    const opacity = preferences.transparencyEnabled && transparency > 0 ? 0.94 - transparency / 100 * 0.56 : 1
     document.documentElement.style.setProperty('--shell-opacity', opacity.toFixed(3))
     // Windows 10 needs a native DWM call for actual desktop blur. Other hosts
     // ignore this renderer-to-main update and keep their native material.
-    void window.myagent.setTransparency(transparency)
-  }, [preferences.transparency])
+    void window.myagent.setTransparency(preferences.transparencyEnabled, transparency)
+  }, [preferences.transparency, preferences.transparencyEnabled])
 
   // How the window blends with the desktop is fixed for the process lifetime —
   // resolve it once and hand it to CSS, which owns every visual consequence.
@@ -134,6 +136,23 @@ export default function App(): JSX.Element {
     }
   }, [refreshSessions])
 
+  const coalescerRef = useRef<StreamCoalescer | null>(null)
+  if (coalescerRef.current === null) {
+    coalescerRef.current = createStreamCoalescer({
+      emit: (sessionId, event) => dispatch({ type: 'event', sessionId, event }),
+      isActive: (sessionId) => sessionId === activeSession.current
+    })
+  }
+  const coalescer = coalescerRef.current
+
+  useEffect(() => () => coalescer.dispose(), [coalescer])
+
+  // Focus moved; pending background work for the newly active session must
+  // move to the per-frame schedule instead of waiting out the slow timer.
+  useEffect(() => {
+    if (chat?.sessionId) coalescer.activate(chat.sessionId)
+  }, [chat?.sessionId, coalescer])
+
   useEffect(() => {
     const off = api.onPush((push) => {
       switch (push.kind) {
@@ -170,10 +189,11 @@ export default function App(): JSX.Element {
               return next
             })
           }
-          dispatch({ type: 'event', sessionId: push.sessionId, event: push.event })
+          coalescer.push(push.sessionId, push.event)
           break
         case 'done':
           setQueuedFollowUps((current) => current.filter((pending) => pending.sessionId !== push.sessionId))
+          coalescer.drop(push.sessionId)
           dispatch({ type: 'done', sessionId: push.sessionId, error: push.error })
           refreshSessions()
           break
@@ -246,6 +266,10 @@ export default function App(): JSX.Element {
   }, [])
 
   const selectHomeCwd = useCallback((cwd: string) => dispatch({ type: 'home', cwd }), [])
+
+  const toggleSidebar = useCallback(() => setSidebarCollapsed((value) => !value), [])
+  const toggleSettings = useCallback(() => setView((v) => (v === 'settings' ? 'content' : 'settings')), [])
+  const openSettings = useCallback(() => setView('settings'), [])
 
   // Home composer: create a session in the selected project, then prompt.
   const homeSend = useCallback(
@@ -398,10 +422,24 @@ export default function App(): JSX.Element {
     [sessionPreferences, state.sessions]
   )
 
-  const runningIds = useMemo(
-    () => new Set(Object.values(state.chats).filter((c) => c.running).map((c) => c.sessionId)),
+  const archivedSessionIds = useMemo(
+    () => new Set(archivedSessions.map((session) => session.id)),
+    [archivedSessions]
+  )
+
+  // Keyed through a string so the Set keeps its identity while chats churn on
+  // every streaming event; memoized panes (Sidebar, TabBar) then skip
+  // re-rendering for deltas that do not change which sessions are running.
+  const runningKey = useMemo(
+    () =>
+      Object.values(state.chats)
+        .filter((c) => c.running)
+        .map((c) => c.sessionId)
+        .sort()
+        .join(','),
     [state.chats]
   )
+  const runningIds = useMemo(() => new Set(runningKey ? runningKey.split(',') : []), [runningKey])
 
   // Map each global shortcut id to the callback that should run. Held in a ref
   // so the keydown listener (subscribed once) always calls the latest closures
@@ -409,8 +447,8 @@ export default function App(): JSX.Element {
   const shortcutsRef = useRef<Partial<Record<ShortcutId, (() => void) | null>>>({})
   shortcutsRef.current = {
     newTask: goHome,
-    toggleSidebar: () => setSidebarCollapsed((value) => !value),
-    openSettings: () => setView('settings'),
+    toggleSidebar,
+    openSettings,
     focusComposer: () => composerFocus.current?.(),
     stop: () => { if (chat?.running) stop() },
     compact: () => { if (chat && !chat.running) compact() },
@@ -468,12 +506,13 @@ export default function App(): JSX.Element {
         onAddProject={addProject}
         onHome={goHome}
         collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((value) => !value)}
+        onToggle={toggleSidebar}
         settingsOpen={view === 'settings'}
-        onSettings={() => setView((v) => (v === 'settings' ? 'content' : 'settings'))}
-        archivedSessionIds={new Set(archivedSessions.map((session) => session.id))}
+        onSettings={toggleSettings}
+        archivedSessionIds={archivedSessionIds}
         onRename={renameSession}
         onArchive={archiveSession}
+        onRestore={restoreSession}
       />
       <main className="main-panel surface-grain relative mt-9 flex min-w-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -539,6 +578,7 @@ export default function App(): JSX.Element {
             fatal={state.fatal}
             projects={projectList}
             selected={state.homeCwd}
+            appName={normalizeAppName(preferences.appName)}
             onSelect={selectHomeCwd}
             onAddProject={addProject}
             onSend={homeSend}
