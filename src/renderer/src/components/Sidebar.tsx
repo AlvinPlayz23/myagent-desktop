@@ -129,29 +129,28 @@ function Sidebar({
 
   // Branch per project folder, resolved once per cwd. `branchRequests` dedupes
   // in-flight calls so a re-render mid-request cannot fire a second one.
+  // Results are applied unconditionally whenever they land: the cache is
+  // keyed by cwd, so a completed lookup stays valid even if `knownProjects`
+  // changed while the request was in flight — cancelling it here would leave
+  // the row blank with no effect rerun left to refill it.
   useEffect(() => {
-    let cancelled = false
     for (const { cwd } of knownProjects) {
       if (branchByCwd[cwd] !== undefined || branchRequests.current.has(cwd)) continue
       branchRequests.current.add(cwd)
       void window.myagent.git
         .branches(cwd)
         .then((result) => {
-          if (cancelled) return
           const current = result.ok
             ? result.result.find((branch: GitBranch) => branch.current)?.name ?? null
             : null
           setBranchByCwd((previous) => ({ ...previous, [cwd]: current }))
         })
         .catch(() => {
-          if (!cancelled) setBranchByCwd((previous) => ({ ...previous, [cwd]: null }))
+          setBranchByCwd((previous) => ({ ...previous, [cwd]: null }))
         })
         .finally(() => {
           branchRequests.current.delete(cwd)
         })
-    }
-    return () => {
-      cancelled = true
     }
   }, [knownProjects, branchByCwd])
 
@@ -209,7 +208,15 @@ function Sidebar({
   }
 
   const currentProject = knownProjects.find((project) => project.cwd === selectedCwd)
-  const composeCwd = selectedCwd ?? knownProjects[0]?.cwd ?? null
+  // "New session" is only a project-targeted compose when the sidebar filter
+  // names a folder. Unfiltered, it must not silently retarget the Home
+  // composer to the first known project — going Home preserves whatever the
+  // user already picked there.
+  const newSessionAction = (): void => {
+    if (selectedCwd) onCompose(selectedCwd)
+    else if (knownProjects.length > 0) onHome()
+    else onAddProject()
+  }
 
   // Live runs, ACROSS every project. This list deliberately ignores
   // `selectedCwd`: a run you started in another folder is exactly the thing the
@@ -394,6 +401,12 @@ function Sidebar({
             {collapsed ? (
               <div className="flex w-full flex-col items-center gap-1">
                 {railButton(
+                  'new',
+                  <Plus size={15} strokeWidth={1.9} />,
+                  knownProjects.length > 0 ? 'New session' : 'Add a project first',
+                  newSessionAction
+                )}
+                {railButton(
                   'expand',
                   <LayoutAlignRight size={16} strokeWidth={1.8} />,
                   'Expand sidebar',
@@ -432,8 +445,8 @@ function Sidebar({
                 {railButton(
                   'new',
                   <Plus size={15} strokeWidth={1.9} />,
-                  composeCwd ? 'New session' : 'Add a project first',
-                  () => (composeCwd ? onCompose(composeCwd) : onAddProject())
+                  knownProjects.length > 0 ? 'New session' : 'Add a project first',
+                  newSessionAction
                 )}
                 {railButton(
                   'collapse',
@@ -483,10 +496,10 @@ function Sidebar({
                     </p>
                     <button
                       className="mt-2.5 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
-                      onClick={() => (composeCwd ? onCompose(composeCwd) : onAddProject())}
+                      onClick={newSessionAction}
                     >
                       <Plus size={11} strokeWidth={2} />
-                      {composeCwd ? 'New session' : 'Add project'}
+                      {knownProjects.length > 0 ? 'New session' : 'Add project'}
                     </button>
                   </div>
                 )}

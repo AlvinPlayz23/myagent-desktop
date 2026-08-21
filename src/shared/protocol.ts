@@ -281,7 +281,7 @@ export interface MyagentApi {
   rpc<T = unknown>(method: string, params?: unknown): Promise<RpcResult<T>>
   pickFolder(): Promise<string | null>
   setTheme(theme: 'light' | 'dark'): Promise<void>
-  setTransparency(value: number): Promise<void>
+  setTransparency(enabled: boolean, value: number): Promise<void>
   backdrop(): Promise<BackdropMode>
   minimizeWindow(): Promise<void>
   toggleMaximizeWindow(): Promise<boolean>

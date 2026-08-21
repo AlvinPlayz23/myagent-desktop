@@ -163,6 +163,22 @@ function applyWindows10Acrylic(): void {
     const apply = bindComposition()
     if (!apply) return
 
+    // State 0 is ACCENT_DISABLED. Transparency off — or the slider parked on
+    // Solid — must clear whatever policy an earlier call latched, not stack an
+    // opaque blur layer over the desktop.
+    if (!transparencyEnabled || transparency <= 0) {
+      try {
+        apply(nativeHandle(win), {
+          Attribute: 19,
+          DataPointer: { State: 0, Flags: 0, Color: 0, Animation: 0 },
+          Size: 16
+        })
+      } catch {
+        // Nothing to recover: the window just keeps its previous material.
+      }
+      return
+    }
+
     const dark = appTheme === 'dark' || (appTheme === null && nativeTheme.shouldUseDarkColors)
     // Matches the --shell-rgb tokens in the renderer's styles.css.
     const red = dark ? 20 : 240
@@ -290,8 +306,10 @@ app.whenReady().then(() => {
     if (backdrop === 'none') win?.setBackgroundColor(chromeColor())
     applyWindows10Acrylic()
   })
-  ipcMain.handle('myagent:setTransparency', (_e, value: number) => {
-    transparencyEnabled = Number.isFinite(value) && value > 0
+  ipcMain.handle('myagent:setTransparency', (_e, enabled: boolean, value: number) => {
+    // The toggle and the slider travel separately: a zero slider with the
+    // toggle on is Solid, not "off", and must not be inferred from the value.
+    transparencyEnabled = enabled !== false && Number.isFinite(value) && value > 0
     transparency = transparencyEnabled ? Math.min(100, Math.max(0, value)) : 0
     applyWindows10Acrylic()
   })

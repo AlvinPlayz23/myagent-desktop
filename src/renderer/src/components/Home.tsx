@@ -106,10 +106,10 @@ export default function Home({
               <AnimatePresence>
                 {open && (
                   <motion.div
-                    className="absolute left-1/2 top-11 z-40 max-h-[320px] w-[260px] origin-top overflow-y-auto rounded-xl border border-border bg-elevated p-1.5 shadow-lg"
-                    initial={{ opacity: 0, y: -6, scale: 0.97, filter: 'blur(8px)', x: '-50%' }}
-                    animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)', x: '-50%' }}
-                    exit={{ opacity: 0, y: -4, scale: 0.985, filter: 'blur(4px)', x: '-50%' }}
+                    className="absolute right-0 top-11 z-40 max-h-[320px] w-[260px] origin-top overflow-y-auto rounded-xl border border-border bg-elevated p-1.5 shadow-lg"
+                    initial={{ opacity: 0, y: -6, scale: 0.97, filter: 'blur(8px)' }}
+                    animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, y: -4, scale: 0.985, filter: 'blur(4px)' }}
                     transition={BLOOM_FAST}
                   >
                     {projects.map((p) => (

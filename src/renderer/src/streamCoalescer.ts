@@ -46,11 +46,17 @@ export function createStreamCoalescer(options: StreamCoalescerOptions): StreamCo
   }
 
   const schedule = (): void => {
-    if (rafId !== null || timerId !== null) return
+    if (rafId !== null) return
     if (hasActivePending()) {
+      // An active stream must never wait out a background timer that is
+      // already armed: drop it and move to the per-frame schedule.
+      if (timerId !== null) {
+        clearTimeout(timerId)
+        timerId = null
+      }
       rafId = requestAnimationFrame(() => flush())
       timerId = setTimeout(() => flush(), maxDelayMs)
-    } else {
+    } else if (timerId === null) {
       timerId = setTimeout(() => flush(), backgroundIntervalMs)
     }
   }
@@ -95,11 +101,13 @@ export function createStreamCoalescer(options: StreamCoalescerOptions): StreamCo
     },
     drop(sessionId) {
       pending.delete(sessionId)
+      lastEmitted.delete(sessionId)
     },
     flush,
     dispose() {
       cancelScheduled()
       pending = new Map()
+      lastEmitted.clear()
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }

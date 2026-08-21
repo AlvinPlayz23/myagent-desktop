@@ -74,11 +74,12 @@ export default function App(): JSX.Element {
   // this variable controls how strongly our shell is painted over it.
   useEffect(() => {
     const transparency = normalizeTransparency(preferences.transparency)
-    const opacity = preferences.transparencyEnabled ? 0.94 - transparency / 100 * 0.56 : 1
+    // A zero slider reads as Solid: fully opaque shell, no blur request.
+    const opacity = preferences.transparencyEnabled && transparency > 0 ? 0.94 - transparency / 100 * 0.56 : 1
     document.documentElement.style.setProperty('--shell-opacity', opacity.toFixed(3))
     // Windows 10 needs a native DWM call for actual desktop blur. Other hosts
     // ignore this renderer-to-main update and keep their native material.
-    void window.myagent.setTransparency(preferences.transparencyEnabled ? transparency : 0)
+    void window.myagent.setTransparency(preferences.transparencyEnabled, transparency)
   }, [preferences.transparency, preferences.transparencyEnabled])
 
   // How the window blends with the desktop is fixed for the process lifetime —
