@@ -274,9 +274,10 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
       try {
         const res = await fn()
         if (!res.ok && res.error) setError(res.error.message)
-        if (res.ok && cwd) {
-          // The sidebar caches the current branch per cwd; a mutation here
-          // (checkout above all) can invalidate that view.
+        // Only a checkout can move HEAD, and with it the branch the sidebar
+        // displays. Emitting for stage/fetch/push et al. would just burn a
+        // `git branches` subprocess per click.
+        if (res.ok && cwd && label === 'checkout') {
           window.dispatchEvent(new CustomEvent('myagent:git-mutated', { detail: { cwd } }))
         }
       } finally {

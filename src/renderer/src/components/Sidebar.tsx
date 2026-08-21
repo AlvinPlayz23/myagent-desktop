@@ -418,7 +418,7 @@ function Sidebar({
               expanded it is the project picker plus the new-session action.
               Fixed-size boxes anchored to the same edges in both states, so a
               hover fill rides the width transition instead of morphing. */}
-          <div className="flex h-[52px] shrink-0 items-center gap-1">
+          <div className={cn('flex shrink-0 items-center gap-1', collapsed ? 'h-auto' : 'h-[52px]')}>
             {collapsed ? (
               <div className="flex w-full flex-col items-center gap-1">
                 {railButton(
