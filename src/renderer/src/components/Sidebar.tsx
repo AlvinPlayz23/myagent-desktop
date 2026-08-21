@@ -2,6 +2,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'rea
 import { AnimatePresence, motion } from 'motion/react'
 import {
   Archive01,
+  ArchiveRestore,
   ChevronDown,
   ChevronRight,
   Edit01,
@@ -40,6 +41,7 @@ interface Props {
   archivedSessionIds: Set<string>
   onRename(id: string, currentTitle: string): void
   onArchive(id: string): void
+  onRestore(id: string): void
 }
 
 const MENU_WIDTH = 240
@@ -84,7 +86,8 @@ function Sidebar({
   onSettings,
   archivedSessionIds,
   onRename,
-  onArchive
+  onArchive,
+  onRestore
 }: Props): JSX.Element {
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null)
   const [projectMenuOpen, setProjectMenuOpen] = useState(false)
@@ -153,6 +156,24 @@ function Sidebar({
         })
     }
   }, [knownProjects, branchByCwd])
+
+  // Source Control mutations (checkout above all) can move the current
+  // branch; drop that cwd's cache entry so the lookup effect refetches it.
+  useEffect(() => {
+    const onGitMutated = (event: Event): void => {
+      const detail = (event as CustomEvent<{ cwd?: string }>).detail
+      const cwd = detail?.cwd
+      if (!cwd) return
+      setBranchByCwd((previous) => {
+        if (!(cwd in previous)) return previous
+        const next = { ...previous }
+        delete next[cwd]
+        return next
+      })
+    }
+    window.addEventListener('myagent:git-mutated', onGitMutated)
+    return () => window.removeEventListener('myagent:git-mutated', onGitMutated)
+  }, [])
 
   useEffect(() => {
     if (!menu && !projectMenuOpen) return
@@ -744,16 +765,29 @@ function Sidebar({
               <Edit01 size={12} className="shrink-0 text-muted-foreground" />
               <span>Rename</span>
             </button>
-            <button
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
-              onClick={() => {
-                onArchive(menu.session.id)
-                setMenu(null)
-              }}
-            >
-              <Archive01 size={12} className="shrink-0" />
-              <span>Archive</span>
-            </button>
+            {archivedSessionIds.has(menu.session.id) ? (
+              <button
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                onClick={() => {
+                  onRestore(menu.session.id)
+                  setMenu(null)
+                }}
+              >
+                <ArchiveRestore size={12} className="shrink-0" />
+                <span>Restore</span>
+              </button>
+            ) : (
+              <button
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                onClick={() => {
+                  onArchive(menu.session.id)
+                  setMenu(null)
+                }}
+              >
+                <Archive01 size={12} className="shrink-0" />
+                <span>Archive</span>
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

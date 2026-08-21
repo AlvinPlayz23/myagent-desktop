@@ -3,7 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { bloomPanel } from './motion'
 import { api, ApiError } from './api'
 import { activeChat, contentMatches, contentText, initialState, loadHistory, newChat, reducer } from './state'
-import { createStreamCoalescer } from './streamCoalescer'
+import { createStreamCoalescer, type StreamCoalescer } from './streamCoalescer'
 import { baseName } from './util'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
@@ -136,11 +136,24 @@ export default function App(): JSX.Element {
     }
   }, [refreshSessions])
 
-  useEffect(() => {
-    const coalescer = createStreamCoalescer({
+  const coalescerRef = useRef<StreamCoalescer | null>(null)
+  if (coalescerRef.current === null) {
+    coalescerRef.current = createStreamCoalescer({
       emit: (sessionId, event) => dispatch({ type: 'event', sessionId, event }),
       isActive: (sessionId) => sessionId === activeSession.current
     })
+  }
+  const coalescer = coalescerRef.current
+
+  useEffect(() => () => coalescer.dispose(), [coalescer])
+
+  // Focus moved; pending background work for the newly active session must
+  // move to the per-frame schedule instead of waiting out the slow timer.
+  useEffect(() => {
+    if (chat?.sessionId) coalescer.activate(chat.sessionId)
+  }, [chat?.sessionId, coalescer])
+
+  useEffect(() => {
     const off = api.onPush((push) => {
       switch (push.kind) {
         case 'hello':
@@ -187,10 +200,7 @@ export default function App(): JSX.Element {
       }
     })
     bootstrap()
-    return () => {
-      off()
-      coalescer.dispose()
-    }
+    return off
   }, [bootstrap, refreshSessions])
 
   const openSession = useCallback(async (id: string) => {
@@ -502,6 +512,7 @@ export default function App(): JSX.Element {
         archivedSessionIds={archivedSessionIds}
         onRename={renameSession}
         onArchive={archiveSession}
+        onRestore={restoreSession}
       />
       <main className="main-panel surface-grain relative mt-9 flex min-w-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">

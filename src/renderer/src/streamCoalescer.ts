@@ -13,6 +13,7 @@ const DEFAULT_BACKGROUND_INTERVAL_MS = 500
 export interface StreamCoalescer {
   push: (sessionId: string, event: AgentEvent) => void
   drop: (sessionId: string) => void
+  activate: (sessionId: string) => void
   flush: () => void
   dispose: () => void
 }
@@ -102,6 +103,14 @@ export function createStreamCoalescer(options: StreamCoalescerOptions): StreamCo
     drop(sessionId) {
       pending.delete(sessionId)
       lastEmitted.delete(sessionId)
+    },
+    activate(sessionId) {
+      // Focus moved but no new delta may arrive to re-run the scheduler, so
+      // re-evaluate here: pending work for the now-active session must move
+      // to the per-frame schedule instead of waiting out the background timer.
+      if (!pending.has(sessionId)) return
+      lastEmitted.delete(sessionId)
+      schedule()
     },
     flush,
     dispose() {

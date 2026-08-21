@@ -168,11 +168,12 @@ function applyWindows10Acrylic(): void {
     // opaque blur layer over the desktop.
     if (!transparencyEnabled || transparency <= 0) {
       try {
-        apply(nativeHandle(win), {
+        const ok = apply(nativeHandle(win), {
           Attribute: 19,
           DataPointer: { State: 0, Flags: 0, Color: 0, Animation: 0 },
           Size: 16
         })
+        if (!ok) console.warn('Windows 10 blur clear rejected by DWM; material may linger')
       } catch {
         // Nothing to recover: the window just keeps its previous material.
       }

@@ -679,11 +679,14 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'rollbackLocalUser': {
       const chat = state.chats[action.sessionId]
       if (!chat) return state
+      // Another prompt may still be in flight: the flag must track the
+      // surviving pending entries, not just this rollback.
+      const pendingUsers = chat.pendingUsers.filter((pending) => pending.id !== action.localId)
       return withChat(state, {
         ...chat,
         items: chat.items.filter((item) => item.kind !== 'msg' || item.localId !== action.localId),
-        pendingUsers: chat.pendingUsers.filter((pending) => pending.id !== action.localId),
-        awaitingStart: false
+        pendingUsers,
+        awaitingStart: pendingUsers.length > 0
       })
     }
     case 'model': {
