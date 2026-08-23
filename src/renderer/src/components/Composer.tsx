@@ -378,6 +378,8 @@ interface Props {
   model?: string
   providers?: ProvidersInfo
   onModel?(provider: string, model: string): void
+  /** Live-refreshes a provider's model list from its /v1/models endpoint when the menu opens. */
+  onDiscoverModels?(name: string): void
   effort?: ReasoningEffort
   onSetEffort?(effort: ReasoningEffort): void
   sendOnEnter?: boolean
@@ -398,6 +400,7 @@ export default function Composer({
   model,
   providers,
   onModel,
+  onDiscoverModels,
   effort = '',
   onSetEffort,
   sendOnEnter = true,
@@ -432,6 +435,7 @@ export default function Composer({
   const demoIntervalRef = useRef<number | null>(null)
 
   const area = useRef<HTMLTextAreaElement>(null)
+  const discoveryFired = useRef('')
   const modelMenu = useRef<HTMLDivElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const submittingRef = useRef(false)
@@ -459,6 +463,7 @@ export default function Composer({
 
   useEffect(() => {
     if (!modelsOpen) {
+      discoveryFired.current = ''
       setHoverStyle(HOVER_HIDDEN)
       return
     }
@@ -467,7 +472,13 @@ export default function Composer({
       fromModel && providers?.providers.some((p) => p.name === fromModel) ? fromModel : providers?.providers[0]?.name ?? null
     setActiveProvider(initial)
     setModelQuery('')
-  }, [modelsOpen, model, providers])
+    // Kick off a live /v1/models refresh for the active provider once per
+    // open; merged results arrive through the providers update.
+    if (initial && discoveryFired.current !== initial) {
+      discoveryFired.current = initial
+      onDiscoverModels?.(initial)
+    }
+  }, [modelsOpen, model, providers, onDiscoverModels])
 
   const commandSuggestions = commandMatches(text)
 

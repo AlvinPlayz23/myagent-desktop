@@ -19,6 +19,7 @@ interface Props {
   onSend(content: ContentBlock[], model?: string, effort?: ReasoningEffort): Promise<void>
   onRetry(): void
   providers: ProvidersInfo
+  onDiscoverModels?(name: string): void
   notice?: string | null
   onDismissNotice?(): void
   sendOnEnter?: boolean
@@ -36,6 +37,7 @@ export default function Home({
   onSend,
   onRetry,
   providers,
+  onDiscoverModels,
   notice,
   onDismissNotice,
   sendOnEnter,
@@ -171,6 +173,7 @@ export default function Home({
               placeholder={`Start a session in ${current?.name ?? 'this project'}…`}
               model={model || providers.defaultModel}
               providers={providers}
+              onDiscoverModels={onDiscoverModels}
               notice={notice}
               onDismissNotice={onDismissNotice}
               onModel={(provider, selectedModel) => {

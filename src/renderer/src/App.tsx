@@ -368,6 +368,16 @@ export default function App(): JSX.Element {
     [chat]
   )
 
+  // Live-refreshes one provider's model list from its /v1/models endpoint and
+  // merges the discovered IDs into the provider list state. Failures are
+  // silent: the catalog-backed list stays usable on its own.
+  const discoverModels = useCallback((name: string) => {
+    void api
+      .discoverProviderModels(name)
+      .then(async () => dispatch({ type: 'providers', providers: await api.providers() }))
+      .catch(() => {})
+  }, [])
+
   const changeEffort = useCallback(
     async (effort: ReasoningEffort) => {
       if (!chat) return
@@ -560,6 +570,7 @@ export default function App(): JSX.Element {
                 model={chat.model}
                 providers={state.providers}
                 onModel={changeModel}
+                onDiscoverModels={discoverModels}
                 effort={chat.effort}
                 onSetEffort={(effort) => void changeEffort(effort)}
                 sendOnEnter={preferences.sendOnEnter}
@@ -584,6 +595,7 @@ export default function App(): JSX.Element {
             onSend={homeSend}
             onRetry={bootstrap}
             providers={state.providers}
+            onDiscoverModels={discoverModels}
             notice={homeNotice}
             onDismissNotice={() => setHomeNotice(null)}
             sendOnEnter={preferences.sendOnEnter}
