@@ -1,5 +1,5 @@
-import { useEffect, useRef, type ReactNode } from 'react'
-import { motion } from 'motion/react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Folder01 } from './ui/icons'
 import type { ChatItem, ChatState } from '../state'
 import type { Message } from '../../../shared/protocol'
@@ -7,6 +7,7 @@ import type { ToolActivityDisplay } from '../preferences'
 import MessageView from './MessageView'
 import Working from './Working'
 import ToolGroup, { type WorkEntry } from './ToolGroup'
+import { ArrowDown02 } from './ui/icons'
 
 // Rises a timeline entry in as it appends to a live conversation. Rows that
 // are part of the first render (history load / session resume) pass
@@ -35,9 +36,24 @@ export default function Chat({
   toolActivityDisplay?: ToolActivityDisplay
 }): JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
+  // Transcript body whose height changes as late layout settles (see the
+  // ResizeObserver below).
+  const contentRef = useRef<HTMLDivElement>(null)
   const pinned = useRef(true)
+  // Mirrors `pinned` into state so the jump-to-latest pill can appear/disappear.
+  // Only flips on transitions; scrolling within the bottom region is free.
+  const [atBottom, setAtBottom] = useState(true)
+  // In-flight glide for the jump-to-latest pill. Native smooth scrolling is
+  // too abrupt over long transcripts, so animate manually instead. The
+  // destination is re-read every frame because content keeps growing while a
+  // turn streams in. `pinned` deliberately flips only once the glide lands:
+  // setting it early would let the autoscroll effect hard-snap past the
+  // animation on the next streamed chunk.
   // False during the first render only: anything present then is history.
   const liveRegion = useRef(false)
+  const glide = useRef<number | null>(null)
+  // Stop a mid-flight glide on unmount so the rAF chain never touches a dead node.
+  useEffect(() => stopGlide, [])
   useEffect(() => {
     liveRegion.current = true
   }, [])
@@ -47,10 +63,64 @@ export default function Chat({
     if (el && autoScroll && pinned.current) el.scrollTop = el.scrollHeight
   }, [autoScroll, chat.items, chat.streaming, chat.toolRuns])
 
+  // A freshly opened session (history load / resume) must land on the latest
+  // message. The items effect above runs before the transcript has finished
+  // laying out — markdown measurement, variable-font swap, code blocks — so
+  // the initial snap races content growth and long sessions end up stranded
+  // mid-transcript. Keep snapping while mounted and still pinned until real
+  // height changes settle; the moment the user scrolls up, `pinned` flips in
+  // onScroll and this stops touching their position.
+  useEffect(() => {
+    const el = scroller.current
+    const content = contentRef.current
+    if (!el || !content) return
+    el.scrollTop = el.scrollHeight
+    const ro = new ResizeObserver(() => {
+      if (pinned.current && autoScroll) el.scrollTop = el.scrollHeight
+    })
+    ro.observe(content)
+    return () => ro.disconnect()
+  }, [autoScroll])
+
   const onScroll = (): void => {
     const el = scroller.current
     if (!el) return
-    pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    const next = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    pinned.current = next
+    setAtBottom((prev) => (prev === next ? prev : next))
+  }
+
+  // Cancel any glide the moment the user scrolls by hand so the animation
+  // never fights them for the scrollbar.
+  const stopGlide = (): void => {
+    if (glide.current !== null) {
+      cancelAnimationFrame(glide.current)
+      glide.current = null
+    }
+  }
+
+  const scrollToBottom = (): void => {
+    const el = scroller.current
+    if (!el) return
+    stopGlide()
+    const from = el.scrollTop
+    // Longer trips get proportionally more time, clamped to a sane band.
+    const distance = el.scrollHeight - el.clientHeight - from
+    const duration = Math.max(240, Math.min(600, distance * 0.35))
+    const startedAt = performance.now()
+    const step = (now: number): void => {
+      const t = Math.min(1, (now - startedAt) / duration)
+      const ease = 1 - Math.pow(1 - t, 3) // easeOutCubic: fast start, soft landing
+      el.scrollTop = from + (el.scrollHeight - el.clientHeight - from) * ease
+      if (t < 1) {
+        glide.current = requestAnimationFrame(step)
+      } else {
+        glide.current = null
+        pinned.current = true
+        setAtBottom(true)
+      }
+    }
+    glide.current = requestAnimationFrame(step)
   }
 
   const renderItem = (item: ChatItem, key: string): JSX.Element | null => {
@@ -192,8 +262,9 @@ export default function Chat({
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto" ref={scroller} onScroll={onScroll}>
-      <div className="mx-auto flex max-w-3xl flex-col px-5 pb-6 pt-7 sm:px-8">
+    <div className="relative min-h-0 flex-1">
+      <div className="h-full overflow-y-auto" ref={scroller} onScroll={onScroll} onWheel={stopGlide} onTouchStart={stopGlide}>
+      <div className="mx-auto flex max-w-3xl flex-col px-5 pb-6 pt-7 sm:px-8" ref={contentRef}>
         {chat.items.length === 0 && !chat.streaming && (
           <div className="mt-[9vh] flex flex-col items-center gap-5 text-center [animation:rise_0.4s_ease]">
             <div className="flex flex-col items-center gap-1.5">
@@ -227,6 +298,27 @@ export default function Chat({
           </div>
         )}
       </div>
+      </div>
+      {/* Jump to latest: floats over the transcript while scrolled away from
+          the bottom. Clicking glides back down and re-pins autoscroll on
+          arrival. */}
+      <AnimatePresence>
+        {!atBottom && (
+          <motion.button
+            type="button"
+            aria-label="Jump to latest"
+            title="Jump to latest"
+            onClick={scrollToBottom}
+            initial={{ opacity: 0, y: 8, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.9 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="absolute bottom-4 left-1/2 z-10 flex size-9 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-background/90 text-muted-foreground shadow-md backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground"
+          >
+            <ArrowDown02 size={16} strokeWidth={1.8} />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

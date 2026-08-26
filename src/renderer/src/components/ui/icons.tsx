@@ -6,6 +6,7 @@ import {
   Alert02Icon,
   Archive01Icon,
   ArchiveRestoreIcon,
+  ArrowDown02Icon,
   ArrowShrink01Icon,
   ArrowUp02Icon,
   BrainCircuitIcon,
@@ -51,6 +52,7 @@ export const AddToList = makeIcon(AddToListIcon)
 export const Alert02 = makeIcon(Alert02Icon)
 export const Archive01 = makeIcon(Archive01Icon)
 export const ArchiveRestore = makeIcon(ArchiveRestoreIcon)
+export const ArrowDown02 = makeIcon(ArrowDown02Icon)
 export const ArrowShrink01 = makeIcon(ArrowShrink01Icon)
 export const ArrowUp02 = makeIcon(ArrowUp02Icon)
 export const BrainCircuit = makeIcon(BrainCircuitIcon)
