@@ -39,6 +39,7 @@ export const api = {
   },
   providers: (): Promise<ProvidersInfo> => call('provider.list'),
   pickFolder: (): Promise<string | null> => window.myagent.pickFolder(),
+  openWith: (target: 'explorer' | 'vscode', dir: string): Promise<boolean> => window.myagent.openWith(target, dir),
   onPush: (cb: (push: ServerPush) => void): (() => void) => window.myagent.onPush(cb),
 
   createSession: (cwd?: string, provider?: string, model?: string, effort?: ReasoningEffort): Promise<SessionInfo> =>

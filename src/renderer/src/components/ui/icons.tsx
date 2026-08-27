@@ -13,6 +13,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  CodeSimpleIcon,
   ComputerTerminalIcon,
   Copy01Icon,
   CpuIcon,
@@ -60,6 +61,7 @@ export const Check = makeIcon(CheckIcon)
 export const ChevronDown = makeIcon(ChevronDownIcon)
 export const ChevronRight = makeIcon(ChevronRightIcon)
 export const ComputerTerminal = makeIcon(ComputerTerminalIcon)
+export const CodeSimple = makeIcon(CodeSimpleIcon)
 export const Copy01 = makeIcon(Copy01Icon)
 export const Cpu = makeIcon(CpuIcon)
 export const File01 = makeIcon(File01Icon)

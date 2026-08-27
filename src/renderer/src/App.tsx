@@ -14,6 +14,7 @@ import ChatHeader from './components/ChatHeader'
 import Settings from './components/Settings'
 import WindowControls from './components/WindowControls'
 import TabBar from './components/TabBar'
+import OpenWith from './components/OpenWith'
 import GitPanel from './components/GitPanel'
 import { applyTheme, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
@@ -526,16 +527,23 @@ export default function App(): JSX.Element {
       />
       <main className="main-panel surface-grain relative mt-9 flex min-w-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <TabBar
-          tabOrder={state.tabOrder}
-          chats={state.chats}
-          sessions={state.sessions}
-          activeId={state.activeId}
-          runningIds={runningIds}
-          appName={normalizeAppName(preferences.appName)}
-          onSelect={(id) => dispatch({ type: 'focusChat', sessionId: id })}
-          onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
-        />
+        <div className="relative flex h-9 shrink-0 items-center gap-1 px-2">
+          <TabBar
+            tabOrder={state.tabOrder}
+            chats={state.chats}
+            sessions={state.sessions}
+            activeId={state.activeId}
+            runningIds={runningIds}
+            appName={normalizeAppName(preferences.appName)}
+            onSelect={(id) => dispatch({ type: 'focusChat', sessionId: id })}
+            onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
+          />
+          {chat && (
+            <div className="absolute right-3 top-1/2 z-50 -translate-y-1/2">
+              <OpenWith cwd={chat.cwd} />
+            </div>
+          )}
+        </div>
         <AnimatePresence mode="wait">
         <motion.div
           key={chat ? `chat-${chat.sessionId}` : 'home'}

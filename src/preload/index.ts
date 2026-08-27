@@ -12,6 +12,7 @@ const api: MyagentApi = {
   toggleMaximizeWindow: () => ipcRenderer.invoke('myagent:window:toggleMaximize'),
   closeWindow: () => ipcRenderer.invoke('myagent:window:close'),
   windowMaximized: () => ipcRenderer.invoke('myagent:window:isMaximized'),
+  openWith: (target, dir) => ipcRenderer.invoke('myagent:openWith', target, dir),
   onWindowMaximized: (cb: (maximized: boolean) => void) => {
     const listener = (_e: unknown, maximized: boolean): void => cb(maximized)
     ipcRenderer.on('myagent:window:maximized', listener)

@@ -287,6 +287,7 @@ export interface MyagentApi {
   toggleMaximizeWindow(): Promise<boolean>
   closeWindow(): Promise<void>
   windowMaximized(): Promise<boolean>
+  openWith(target: 'explorer' | 'vscode', dir: string): Promise<boolean>
   onWindowMaximized(cb: (maximized: boolean) => void): () => void
   onPush(cb: (push: ServerPush) => void): () => void
   git: GitApi

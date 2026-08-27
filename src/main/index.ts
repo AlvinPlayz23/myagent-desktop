@@ -1,4 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme } from 'electron'
+import { execFile } from 'child_process'
+import fs from 'fs'
 import { join } from 'path'
 import { release } from 'os'
 import { startServer, SpawnedServer } from './server'
@@ -361,6 +363,32 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('myagent:window:close', () => win?.close())
   ipcMain.handle('myagent:window:isMaximized', () => win?.isMaximized() ?? false)
+
+  // Reveal a session's project folder in an external app. 'explorer' opens
+  // Windows File Explorer at the folder; 'vscode' launches VS Code (falls
+  // back to Explorer when the `code` CLI is not on PATH). Path is validated
+  // against the fs so a stale/removed project fails closed.
+  ipcMain.handle('myagent:openWith', async (_e, target: string, dir: string) => {
+    try {
+      if (typeof dir !== 'string' || !dir) return false
+      const st = await fs.promises.stat(dir).catch(() => null)
+      if (!st?.isDirectory()) return false
+      if (target === 'vscode') {
+        const launched = await new Promise<boolean>((resolve) => {
+          const exe = process.platform === 'win32' ? 'code.cmd' : 'code'
+          execFile(exe, ['-n', dir], { shell: process.platform === 'win32' }, (err) => resolve(!err))
+        })
+        if (launched) return true
+      }
+      if (target === 'explorer') {
+        const err = await shell.openPath(dir)
+        return err.length === 0
+      }
+      return false
+    } catch {
+      return false
+    }
+  })
 
   createWindow()
 
