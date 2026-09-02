@@ -21,6 +21,7 @@ import {
 import type { GitBranch, SessionMeta } from '../../../shared/protocol'
 import { BLOOM_FAST, EASE_IN, EASE_OUT, bloomDown } from '../motion'
 import { cn, relTime } from '../util'
+import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 interface Menu { session: SessionMeta; x: number; y: number }
 
@@ -97,6 +98,9 @@ function Sidebar({
   const [menu, setMenu] = useState<Menu | null>(null)
   const [branchByCwd, setBranchByCwd] = useState<Record<string, string | null>>({})
   const [settling, setSettling] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [showTopFade, setShowTopFade] = useState(false)
+  const [showBottomFade, setShowBottomFade] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const projectButtonRef = useRef<HTMLButtonElement>(null)
   const projectMenuRef = useRef<HTMLDivElement>(null)
@@ -278,6 +282,43 @@ function Sidebar({
     )
   }, [knownProjects, projectQuery])
 
+  // Collapsed rail shows the 3 most relevant sessions (running first, then recent)
+  // deduped so a running session does not appear twice - mirrors comet's
+  // attention-ranked active list but capped for the narrow rail.
+  const railSessions = useMemo(() => {
+    const seen = new Set<string>()
+    const out: SessionMeta[] = []
+    for (const s of [...runningSessions, ...visibleSessions]) {
+      if (seen.has(s.id)) continue
+      seen.add(s.id)
+      out.push(s)
+      if (out.length >= 3) break
+    }
+    return out
+  }, [runningSessions, visibleSessions])
+
+  // Comet edge_fade: 32px band, gated by scroll position (scrolled>1 && not at bottom)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const update = (): void => {
+      const top = el.scrollTop > 1
+      const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1
+      setShowTopFade(top)
+      setShowBottomFade(bottom)
+    }
+    update()
+    el.addEventListener('scroll', update, { passive: true })
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener('resize', update)
+    return () => {
+      el.removeEventListener('scroll', update)
+      ro.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [visibleSessions, archived, collapsed, runningSessions])
+
   /** Three-line session row: context · title · branch, status pinned right. */
   const sessionRow = (session: SessionMeta, muted = false): JSX.Element => {
     const running = runningIds.has(session.id)
@@ -294,7 +335,7 @@ function Sidebar({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.18, ease: EASE_OUT }}
         className={cn(
-          'group relative block w-full rounded-[10px] px-2.5 py-[7px] text-left outline-none',
+          'group relative flex w-full min-h-[61px] flex-col justify-center gap-0 rounded-lg px-2.5 py-2 text-left outline-none',
           'transition-[background-color,box-shadow] duration-150',
           'focus-visible:ring-2 focus-visible:ring-ring',
           active
@@ -356,6 +397,8 @@ function Sidebar({
     )
   }
 
+  // Comet-style rail button with right-side tooltip (coss/ui/tooltip).
+  // Keeps native `title` for fallback, but shows a proper popup when collapsed.
   const railButton = (
     key: string,
     icon: JSX.Element,
@@ -363,23 +406,30 @@ function Sidebar({
     onClick: () => void,
     selected = false
   ): JSX.Element => (
-    <button
-      key={key}
-      className={cn(
-        'grid size-8 shrink-0 place-items-center rounded-lg outline-none transition-colors',
-        'focus-visible:ring-2 focus-visible:ring-ring',
-        selected ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
-      )}
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-    >
-      {icon}
-    </button>
+    <Tooltip key={key}>
+      <TooltipTrigger
+        render={
+          <button
+            className={cn(
+              'grid size-8 shrink-0 place-items-center rounded-lg outline-none transition-colors',
+              'focus-visible:ring-2 focus-visible:ring-ring',
+              selected ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
+            )}
+            aria-label={title}
+            onClick={onClick}
+          >
+            {icon}
+          </button>
+        }
+      />
+      <TooltipPopup side="right" sideOffset={8} className="max-w-[220px] truncate">
+        {title}
+      </TooltipPopup>
+    </Tooltip>
   )
 
   return (
-    <>
+    <TooltipProvider>
       <aside
         className={cn(
           'flex shrink-0 flex-col overflow-hidden transition-[width]',
@@ -418,7 +468,7 @@ function Sidebar({
               expanded it is the project picker plus the new-session action.
               Fixed-size boxes anchored to the same edges in both states, so a
               hover fill rides the width transition instead of morphing. */}
-          <div className={cn('flex shrink-0 items-center gap-1', collapsed ? 'h-auto' : 'h-[52px]')}>
+          <div className={cn('flex shrink-0 items-center gap-1', collapsed ? 'h-auto py-1' : 'h-[52px]')}>
             {collapsed ? (
               <div className="flex w-full flex-col items-center gap-1">
                 {railButton(
@@ -427,6 +477,67 @@ function Sidebar({
                   knownProjects.length > 0 ? 'New session' : 'Add a project first',
                   newSessionAction
                 )}
+                {railButton(
+                  'search',
+                  <Search01 size={15} strokeWidth={1.8} />,
+                  'Search sessions',
+                  () => {
+                    // Expand and let the project filter receive focus via the header search
+                    onToggle()
+                  }
+                )}
+                <div className="my-1 h-px w-6 bg-border/50" />
+                {railSessions.map((session) => {
+                  const isActive = session.id === activeId
+                  const isRunning = runningIds.has(session.id)
+                  return (
+                    <Tooltip key={`rail-${session.id}`}>
+                      <TooltipTrigger
+                        render={
+                          <button
+                            className={cn(
+                              'relative grid size-8 shrink-0 place-items-center rounded-lg outline-none transition-colors',
+                              'focus-visible:ring-2 focus-visible:ring-ring',
+                              isActive
+                                ? 'bg-selected text-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--foreground)_12%,transparent)]'
+                                : 'text-muted-foreground hover:bg-hover hover:text-foreground',
+                              isRunning && !isActive && 'ring-1 ring-[color:var(--busy)]/30'
+                            )}
+                            aria-label={label(session)}
+                            onClick={() => onOpen(session.id)}
+                            onContextMenu={(e) => openMenu(e as unknown as React.MouseEvent, session)}
+                          >
+                            <Message01 size={15} strokeWidth={1.8} />
+                            {isRunning && (
+                              <span className="absolute right-0.5 top-0.5 size-[6px] rounded-full bg-[color:var(--busy)] shadow-[0_0_0_1px_var(--background)]" />
+                            )}
+                          </button>
+                        }
+                      />
+                      <TooltipPopup side="right" sideOffset={10} className="max-w-[240px]">
+                        <div className="truncate text-xs font-medium">{label(session)}</div>
+                        <div className="truncate font-mono text-[10px] text-muted-foreground/70">
+                          {knownProjects.find((p) => p.cwd === session.cwd)?.name ?? 'project'} · {branchByCwd[session.cwd] ?? '—'}
+                        </div>
+                      </TooltipPopup>
+                    </Tooltip>
+                  )
+                })}
+                {railSessions.length === 0 && (
+                  <span className="py-1 font-mono text-[10px] text-muted-foreground/30">—</span>
+                )}
+                {archived.length > 0 &&
+                  railButton(
+                    'archived',
+                    <Archive01 size={15} strokeWidth={1.8} />,
+                    `Archived · ${archived.length}`,
+                    () => {
+                      onToggle()
+                      // Open archived shelf after the expand animation settles
+                      window.setTimeout(() => setArchivedOpen(true), 280)
+                    }
+                  )}
+                <div className="my-1 h-px w-6 bg-border/50" />
                 {railButton(
                   'expand',
                   <LayoutAlignRight size={16} strokeWidth={1.8} />,
@@ -439,7 +550,7 @@ function Sidebar({
                 <button
                   ref={projectButtonRef}
                   className={cn(
-                    'flex h-9 min-w-0 flex-1 items-center gap-2 rounded-[10px] px-2 text-left outline-none',
+                    'flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 text-left outline-none',
                     'focus-visible:ring-2 focus-visible:ring-ring',
                     !settling && 'transition-colors',
                     projectMenuOpen ? 'bg-selected' : !settling && 'hover:bg-hover'
@@ -481,8 +592,16 @@ function Sidebar({
 
           {/* The project picker stays fixed. Only the session/archive canvas
               below it scrolls, so changing the list never moves the picker or
-              the running-session rows. */}
-          <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+              the running-session rows. Comet edge_fade: 28px mask gated by scroll. */}
+          <div
+            ref={scrollRef}
+            className={cn(
+              'no-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden',
+              showTopFade && showBottomFade && 'sidebar-fade',
+              showTopFade && !showBottomFade && 'sidebar-fade-top',
+              !showTopFade && showBottomFade && 'sidebar-fade-bottom'
+            )}
+          >
             {/* Everything below the header is expanded-only, under one fade that
                 clears before the width animates. The pinned width keeps rows from
                 re-wrapping frame by frame as the panel narrows. */}
@@ -506,7 +625,7 @@ function Sidebar({
                 </div>
 
                 {visibleSessions.length === 0 && runningSessions.length === 0 && (
-                  <div className="mt-2 rounded-[10px] border border-dashed border-border/70 px-3 py-5 text-center">
+                  <div className="mt-2 rounded-lg border border-dashed border-border/70 px-3 py-5 text-center">
                     <Message01
                       size={18}
                       strokeWidth={1.6}
@@ -625,7 +744,7 @@ function Sidebar({
           <div className="mb-1 h-px bg-border/50" />
           <button
             className={cn(
-              'flex h-9 w-full items-center gap-2 rounded-[10px] text-left text-[12px] font-medium outline-none',
+              'flex h-9 w-full items-center gap-2 rounded-lg text-left text-[12px] font-medium outline-none',
               'focus-visible:ring-2 focus-visible:ring-ring',
               settingsOpen ? 'bg-selected text-foreground' : 'text-muted-foreground',
               !settingsOpen && !settling && 'transition-colors hover:bg-hover hover:text-foreground',
@@ -791,7 +910,7 @@ function Sidebar({
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </TooltipProvider>
   )
 }
 

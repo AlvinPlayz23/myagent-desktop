@@ -502,11 +502,6 @@ export default function App(): JSX.Element {
   return (
     <MotionConfig reducedMotion={preferences.reducedMotion ? 'always' : 'user'}>
     <div className="app-shell flex h-screen w-full overflow-hidden">
-      <div className="drag-region fixed inset-x-0 top-0 z-[5] flex h-9 items-center pl-3.5">
-        <span className="select-none truncate text-[12.5px] font-semibold tracking-tight text-foreground">
-          {normalizeAppName(preferences.appName)}
-        </span>
-      </div>
       <Sidebar
         sessions={state.sessions}
         projects={projectList}
@@ -525,9 +520,12 @@ export default function App(): JSX.Element {
         onArchive={archiveSession}
         onRestore={restoreSession}
       />
-      <main className="main-panel surface-grain relative mt-9 flex min-w-0 flex-1 overflow-hidden">
+      <main className="main-panel surface-grain relative flex min-w-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="relative flex h-9 shrink-0 items-center gap-1 px-2">
+        <div className="drag-region relative flex h-9 shrink-0 items-center gap-2 px-2 pr-[140px]">
+          <span className="select-none truncate pl-2 text-[12.5px] font-semibold tracking-tight text-foreground">
+            {normalizeAppName(preferences.appName)}
+          </span>
           <TabBar
             tabOrder={state.tabOrder}
             chats={state.chats}
@@ -539,7 +537,7 @@ export default function App(): JSX.Element {
             onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
           />
           {chat && (
-            <div className="absolute right-3 top-1/2 z-50 -translate-y-1/2">
+            <div className="absolute right-3 top-1/2 z-50 -translate-y-1/2 no-drag">
               <OpenWith cwd={chat.cwd} />
             </div>
           )}
