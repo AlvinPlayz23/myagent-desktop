@@ -7,6 +7,7 @@ import { createStreamCoalescer, type StreamCoalescer } from './streamCoalescer'
 import { baseName } from './util'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
+import ChatErrorBoundary from './components/ChatErrorBoundary'
 import Composer from './components/Composer'
 import StatusBar from './components/StatusBar'
 import Home from './components/Home'
@@ -567,7 +568,9 @@ export default function App(): JSX.Element {
               onToggleGit={() => setGitOpen((v) => !v)}
               gitOpen={gitOpen}
             />
-            <Chat key={chat.sessionId} chat={chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} />
+            <ChatErrorBoundary key={chat.sessionId}>
+              <Chat key={chat.sessionId} chat={chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} />
+            </ChatErrorBoundary>
             <div className="shrink-0 px-4 pb-4 pt-2 sm:px-7">
               <Composer
                 running={chat.running}
@@ -584,6 +587,7 @@ export default function App(): JSX.Element {
                 notice={chat.notice}
                 onDismissNotice={() => dispatch({ type: 'notice', text: null })}
                 onCommand={handleCommand}
+                compact={chat.items.length > 0 || chat.streaming != null || chat.running || chat.awaitingStart}
               />
             </div>
             {/* debug-panel: LLM request/retry timeline drawer */}

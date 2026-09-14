@@ -39,7 +39,7 @@ function summaryOf(run: ToolRun): string {
 
 function resultText(run: ToolRun): string {
   const res = run.partial ?? run.result
-  if (!res) return ''
+  if (!res || !Array.isArray(res.content)) return ''
   return res.content
     .filter((b) => b.type === 'text')
     .map((b) => b.text ?? '')

@@ -100,6 +100,22 @@ function StopIcon(): JSX.Element {
   )
 }
 
+function WaveformIcon(): JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path d="M2.5 5.5v3M5 3.5v7M7.5 5v4M10 2.5v9M12 6v2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function ChevronDownIcon(): JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 function PlusIcon(): JSX.Element {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -387,6 +403,8 @@ interface Props {
   notice?: string | null
   onDismissNotice?(): void
   onCommand?(name: CommandName, argument: string): void
+  /** Compact pill mode: single-row bar shown once a session has started. */
+  compact?: boolean
 }
 
 type HoverStyle = { opacity: number; transform: string; transition: string }
@@ -407,7 +425,8 @@ export default function Composer({
   queuedFollowUps = [],
   notice = null,
   onDismissNotice,
-  onCommand
+  onCommand,
+  compact = false
 }: Props): JSX.Element {
   const [text, setText] = useState('')
   const [modelsOpen, setModelsOpen] = useState(false)
@@ -554,8 +573,16 @@ export default function Composer({
     const el = area.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`
+    el.style.height = `${Math.min(el.scrollHeight, compact ? 120 : 220)}px`
   }
+
+  // Keep the textarea height in sync when morphing between card and pill.
+  useEffect(() => {
+    const el = area.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, compact ? 120 : 220)}px`
+  }, [compact])
 
   const hasText = text.trim().length > 0
   const provider = providers?.providers.find((entry) => entry.name === activeProvider)
@@ -951,8 +978,265 @@ export default function Composer({
         </div>
       </div>
 
-      {/* Main Input Card with ol-ui & user prompt-input styling */}
-      <div className={cn('relative z-10 rounded-[26px] p-px transition-colors duration-200', running ? 'bg-input' : 'bg-transparent')}>
+      {/* Main Input: expanded card, or compact pill once a session has started */}
+      <motion.div
+        layout
+        transition={{ type: 'spring', duration: 0.45, bounce: 0.12 }}
+        className={cn('relative z-10 transition-all duration-300', compact ? 'rounded-full' : 'rounded-[26px] p-px', running && !compact ? 'bg-input' : 'bg-transparent')}
+      >
+        {compact ? (
+        <div
+          onMouseDown={(e) => {
+            if (e.target !== area.current && !isRecording) {
+              e.preventDefault()
+              area.current?.focus()
+            }
+          }}
+          className="flex h-[52px] items-center gap-1 overflow-visible rounded-full border border-border bg-card py-2 pl-2 pr-2 shadow-sm transition-[border-color,box-shadow,height,border-radius] duration-300 focus-within:border-ring/40 focus-within:ring-1 focus-within:ring-ring/20 hover:border-border/80"
+        >
+          {/* Attach */}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => fileInput.current?.click()}
+            disabled={submitting || attachments.length >= MAX_ATTACHMENTS}
+            className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
+            title="Attach images"
+            aria-label="Attach images"
+          >
+            <PlusIcon />
+          </button>
+
+          {/* Input */}
+          <div className="min-w-0 flex-1">
+            <textarea
+              ref={area}
+              value={text}
+              rows={1}
+              disabled={isRecording || submitting}
+              placeholder={placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything')}
+              onChange={(e) => {
+                setText(e.target.value)
+                setCommandIndex(0)
+                grow()
+              }}
+              onKeyDown={onKey}
+              onPaste={onPaste}
+              className="block max-h-[120px] min-h-[24px] w-full resize-none border-0 bg-transparent p-0 text-[15px] leading-[24px] text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground/80 disabled:opacity-70"
+            />
+          </div>
+
+          {/* Model picker (text-only, right side like reference) */}
+          {providers && onModel && (
+            <div className="relative shrink-0" ref={modelMenu}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setModelsOpen((v) => !v)
+                }}
+                className={cn(
+                  'flex h-8 max-w-[160px] items-center gap-1 rounded-full px-2 text-[13px] font-medium text-muted-foreground outline-none transition-colors hover:bg-hover hover:text-foreground',
+                  modelsOpen && 'bg-selected text-foreground'
+                )}
+                disabled={running}
+                aria-label={`Select model. Current: ${model || 'none'}`}
+                title={model || 'Select model'}
+              >
+                <span className="truncate select-none">
+                  <MorphingText text={shortModel || 'Select Model'} />
+                </span>
+                <span className="shrink-0 opacity-70"><ChevronDownIcon /></span>
+              </button>
+
+              <AnimatePresence>
+                {modelsOpen && (
+                  <motion.div
+                    style={{ transformOrigin: 'bottom right' }}
+                    className="absolute bottom-full right-0 z-50 mb-2.5 w-60 max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-border bg-card p-1 shadow-lg"
+                    variants={bloomUp}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={BLOOM_FAST}
+                  >
+                    <div className="relative mb-1 flex items-center">
+                      <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground/60" strokeWidth={1.8} />
+                      <input
+                        autoFocus
+                        value={modelQuery}
+                        onChange={(e) => {
+                          setModelQuery(e.target.value)
+                          setHoverStyle(HOVER_HIDDEN)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && visibleModels.length > 0 && provider) {
+                            e.preventDefault()
+                            pickModel(`${provider.name}/${visibleModels[0]}`)
+                          }
+                          if (e.key === 'Escape') {
+                            if (modelQuery) {
+                              e.stopPropagation()
+                              setModelQuery('')
+                            }
+                          }
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        placeholder="Search models…"
+                        aria-label="Search models"
+                        className="h-8 w-full rounded-lg border border-border bg-muted/60 pl-8 pr-2 text-[11.5px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-input focus:ring-1 focus:ring-input"
+                      />
+                    </div>
+
+                    <div
+                      className="relative flex max-h-52 flex-col gap-0.5 overflow-y-auto px-0.5"
+                      onMouseLeave={() => setHoverStyle((prev) => ({ ...prev, opacity: 0, transition: 'opacity 0.2s ease-in' }))}
+                    >
+                      <div style={hoverStyle} className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-8 rounded-xl bg-accent" />
+                      {visibleModels.length > 0 ? (
+                        visibleModels.map((modelID, idx) => {
+                          const ref = `${provider!.name}/${modelID}`
+                          const active = ref === model
+                          return (
+                            <button
+                              key={modelID}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onMouseEnter={() =>
+                                setHoverStyle((prev) => ({
+                                  opacity: 1,
+                                  transform: `translateY(${idx * 34}px) scale(1)`,
+                                  transition: prev.opacity === 0 ? 'opacity 0.15s ease-out' : `transform 0.3s ${EASE_SPRING}, opacity 0.15s ease`
+                                }))
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                pickModel(ref)
+                              }}
+                              className="group relative flex h-8 w-full shrink-0 items-center justify-between rounded-xl px-2.5 text-left text-xs font-medium text-foreground/80 outline-none active:scale-[0.98]"
+                            >
+                              <span className="flex items-center gap-2 min-w-0 truncate">
+                                <ModelIcon model={modelID} className="size-3.5 opacity-85 group-hover:opacity-100 transition-opacity shrink-0" />
+                                <span className="truncate">{modelID}</span>
+                              </span>
+                              {active && <Tick01 size={12} className="ml-2 shrink-0 text-muted-foreground" />}
+                            </button>
+                          )
+                        })
+                      ) : (
+                        <div className="px-3 py-4 text-center text-[11.5px] text-muted-foreground/70">
+                          {provider && provider.models.length > 0 ? `No models match “${modelQuery}”.` : 'No models discovered yet.'}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mx-1 mb-1 mt-1 border-t border-border" />
+
+                    <div className="flex items-center justify-between gap-1 px-0.5 pb-0.5 pt-0.5">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          cycleProvider(-1)
+                        }}
+                        disabled={providers.providers.length <= 1}
+                        className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+                        aria-label="Previous provider"
+                      >
+                        <ChevronRight size={14} className="rotate-180" />
+                      </button>
+                      <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11.5px] font-semibold text-foreground">
+                        {activeProvider && <ProviderLogo providerId={activeProvider} size={14} />}
+                        <MorphingText text={activeProvider ?? 'provider'} />
+                      </span>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          cycleProvider(1)
+                        }}
+                        disabled={providers.providers.length <= 1}
+                        className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+                        aria-label="Next provider"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Grey mic (idle empty state, like reference) */}
+          {showMic && (
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={() => void startRecording()}
+              className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+              title="Voice input"
+              aria-label="Use voice input"
+            >
+              <MicIcon />
+            </button>
+          )}
+
+          {/* Recording visualizer */}
+          <div
+            className={cn(
+              'flex h-8 items-center justify-end gap-[3px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]',
+              isRecording ? 'w-14 opacity-100' : 'w-0 opacity-0 pointer-events-none'
+            )}
+          >
+            {audioData.map((val, i) => (
+              <div
+                key={i}
+                className="w-1 rounded-full bg-primary transition-[height] duration-75 ease-out"
+                style={{ height: `${Math.max(4, val * 24)}px` }}
+              />
+            ))}
+          </div>
+
+          {running && (
+            <button
+              type="button"
+              className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
+              title="Queue as follow-up (Ctrl+Enter)"
+              onClick={() => void submit(true)}
+              disabled={!canSubmit || submitting}
+            >
+              <AddToList size={15} strokeWidth={1.8} />
+            </button>
+          )}
+
+          {/* Primary action: wave (idle) / arrow (ready) / stop (busy) */}
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onClick={onActionButtonClick}
+            disabled={submitting}
+            aria-label={showArrow ? "Send prompt" : showStop ? "Stop recording or generation" : "Use voice input"}
+            style={{ borderRadius: 9999 }}
+            className="flex size-9 shrink-0 items-center justify-center bg-primary text-primary-foreground transition-all duration-300 hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-default shadow-sm disabled:opacity-50"
+          >
+            <span className="relative flex h-full w-full items-center justify-center">
+              <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showArrow ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 rotate-45 blur-[1px] pointer-events-none")}>
+                <ArrowUpIcon />
+              </span>
+              <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showMic ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 -rotate-45 blur-[1px] pointer-events-none")}>
+                <WaveformIcon />
+              </span>
+              <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showStop ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 rotate-45 blur-[1px] pointer-events-none")}>
+                <StopIcon />
+              </span>
+            </span>
+          </button>
+        </div>
+        ) : (
         <div
           onMouseDown={(e) => {
             if (e.target !== area.current && !isRecording) {
@@ -1267,7 +1551,8 @@ export default function Composer({
             </div>
           </div>
         </div>
-      </div>
+        )}
+      </motion.div>
 
       {activeAttachment &&
         createPortal(

@@ -135,22 +135,47 @@ export const initialState: AppState = {
 }
 
 export function messageText(msg: Message): string {
-  return msg.content
+  return blocksOf(msg)
     .filter((b) => b.type === 'text')
     .map((b) => b.text ?? '')
     .join('')
 }
 
-export function contentText(content: ContentBlock[]): string {
-  return content
+export function contentText(content: ContentBlock[] | null | undefined): string {
+  return (content ?? [])
     .filter((block) => block.type === 'text')
     .map((block) => block.text ?? '')
     .join('')
 }
 
-export function contentMatches(left: ContentBlock[], right: ContentBlock[]): boolean {
-  return left.length === right.length && left.every((block, index) => {
-    const other = right[index]
+// The wire can carry `"content": null` (Go nil slice) for messages that have
+// no blocks yet — notably the streaming partial right after abort/stop.
+// Normalize once at ingestion so every render path can assume an array, and
+// defensively (`?? []`) at each read so one missed path can't blank the app.
+export function blocksOf(msg: Message | null | undefined): ContentBlock[] {
+  const content = msg?.content as ContentBlock[] | null | undefined
+  return Array.isArray(content) ? content : []
+}
+
+export function normalizeMessage<T extends Message>(msg: T): T {
+  if (Array.isArray(msg.content)) return msg
+  return { ...msg, content: [] }
+}
+
+function normalizeResult<T extends { content?: ContentBlock[] | null }>(res: T): T {
+  if (Array.isArray(res.content)) return res
+  return { ...res, content: [] }
+}
+
+export function contentMatches(
+  left: ContentBlock[] | null | undefined,
+  right: ContentBlock[] | null | undefined
+): boolean {
+  const l = left ?? []
+  const r = right ?? []
+  return l.length === r.length && l.every((block, index) => {
+    const other = r[index]
+    if (!other) return false
     return block.type === other.type && block.text === other.text && block.data === other.data && block.mimeType === other.mimeType
   })
 }
@@ -173,7 +198,9 @@ function assistantTimelineItems(
     body = []
   }
 
-  msg.content.forEach((block, i) => {
+  const blocks = blocksOf(msg)
+
+  blocks.forEach((block, i) => {
     if (block.type === 'thinking' && (block.thinking || block.redacted)) {
       flushBody()
       const span = spans[i]
@@ -210,7 +237,7 @@ function appendAssistantTimeline(
   spans: Record<number, ThinkingSpan>
 ): ChatItem[] {
   const toolIDs = new Set(
-    msg.content.flatMap((block) => (block.type === 'toolCall' && block.id ? [block.id] : []))
+    blocksOf(msg).flatMap((block) => (block.type === 'toolCall' && block.id ? [block.id] : []))
   )
   const withoutPlaceholders = items.filter(
     (item) => item.kind !== 'tool' || !toolIDs.has(item.toolCallId)
@@ -225,7 +252,7 @@ function appendAssistantTimeline(
 function trackThinking(chat: ChatState, partial: Message): Record<number, ThinkingSpan> {
   const now = Date.now()
   let spans = chat.thinkingSpans
-  partial.content.forEach((block, i) => {
+  blocksOf(partial).forEach((block, i) => {
     if (block.type !== 'thinking') return
     const length = block.thinking?.length ?? 0
     if (length === 0 && !block.redacted) return
@@ -269,7 +296,8 @@ export function loadHistory(chat: ChatState, messages: Message[]): ChatState {
   const toolRuns: Record<string, ToolRun> = {}
   let cost = 0
   let lastTokens = 0
-  for (const msg of messages) {
+  for (const raw of messages) {
+    const msg = normalizeMessage(raw)
     if (msg.role === 'toolResult') {
       const id = msg.toolCallId ?? ''
       toolRuns[id] = {
@@ -351,19 +379,21 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
 
     case 'message_start':
       if (ev.message?.role === 'assistant') {
-        return { ...chat, streaming: ev.message, streamStartedAt: Date.now(), thinkingSpans: {} }
+        return { ...chat, streaming: normalizeMessage(ev.message), streamStartedAt: Date.now(), thinkingSpans: {} }
       }
       return chat
 
     case 'message_update': {
-      const partial = ev.assistantMessageEvent?.partial
-      if (!partial) return chat
+      const raw = ev.assistantMessageEvent?.partial
+      if (!raw) return chat
+      const partial = normalizeMessage(raw)
       return { ...chat, streaming: partial, thinkingSpans: trackThinking(chat, partial) }
     }
 
     case 'message_end': {
-      const msg = ev.message
-      if (!msg) return chat
+      const raw = ev.message
+      if (!raw) return chat
+      const msg = normalizeMessage(raw)
       if (msg.role === 'toolResult') {
         const id = msg.toolCallId ?? ''
         const prev = chat.toolRuns[id]
@@ -456,15 +486,17 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
       const id = ev.toolCallId ?? ''
       const prev = chat.toolRuns[id]
       if (!prev) return chat
+      const partial = ev.partialResult ? normalizeResult(ev.partialResult) : prev.partial
       return {
         ...chat,
-        toolRuns: { ...chat.toolRuns, [id]: { ...prev, partial: ev.partialResult ?? prev.partial, updatedAt: Date.now() } }
+        toolRuns: { ...chat.toolRuns, [id]: { ...prev, partial, updatedAt: Date.now() } }
       }
     }
 
     case 'tool_execution_end': {
       const id = ev.toolCallId ?? ''
       const prev = chat.toolRuns[id]
+      const result = ev.result ? normalizeResult(ev.result) : prev?.result
       return {
         ...chat,
         toolRuns: {
@@ -476,7 +508,7 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
             status: ev.isError ? 'error' : 'done',
             createdAt: prev?.createdAt ?? Date.now(),
             updatedAt: Date.now(),
-            result: ev.result ?? prev?.result,
+            result,
             partial: undefined
           }
         }
@@ -665,7 +697,7 @@ export function reducer(state: AppState, action: Action): AppState {
       if (!chat) return state
       const msg: Message = {
         role: 'user',
-        content: action.content,
+        content: Array.isArray(action.content) ? action.content : [],
         timestamp: Date.now()
       }
       return withChat(state, {
