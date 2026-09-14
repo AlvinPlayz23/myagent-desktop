@@ -102,14 +102,15 @@ function Waterfall({ turn }: { turn: LlmTurn }): JSX.Element {
 function TurnRow({ turn, expanded, onToggle }: { turn: LlmTurn; expanded: boolean; onToggle: () => void }): JSX.Element {
   const now = Date.now()
   return (
-    <div className="border-b border-border/60 px-3 py-2 text-[12px]">
+    <div className="t-acc border-b border-border/60 px-3 py-2 text-[12px]" data-open={String(expanded)}>
       <button
-        className="group flex w-full items-center gap-2 rounded-md py-0.5 text-left transition-colors hover:bg-hover/60"
+        className="t-acc-head group flex w-full items-center gap-2 rounded-md py-0.5 text-left transition-[background-color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] hover:bg-hover/60"
+        aria-expanded={expanded}
         onClick={onToggle}
       >
         <ChevronRight
           size={12}
-          className={cn('shrink-0 text-muted-foreground/70 transition-transform', expanded && 'rotate-90')}
+          className={cn('shrink-0 text-muted-foreground/70 transition-[transform] duration-[var(--acc-chevron)] ease-[var(--acc-ease)]', expanded && 'rotate-90')}
         />
         <span className={cn('size-1.5 shrink-0 rounded-full', STATUS_DOT[turn.status])} />
         <span className="shrink-0 font-mono font-medium text-foreground">#{turn.id}</span>
@@ -142,8 +143,9 @@ function TurnRow({ turn, expanded, onToggle }: { turn: LlmTurn; expanded: boolea
         )}
       </div>
 
-      {expanded && (
-        <div className="ml-[18px] mt-2 flex flex-col gap-2 rounded-md border border-border/60 bg-subtle/60 p-2.5">
+      <div className="t-acc-panel">
+        <div className="t-acc-panel-inner">
+          <div className="ml-[18px] mt-2 flex flex-col gap-2 rounded-md border border-border/60 bg-subtle/60 p-2.5">
           <Waterfall turn={turn} />
           <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 border-t border-border/50 pt-2 text-[11px]">
             <span className="text-muted-foreground">provider</span>
@@ -173,8 +175,9 @@ function TurnRow({ turn, expanded, onToggle }: { turn: LlmTurn; expanded: boolea
               </>
             )}
           </div>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -189,9 +192,10 @@ export default function DebugPanel({ sessionId, open, onClose }: Props): JSX.Ele
       className={cn(
         // no-drag: the frameless-titlebar drag overlay (see App.tsx) overlaps
         // this panel's top strip; without this its buttons aren't clickable.
-        'no-drag absolute right-0 top-0 z-10 flex h-full w-[380px] flex-col border-l border-border bg-background shadow-2xl transition-transform duration-200',
+        'no-drag absolute right-0 top-0 z-10 flex h-full w-[380px] flex-col border-l border-border bg-background shadow-2xl transition-[transform] ease-[var(--panel-ease)]',
         open ? 'translate-x-0' : 'translate-x-full'
       )}
+      style={{ transitionDuration: open ? 'var(--panel-open-dur)' : 'var(--panel-close-dur)' }}
       aria-hidden={!open}
     >
       {/* Close control lives on the LEFT: the top-right corner is occupied by

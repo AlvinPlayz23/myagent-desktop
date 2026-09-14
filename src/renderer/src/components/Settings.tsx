@@ -275,7 +275,7 @@ export default function Settings({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 6 }}
         transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-        className="no-drag relative flex h-[640px] max-h-[85vh] w-[900px] max-w-[95vw] overflow-hidden rounded-[22px] border border-border bg-sidebar text-card-foreground shadow-2xl p-1.5 gap-1.5"
+        className="no-drag relative flex h-[720px] max-h-[90vh] w-[900px] max-w-[95vw] overflow-hidden rounded-[22px] border border-border bg-sidebar text-card-foreground shadow-2xl p-1.5 gap-1.5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Left Sidebar inside Popup */}

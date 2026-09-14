@@ -88,26 +88,53 @@ export default function DiffView({ diff }: { diff: ToolDiff }): JSX.Element {
   const total = diff.blocks.reduce((n, b) => n + b.lines.length, 0)
   const truncated = !full && total > MAX_LINES
 
-  // Distribute the visible-line budget across blocks in order.
-  let budget = full ? Infinity : MAX_LINES
+  // Distribute the visible-line budget across blocks in order. The
+  // first MAX_LINES stay mounted; the remainder lives in the
+  // collapsible t-acc panel so "show more" grows via grid-rows.
+  let budget = MAX_LINES
   const rendered = diff.blocks.map((block, i) => {
     if (budget <= 0) return null
     const el = <Block key={i} block={block} budget={budget} />
     budget -= block.lines.length
     return el
   })
+  let skip = MAX_LINES
+  const rest = diff.blocks.flatMap((block, i) => {
+    if (skip >= block.lines.length) {
+      skip -= block.lines.length
+      return []
+    }
+    const el = <Block key={i} block={{ ...block, lines: block.lines.slice(skip) }} budget={Infinity} />
+    skip = 0
+    return [el]
+  })
 
   return (
-    <div className="overflow-hidden rounded-md border border-border/60">
+    <div className="t-acc overflow-hidden rounded-md border border-border/60" data-open={String(full)}>
       <div className="max-h-[420px] overflow-auto font-mono text-[11px] leading-[1.7]">
         {rendered}
       </div>
+      <div className="t-acc-panel">
+        <div className="t-acc-panel-inner">
+          <div className="max-h-[420px] overflow-auto font-mono text-[11px] leading-[1.7]">
+            {rest}
+          </div>
+        </div>
+      </div>
       {truncated && (
         <button
-          className="block w-full border-t border-border/60 bg-muted/40 px-2 py-1 text-left text-[10.5px] text-muted-foreground transition-colors hover:bg-hover/60 hover:text-foreground"
+          className="t-acc-head block w-full border-t border-border/60 bg-muted/40 px-2 py-1 text-left text-[10.5px] text-muted-foreground transition-colors hover:bg-hover/60 hover:text-foreground"
+          aria-expanded={full}
           onClick={() => setFull(true)}
         >
-          show {total - MAX_LINES} more lines
+          <span className="inline-flex items-center gap-1.5">
+            show {total - MAX_LINES} more lines
+            <span className="t-acc-chevron" aria-hidden>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6.5L8 10.5L12 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          </span>
         </button>
       )}
     </div>

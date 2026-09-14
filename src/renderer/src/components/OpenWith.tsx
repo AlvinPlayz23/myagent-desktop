@@ -12,9 +12,9 @@ const TARGETS: { id: Target; label: string; Icon: typeof Folder01 }[] = [
 ]
 
 // "Open" pill for the tab strip: reveals the active session's project folder
-// in an external app. Sits left of the frameless window's caption controls,
-// so it must stay out of the fixed 36px strip at the very top (h-9 tab row
-// starts below it).
+// in an external app. It lives in the title bar left of the frameless
+// window's caption controls (3 x 46px = 138px, fixed top-right) — App.tsx
+// offsets it by right-[148px] so it never covers minimize/maximize/close.
 export default function OpenWith({ cwd, disabled }: { cwd: string; disabled?: boolean }): JSX.Element {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<Target | null>(null)

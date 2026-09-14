@@ -33,7 +33,7 @@ function MorphingText({ text }: { text: string }): JSX.Element {
 
   return (
     <span
-      className="relative inline-flex items-center justify-center overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]"
+      className="relative inline-flex items-center justify-center overflow-hidden transition-[width] duration-[var(--resize-dur)] ease-[var(--resize-ease)]"
       style={{ width }}
     >
       <span ref={spanRef} className="invisible whitespace-nowrap px-1">
@@ -143,7 +143,7 @@ function DynamicBarsIcon({ level }: { level: string }): JSX.Element {
           stroke={isMax ? '#3b82f6' : 'currentColor'}
           strokeWidth="1.9"
           strokeLinecap="round"
-          className="transition-all duration-300"
+          className="transition-[opacity,stroke] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]"
           opacity={i < filled ? 1 : 0.28}
         />
       ))}
@@ -337,7 +337,7 @@ function AttachmentGalleryModal({
         style={{ opacity: isOpen ? 1 : 0, transform: isOpen ? "scale(1)" : "scale(0.7)" }}
         className={cn(
           "fixed right-4 top-4 flex size-9 items-center justify-center rounded-full bg-card/90 text-foreground/70 shadow-md backdrop-blur-sm",
-          "transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] hover:bg-card hover:text-foreground",
+          "transition-[opacity,transform,background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] hover:bg-card hover:text-foreground",
           !isOpen && "pointer-events-none"
         )}
       >
@@ -950,7 +950,7 @@ export default function Composer({
       {/* Notice tab */}
       <div
         aria-hidden={!notice}
-        style={{ height: notice ? 40 : 0, transition: `height 0.4s ${EASE_SPRING}` }}
+        style={{ height: notice ? 40 : 0, transition: `height var(--toast-${notice ? 'open' : 'close'}) var(--toast-ease)` }}
         className="relative z-0 w-full overflow-hidden"
       >
         <div
@@ -962,7 +962,7 @@ export default function Composer({
             height: 40,
             transform: notice ? 'translateY(0)' : 'translateY(100%)',
             opacity: notice ? 1 : 0,
-            transition: `transform 0.4s ${EASE_SPRING}, opacity 0.3s ease-out`
+            transition: `transform var(--toast-${notice ? 'open' : 'close'}) var(--toast-ease), opacity var(--toast-${notice ? 'open' : 'close'}) var(--toast-ease)`
           }}
           className="flex items-center gap-2 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted px-3"
         >
@@ -994,7 +994,7 @@ export default function Composer({
       <motion.div
         layout
         transition={{ type: 'spring', duration: 0.45, bounce: 0.12 }}
-        className={cn('relative z-10 transition-all duration-300', compact ? 'rounded-full' : 'rounded-[26px] p-px', running && !compact ? 'bg-input' : 'bg-transparent')}
+        className={cn('t-resize relative z-10 transition-[width,height,border-radius,background-color] duration-[var(--resize-dur)] ease-[var(--resize-ease)]', compact ? 'rounded-full' : 'rounded-[26px] p-px', running && !compact ? 'bg-input' : 'bg-transparent')}
       >
         {compact ? (
         <div
@@ -1004,7 +1004,7 @@ export default function Composer({
               area.current?.focus()
             }
           }}
-          className="flex h-[52px] items-center gap-1 overflow-visible rounded-full border border-border bg-card py-2 pl-2 pr-2 shadow-sm transition-[border-color,box-shadow,height,border-radius] duration-300 focus-within:border-ring/40 focus-within:ring-1 focus-within:ring-ring/20 hover:border-border/80"
+          className="flex h-[52px] items-center gap-1 overflow-visible rounded-full border border-border bg-card py-2 pl-2 pr-2 shadow-sm transition-[border-color,box-shadow,height,border-radius] duration-[var(--resize-dur)] ease-[var(--resize-ease)] hover:border-border/80"
         >
           {/* Attach */}
           <button

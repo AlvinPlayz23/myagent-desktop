@@ -62,8 +62,8 @@ export default function Home({
   const current = projects.find((p) => p.cwd === selected) ?? projects[0] ?? null
 
   return (
-    <div className="drag-region flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6">
-      <div className="no-drag flex w-full max-w-2xl flex-col items-center gap-3 pb-16">
+    <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6">
+      <div className="flex w-full max-w-2xl flex-col items-center gap-3 pb-16">
         {fatal ? (
           <div className="flex w-full max-w-xl flex-col items-center gap-4">
             <pre className="max-h-48 w-full overflow-auto rounded-xl border border-destructive/30 bg-destructive/8 p-4 font-mono text-[12px] leading-relaxed text-destructive-foreground">

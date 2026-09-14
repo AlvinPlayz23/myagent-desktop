@@ -523,8 +523,8 @@ export default function App(): JSX.Element {
       />
       <main className="main-panel surface-grain relative flex min-w-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="drag-region relative flex h-9 shrink-0 items-center gap-2 px-2 pr-[140px]">
-          <span className="select-none truncate pl-2 text-[12.5px] font-semibold tracking-tight text-foreground">
+        <div className="drag-region relative flex h-9 shrink-0 items-center gap-2 overflow-visible px-2 pr-[140px]">
+          <span className="shrink-0 select-none truncate pl-2 text-[12.5px] font-semibold tracking-tight text-foreground">
             {normalizeAppName(preferences.appName)}
           </span>
           <TabBar
@@ -538,7 +538,8 @@ export default function App(): JSX.Element {
             onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
           />
           {chat && (
-            <div className="absolute right-3 top-1/2 z-50 -translate-y-1/2 no-drag">
+            <div className="no-drag ml-auto flex shrink-0 items-center gap-2">
+              <div className="h-5 w-px shrink-0 bg-border/60" aria-hidden />
               <OpenWith cwd={chat.cwd} />
             </div>
           )}

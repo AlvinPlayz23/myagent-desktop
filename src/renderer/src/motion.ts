@@ -16,9 +16,18 @@ export const EASE_OUT: [number, number, number, number] = [0.22, 1, 0.36, 1]
  */
 export const EASE_IN: [number, number, number, number] = [0.64, 0, 0.78, 0]
 
-/** Small attached surfaces: dropdowns, context menus, command palettes. */
+/**
+ * Small attached surfaces: dropdowns, context menus, command palettes.
+ * Token mapping: dropdown open → var(--dropdown-open-dur) (250ms),
+ * close → var(--dropdown-close-dur) (150ms). Kept as numbers because
+ * motion/react needs numeric durations; the values track the tokens.
+ */
 export const BLOOM_FAST: Transition = { duration: 0.2, ease: EASE_OUT }
-/** Full-panel surfaces: modals, a session or view coming in. */
+/**
+ * Full-panel surfaces: modals, a session or view coming in.
+ * Token mapping: modal open → var(--modal-open-dur) (250ms),
+ * panel open → var(--panel-open-dur) (400ms). See styles.css.
+ */
 export const BLOOM: Transition = { duration: 0.34, ease: EASE_OUT }
 
 /**
