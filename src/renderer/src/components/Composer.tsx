@@ -3,11 +3,13 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { AddToList, ChevronRight, Search01, Tick01 } from './ui/icons'
 import type { ContentBlock, ProvidersInfo, ReasoningEffort } from '../../../shared/protocol'
+import type { ModelSelectorVariant } from '../preferences'
 import { cn } from '../util'
 import { commandMatches, parseCommand, type CommandName } from '../commands'
 import { composerFocus, composerModelPicker } from '../shortcuts'
 import { BLOOM_FAST, bloomUp } from '../motion'
 import ProviderLogo from './ProviderLogo'
+import ModelSelectorGallery, { ModelIcon } from './ModelSelectorGallery'
 
 // ----------------------------------------------------------------------
 // Physics & Colors
@@ -44,34 +46,6 @@ function MorphingText({ text }: { text: string }): JSX.Element {
         {text}
       </span>
     </span>
-  )
-}
-
-function ModelIcon({ model, className }: { model: string; className?: string }): JSX.Element {
-  const icons: Record<string, string> = {
-    "Composer 2.5": "https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/cursor-ai-code-icon_j4vnux.svg",
-    "Gemini 3.5 Flash": "https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/google-gemini-icon_l6kk5q.svg",
-    "GPT 5.5": "https://res.cloudinary.com/drhx7imeb/image/upload/v1781695269/openai-icon_zozuib.svg",
-    "Opus 4.8": "https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/Claude_AI_symbol_yqfzlc.svg",
-    "GLM 5.2": "https://res.cloudinary.com/drhx7imeb/image/upload/v1781695269/z-ai-icon_xi4xvo.svg"
-  }
-
-  const filters: Record<string, string> = {
-    "GPT 5.5": "dark:invert",
-  }
-
-  const src = icons[model]
-  if (!src) {
-    const providerName = model.includes('/') ? model.split('/', 1)[0] : 'openai'
-    return <ProviderLogo providerId={providerName} size={14} className={className} />
-  }
-
-  return (
-    <img
-      src={src}
-      alt={model}
-      className={cn("object-contain", filters[model], className)}
-    />
   )
 }
 
@@ -405,6 +379,8 @@ interface Props {
   onCommand?(name: CommandName, argument: string): void
   /** Compact pill mode: single-row bar shown once a session has started. */
   compact?: boolean
+  /** Model picker presentation: compact dropdown or gallery with provider rail. */
+  modelSelectorVariant?: ModelSelectorVariant
 }
 
 type HoverStyle = { opacity: number; transform: string; transition: string }
@@ -426,7 +402,8 @@ export default function Composer({
   notice = null,
   onDismissNotice,
   onCommand,
-  compact = false
+  compact = false,
+  modelSelectorVariant = 'compact'
 }: Props): JSX.Element {
   const [text, setText] = useState('')
   const [modelsOpen, setModelsOpen] = useState(false)
@@ -455,6 +432,8 @@ export default function Composer({
 
   const area = useRef<HTMLTextAreaElement>(null)
   const discoveryFired = useRef('')
+  const openedRef = useRef(false)
+  const initModelRef = useRef<string | undefined>(undefined)
   const modelMenu = useRef<HTMLDivElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const submittingRef = useRef(false)
@@ -482,10 +461,16 @@ export default function Composer({
 
   useEffect(() => {
     if (!modelsOpen) {
+      openedRef.current = false
       discoveryFired.current = ''
       setHoverStyle(HOVER_HIDDEN)
       return
     }
+    // A providers refresh (live discovery landing) must not reset the rail
+    // or wipe the search query — init only on fresh open or model change.
+    if (openedRef.current && initModelRef.current === model) return
+    openedRef.current = true
+    initModelRef.current = model
     const fromModel = model?.includes('/') ? model.split('/', 1)[0] : null
     const initial =
       fromModel && providers?.providers.some((p) => p.name === fromModel) ? fromModel : providers?.providers[0]?.name ?? null
@@ -585,7 +570,18 @@ export default function Composer({
   }, [compact])
 
   const hasText = text.trim().length > 0
-  const provider = providers?.providers.find((entry) => entry.name === activeProvider)
+  const activeProviderLabel = model?.includes('/') ? model.split('/', 1)[0] : null
+  // Never render a stale rail: if the selected provider vanished from the
+  // list (deleted / renamed), fall back to the current model's provider,
+  // then the first provider — without touching state.
+  const providerList = providers?.providers ?? []
+  const effectiveActiveProvider =
+    activeProvider && providerList.some((p) => p.name === activeProvider)
+      ? activeProvider
+      : activeProviderLabel && providerList.some((p) => p.name === activeProviderLabel)
+        ? activeProviderLabel
+        : providerList[0]?.name ?? null
+  const provider = providerList.find((entry) => entry.name === effectiveActiveProvider)
   const query = modelQuery.trim().toLowerCase()
   const visibleModels = provider?.models.filter((m) => !query || m.toLowerCase().includes(query)) ?? []
 
@@ -596,7 +592,6 @@ export default function Composer({
     setModelsOpen(false)
   }
 
-  const activeProviderLabel = model?.includes('/') ? model.split('/', 1)[0] : null
   const shortModel = model?.includes('/') ? model.slice(model.indexOf('/') + 1) : model
 
   const effortUnsupported = useMemo(() => {
@@ -610,10 +605,27 @@ export default function Composer({
   const cycleProvider = (step: number): void => {
     const list = providers?.providers ?? []
     if (list.length === 0) return
-    const at = Math.max(0, list.findIndex((p) => p.name === activeProvider))
+    const at = Math.max(0, list.findIndex((p) => p.name === effectiveActiveProvider))
     setActiveProvider(list[(at + step + list.length) % list.length].name)
     setHoverStyle(HOVER_HIDDEN)
   }
+
+  const selectProvider = (name: string): void => {
+    setActiveProvider(name)
+    setHoverStyle(HOVER_HIDDEN)
+    if (discoveryFired.current !== name) {
+      discoveryFired.current = name
+      onDiscoverModels?.(name)
+    }
+  }
+
+  const pickFirstVisible = (): void => {
+    if (visibleModels.length > 0 && provider) pickModel(`${provider.name}/${visibleModels[0]}`)
+  }
+
+  const galleryEmptyHint =
+    provider && provider.models.length > 0 ? `No models match “${modelQuery}”.` : 'No models discovered yet.'
+  const isGallery = modelSelectorVariant === 'gallery'
 
   // --- Voice Recording Logic ---
   const stopRecording = useCallback(() => {
@@ -1051,7 +1063,25 @@ export default function Composer({
               </button>
 
               <AnimatePresence>
-                {modelsOpen && (
+                {modelsOpen && providers && isGallery ? (
+                  <ModelSelectorGallery
+                    align="right"
+                    providers={providers}
+                    activeProvider={effectiveActiveProvider}
+                    onSelectProvider={selectProvider}
+                    visibleModels={visibleModels}
+                    model={model}
+                    onPick={pickModel}
+                    modelQuery={modelQuery}
+                    onQueryChange={(v) => {
+                      setModelQuery(v)
+                      setHoverStyle(HOVER_HIDDEN)
+                    }}
+                    onPickFirst={pickFirstVisible}
+                    emptyHint={galleryEmptyHint}
+                  />
+                ) : (
+                  modelsOpen && (
                   <motion.div
                     style={{ transformOrigin: 'bottom right' }}
                     className="absolute bottom-full right-0 z-50 mb-2.5 w-60 max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-border bg-card p-1 shadow-lg"
@@ -1148,8 +1178,8 @@ export default function Composer({
                         <ChevronRight size={14} className="rotate-180" />
                       </button>
                       <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11.5px] font-semibold text-foreground">
-                        {activeProvider && <ProviderLogo providerId={activeProvider} size={14} />}
-                        <MorphingText text={activeProvider ?? 'provider'} />
+                        {effectiveActiveProvider && <ProviderLogo providerId={effectiveActiveProvider} size={14} />}
+                        <MorphingText text={effectiveActiveProvider ?? 'provider'} />
                       </span>
                       <button
                         type="button"
@@ -1166,7 +1196,8 @@ export default function Composer({
                       </button>
                     </div>
                   </motion.div>
-                )}
+                      )
+                    )}
               </AnimatePresence>
             </div>
           )}
@@ -1291,7 +1322,25 @@ export default function Composer({
                   </button>
 
                   <AnimatePresence>
-                    {modelsOpen && (
+                    {modelsOpen && providers && isGallery ? (
+                      <ModelSelectorGallery
+                        align="left"
+                        providers={providers}
+                        activeProvider={effectiveActiveProvider}
+                        onSelectProvider={selectProvider}
+                        visibleModels={visibleModels}
+                        model={model}
+                        onPick={pickModel}
+                        modelQuery={modelQuery}
+                        onQueryChange={(v) => {
+                          setModelQuery(v)
+                          setHoverStyle(HOVER_HIDDEN)
+                        }}
+                        onPickFirst={pickFirstVisible}
+                        emptyHint={galleryEmptyHint}
+                      />
+                    ) : (
+                      modelsOpen && (
                       <motion.div
                         style={{ transformOrigin: 'bottom left' }}
                         className="absolute bottom-full left-0 z-50 mb-2.5 w-60 max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-border bg-card p-1 shadow-lg"
@@ -1388,8 +1437,8 @@ export default function Composer({
                             <ChevronRight size={14} className="rotate-180" />
                           </button>
                           <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11.5px] font-semibold text-foreground">
-                            {activeProvider && <ProviderLogo providerId={activeProvider} size={14} />}
-                            <MorphingText text={activeProvider ?? 'provider'} />
+                            {effectiveActiveProvider && <ProviderLogo providerId={effectiveActiveProvider} size={14} />}
+                            <MorphingText text={effectiveActiveProvider ?? 'provider'} />
                           </span>
                           <button
                             type="button"
@@ -1406,7 +1455,8 @@ export default function Composer({
                           </button>
                         </div>
                       </motion.div>
-                    )}
+                          )
+                        )}
                   </AnimatePresence>
                 </div>
               )}

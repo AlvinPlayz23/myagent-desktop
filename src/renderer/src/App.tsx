@@ -583,6 +583,7 @@ export default function App(): JSX.Element {
                 effort={chat.effort}
                 onSetEffort={(effort) => void changeEffort(effort)}
                 sendOnEnter={preferences.sendOnEnter}
+                modelSelectorVariant={preferences.modelSelectorVariant}
                 queuedFollowUps={queuedFollowUps.filter((pending) => pending.sessionId === chat.sessionId).map((pending) => pending.label)}
                 notice={chat.notice}
                 onDismissNotice={() => dispatch({ type: 'notice', text: null })}
@@ -609,6 +610,7 @@ export default function App(): JSX.Element {
             notice={homeNotice}
             onDismissNotice={() => setHomeNotice(null)}
             sendOnEnter={preferences.sendOnEnter}
+            modelSelectorVariant={preferences.modelSelectorVariant}
             onCommand={handleCommand}
           />
         )}

@@ -352,6 +352,120 @@
   --surface-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
 }
 
+/* ── transitions-dev (gallery model selector) ─────────────────────────
+   Motion-token scale + texts-reveal stagger. Snippet CSS is verbatim;
+   gallery wiring follows each block. The panel itself keeps its
+   motion/react bloom, so no t-dropdown here. */
+:root {
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --stagger-dur: 500ms;
+  --stagger-distance: 12px;
+  --stagger-stagger: 40ms;
+  --stagger-blur: 3px;
+  --stagger-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-box: 150ms;
+  --check-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Lines start translated down + blurred + invisible; .is-shown
+   on the parent flips them to their resting state. The second
+   line's transition-delay holds it back by --stagger-stagger
+   so the eye lands on the headline first. */
+.t-stagger-line {
+  display: block;
+  opacity: 0;
+  transform: translateY(var(--stagger-distance));
+  filter: blur(var(--stagger-blur));
+  transition:
+    opacity   var(--stagger-dur) var(--stagger-ease),
+    transform var(--stagger-dur) var(--stagger-ease),
+    filter    var(--stagger-dur) var(--stagger-ease);
+  will-change: transform, opacity, filter;
+}
+.t-stagger-line--2 { transition-delay: var(--stagger-stagger); }
+
+.t-stagger.is-shown .t-stagger-line {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+/* Exit decouples from the stagger: same fade for every line,
+   no Y return, no blur — so the disappearance reads as a
+   single quiet fade instead of a reverse reveal. */
+.t-stagger.is-hiding .t-stagger-line {
+  opacity: 0;
+  transform: translateY(0);
+  filter: blur(0);
+  transition:
+    opacity 200ms ease,
+    transform 0s linear,
+    filter 0s linear;
+  transition-delay: 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-stagger-line { transition: none !important; }
+}
+
+/* Gallery wiring: rows are flex buttons (not block lines), so flex wins.
+   Hover fill rides the motion tokens; hover/focus clears the entrance
+   delay so interaction stays instant after the reveal. Per-row delay is
+   set inline as calc(var(--stagger-stagger) * N) per the snippet's --N
+   extension, adapted for a dynamic list. */
+.t-gallery-row.t-stagger-line { display: flex; }
+.t-gallery-row {
+  transition:
+    opacity var(--stagger-dur) var(--stagger-ease),
+    transform var(--stagger-dur) var(--stagger-ease),
+    filter var(--stagger-dur) var(--stagger-ease),
+    background-color var(--duration-quick) var(--ease-smooth-out);
+}
+.t-gallery-row:hover,
+.t-gallery-row:focus-visible { transition-delay: 0ms; }
+
+/* Gallery wiring: theme-aware radio. Fill uses --foreground (white in
+   dark mode, near-black in light) with the dot knocked out in
+   --background. State rides data-active on a presentation span because
+   the row button already exposes aria-pressed. */
+.t-gallery-radio {
+  transition:
+    background-color var(--check-box) var(--check-ease),
+    border-color var(--check-box) var(--check-ease);
+}
+.t-gallery-radio[data-active="true"] {
+  background-color: var(--foreground);
+  border-color: var(--foreground);
+}
+.t-gallery-dot {
+  background-color: var(--background);
+  transform: scale(0);
+  opacity: 0;
+  transition:
+    transform var(--check-box) var(--check-ease),
+    opacity var(--check-box) var(--check-ease);
+}
+.t-gallery-radio[data-active="true"] .t-gallery-dot {
+  transform: scale(1);
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-gallery-row,
+  .t-gallery-radio,
+  .t-gallery-dot,
+  .t-gallery-rail-btn { transition: none !important; }
+}
+
+/* Gallery wiring: rail buttons tokenized off transition-all. */
+.t-gallery-rail-btn {
+  transition:
+    background-color var(--duration-quick) var(--ease-smooth-out),
+    color var(--duration-quick) var(--ease-smooth-out),
+    transform var(--duration-fast) var(--ease-smooth-out);
+}
+
 @utility surface-grain {
   background-image: var(--surface-grain);
   background-repeat: repeat;

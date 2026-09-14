@@ -6,6 +6,7 @@ import Composer from './Composer'
 import { Button } from './ui/button'
 import { cn } from '../util'
 import type { CommandName } from '../commands'
+import type { ModelSelectorVariant } from '../preferences'
 import { BLOOM_FAST } from '../motion'
 
 interface Props {
@@ -23,6 +24,7 @@ interface Props {
   notice?: string | null
   onDismissNotice?(): void
   sendOnEnter?: boolean
+  modelSelectorVariant?: ModelSelectorVariant
   onCommand(name: CommandName, argument: string): void
 }
 
@@ -41,6 +43,7 @@ export default function Home({
   notice,
   onDismissNotice,
   sendOnEnter,
+  modelSelectorVariant,
   onCommand
 }: Props): JSX.Element {
   const [open, setOpen] = useState(false)
@@ -186,6 +189,7 @@ export default function Home({
               effort={effort}
               onSetEffort={setEffort}
               sendOnEnter={sendOnEnter}
+              modelSelectorVariant={modelSelectorVariant}
               onCommand={onCommand}
             />
           </div>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Archive01, ArchiveRestore, Check, ComputerTerminal, Globe02, Keyboard01, Message01, Search01, Settings01 } from './ui/icons'
 import type { ConnState } from '../state'
-import { normalizeAppName, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay } from '../preferences'
+import { normalizeAppName, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
 import { cn } from '../util'
 import { shortcuts, shortcutCategories, formatCombo } from '../shortcuts'
@@ -50,6 +50,11 @@ const toolDisplays: Array<{ value: ToolActivityDisplay; title: string; detail: s
   { value: 'expanded', title: 'Expanded', detail: 'Every tool execution as its own card' },
   { value: 'compact', title: 'Compact', detail: 'Tools inline while running; fold when done' },
   { value: 'hidden', title: 'Hidden', detail: 'Quiet chat stream; only show failures' }
+]
+
+const modelSelectorVariants: Array<{ value: ModelSelectorVariant; title: string; detail: string }> = [
+  { value: 'compact', title: 'Compact', detail: 'Classic dropdown with search and provider cycler' },
+  { value: 'gallery', title: 'Gallery', detail: 'Provider rail with Quick Search and radio rows' }
 ]
 
 function SettingsSection({
@@ -453,6 +458,14 @@ export default function Settings({
                   <div className="grid gap-2.5 p-4 sm:grid-cols-3">
                     {toolDisplays.map((item) => (
                       <ChoiceCard key={item.value} {...item} current={preferences.toolActivityDisplay} onSelect={(toolActivityDisplay) => onChange({ toolActivityDisplay })} />
+                    ))}
+                  </div>
+                </SettingsSection>
+
+                <SettingsSection title="Model selector">
+                  <div className="grid gap-2.5 p-4 sm:grid-cols-2">
+                    {modelSelectorVariants.map((item) => (
+                      <ChoiceCard key={item.value} {...item} current={preferences.modelSelectorVariant} onSelect={(modelSelectorVariant) => onChange({ modelSelectorVariant })} />
                     ))}
                   </div>
                 </SettingsSection>
