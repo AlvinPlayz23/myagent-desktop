@@ -85,7 +85,11 @@ export default function Chat({
   const onScroll = (): void => {
     const el = scroller.current
     if (!el) return
-    const next = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+    // Hysteresis: unpin only once clearly away from the bottom, re-pin only
+    // once back inside the bottom region. This stops flicker when streamed
+    // chunks grow content mid-scroll.
+    const next = pinned.current ? distance <= 120 : distance < 80
     pinned.current = next
     setAtBottom((prev) => (prev === next ? prev : next))
   }
@@ -96,6 +100,28 @@ export default function Chat({
     if (glide.current !== null) {
       cancelAnimationFrame(glide.current)
       glide.current = null
+    }
+  }
+
+  // Wheel/touch intent unpins synchronously, before the next streamed chunk's
+  // autoscroll effect runs. Without this, fast token streaming snaps the view
+  // back to the bottom between the physical wheel tick and the async scroll
+  // event, making it impossible to scroll up mid-run.
+  const onUserWheel = (e: { deltaY: number }): void => {
+    stopGlide()
+    if (e.deltaY < 0) {
+      pinned.current = false
+      setAtBottom(false)
+    }
+  }
+
+  const onUserTouch = (): void => {
+    stopGlide()
+    // Touch dragging is overwhelmingly inspection; onScroll re-pins the
+    // moment they land back at the bottom.
+    if (pinned.current) {
+      pinned.current = false
+      setAtBottom(false)
     }
   }
 
@@ -263,7 +289,7 @@ export default function Chat({
 
   return (
     <div className="relative min-h-0 flex-1">
-      <div className="h-full overflow-y-auto" ref={scroller} onScroll={onScroll} onWheel={stopGlide} onTouchStart={stopGlide}>
+      <div className="h-full overflow-y-auto" ref={scroller} onScroll={onScroll} onWheel={onUserWheel} onTouchStart={stopGlide} onTouchMove={onUserTouch}>
       <div className="mx-auto flex max-w-3xl flex-col px-5 pb-6 pt-7 sm:px-8" ref={contentRef}>
         {chat.items.length === 0 && !chat.streaming && (
           <div className="mt-[9vh] flex flex-col items-center gap-5 text-center [animation:rise_0.4s_ease]">

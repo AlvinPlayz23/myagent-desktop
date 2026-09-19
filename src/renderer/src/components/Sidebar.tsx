@@ -21,6 +21,7 @@ import {
 import type { GitBranch, SessionMeta } from '../../../shared/protocol'
 import { BLOOM_FAST, EASE_IN, EASE_OUT, bloomDown } from '../motion'
 import { cn, relTime } from '../util'
+import type { SidebarVariant } from '../preferences'
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 interface Menu { session: SessionMeta; x: number; y: number }
@@ -43,6 +44,8 @@ interface Props {
   onRename(id: string, currentTitle: string): void
   onArchive(id: string): void
   onRestore(id: string): void
+  /** Sidebar presentation: the flat inbox list, or projects grouped with expandable sections. */
+  sidebarVariant?: SidebarVariant
 }
 
 const MENU_WIDTH = 240
@@ -88,8 +91,10 @@ function Sidebar({
   archivedSessionIds,
   onRename,
   onArchive,
-  onRestore
+  onRestore,
+  sidebarVariant = 'inbox'
 }: Props): JSX.Element {
+  const isGrouped = sidebarVariant === 'grouped'
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null)
   const [projectMenuOpen, setProjectMenuOpen] = useState(false)
   const [projectQuery, setProjectQuery] = useState('')
@@ -98,6 +103,9 @@ function Sidebar({
   const [menu, setMenu] = useState<Menu | null>(null)
   const [branchByCwd, setBranchByCwd] = useState<Record<string, string | null>>({})
   const [settling, setSettling] = useState(false)
+  // Grouped variant: per-project section open state, overriding the
+  // follow-the-active-project default once the user toggles a section.
+  const [toggled, setToggled] = useState<Record<string, boolean>>({})
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
@@ -297,6 +305,51 @@ function Sidebar({
     return out
   }, [runningSessions, visibleSessions])
 
+  // Grouped variant: every project folder in one place, sorted by latest
+  // activity. Deliberately ignores `selectedCwd` — the inbox filter does not
+  // apply here.
+  const grouped = useMemo(() => {
+    const byCwd = new Map<string, SessionMeta[]>()
+    for (const session of sessions) {
+      if (archivedSessionIds.has(session.id)) continue
+      const list = byCwd.get(session.cwd)
+      if (list) list.push(session)
+      else byCwd.set(session.cwd, [session])
+    }
+    const out = knownProjects.map((project) => ({
+      cwd: project.cwd,
+      name: project.name,
+      sessions: byCwd.get(project.cwd) ?? [],
+      latest: byCwd.get(project.cwd)?.[0]?.modified ?? ''
+    }))
+    out.sort((a, b) => {
+      if (!a.latest && !b.latest) return 0
+      if (!a.latest) return -1
+      if (!b.latest) return 1
+      return a.latest < b.latest ? 1 : -1
+    })
+    return out
+  }, [sessions, archivedSessionIds, knownProjects])
+
+  const activeCwd = useMemo(
+    () => sessions.find((session) => session.id === activeId)?.cwd ?? null,
+    [sessions, activeId]
+  )
+
+  // A section stays open while its project is active until the user overrides
+  // it; with nothing active, the first section leads.
+  const isGroupOpen = (cwd: string, index: number): boolean => {
+    if (cwd in toggled) return toggled[cwd]
+    if (activeCwd) return cwd === activeCwd
+    return index === 0
+  }
+
+  const handleGroupToggle = (index: number, nextOpen: boolean): void => {
+    const cwd = grouped[index]?.cwd
+    if (!cwd) return
+    setToggled((previous) => ({ ...previous, [cwd]: nextOpen }))
+  }
+
   // Comet edge_fade: 32px band, gated by scroll position (scrolled>1 && not at bottom)
   useEffect(() => {
     const el = scrollRef.current
@@ -397,6 +450,48 @@ function Sidebar({
     )
   }
 
+  /** Compact rectangle session row for the grouped variant (ported from
+      the original grouped sidebar): single-line title + timestamp inside a
+      left-border indent. Keeps a small status dot so live runs stay visible
+      without the inbox row's 3-line bulk. */
+  const groupedSessionRow = (session: SessionMeta): JSX.Element => {
+    const running = runningIds.has(session.id)
+    const active = session.id === activeId
+    const held = menu?.session.id === session.id
+    return (
+      <button
+        key={session.id}
+        className={cn(
+          'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left outline-none transition-colors',
+          'focus-visible:ring-2 focus-visible:ring-ring',
+          active ? 'bg-selected' : 'hover:bg-hover',
+          held && 'bg-hover'
+        )}
+        onClick={() => onOpen(session.id)}
+        onContextMenu={(event) => openMenu(event, session)}
+        title={label(session)}
+      >
+        <span
+          className={cn(
+            'size-1.5 shrink-0 rounded-full',
+            running ? 'bg-success' : 'bg-muted-foreground/40'
+          )}
+        />
+        <span
+          className={cn(
+            'min-w-0 flex-1 truncate text-[12px]',
+            active ? 'font-medium text-foreground' : 'text-muted-foreground'
+          )}
+        >
+          {label(session)}
+        </span>
+        <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
+          {relTime(session.modified)}
+        </span>
+      </button>
+    )
+  }
+
   // Comet-style rail button with right-side tooltip (coss/ui/tooltip).
   // Keeps native `title` for fallback, but shows a proper popup when collapsed.
   const railButton = (
@@ -446,7 +541,7 @@ function Sidebar({
               rows are identical to every other row, they just come first, and
               the group collapses away entirely when the last run finishes. */}
           <AnimatePresence initial={false}>
-            {!collapsed && runningSessions.length > 0 && (
+            {!collapsed && !isGrouped && runningSessions.length > 0 && (
               <motion.div
                 key="running-sessions"
                 className="w-[248px] shrink-0 space-y-[3px] overflow-hidden pb-1.5"
@@ -545,6 +640,30 @@ function Sidebar({
                   onToggle
                 )}
               </div>
+            ) : isGrouped ? (
+              <>
+                <button
+                  className={cn(
+                    'flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 text-left text-[12.5px] font-medium outline-none',
+                    'focus-visible:ring-2 focus-visible:ring-ring',
+                    !settling && 'transition-colors hover:bg-hover'
+                  )}
+                  title={knownProjects.length > 0 ? 'New session' : 'Add a project first'}
+                  onClick={() => {
+                    if (knownProjects.length > 0) onHome()
+                    else onAddProject()
+                  }}
+                >
+                  <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-foreground">New session</span>
+                </button>
+                {railButton(
+                  'collapse',
+                  <LayoutAlignLeft size={16} strokeWidth={1.8} />,
+                  'Collapse sidebar',
+                  onToggle
+                )}
+              </>
             ) : (
               <>
                 <button
@@ -618,6 +737,121 @@ function Sidebar({
                 }}
                 exit={{ opacity: 0, transition: { duration: 0.08, ease: 'easeIn' } }}
               >
+                {isGrouped ? (
+                  <>
+                    <div className="flex items-center justify-between px-2 py-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Projects
+                      </span>
+                      <button
+                        className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                        title="Add project…"
+                        aria-label="Add project…"
+                        onClick={onAddProject}
+                      >
+                        <FolderAdd size={14} strokeWidth={1.8} />
+                      </button>
+                    </div>
+
+                    {grouped.map((project, index) => {
+                      const open = isGroupOpen(project.cwd, index)
+                      return (
+                        <motion.div
+                          key={project.cwd}
+                          layout="position"
+                          transition={{ duration: 0.18, ease: 'easeOut' }}
+                          className="pb-1"
+                        >
+                          <div
+                            className={cn(
+                              'group/proj flex items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-hover',
+                              open && 'bg-hover'
+                            )}
+                            title={project.cwd}
+                          >
+                            <button
+                              type="button"
+                              className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              onClick={() => handleGroupToggle(index, !open)}
+                              aria-expanded={open}
+                            >
+                              <ChevronRight
+                                size={13}
+                                strokeWidth={1.8}
+                                className={cn(
+                                  'shrink-0 text-muted-foreground transition-transform',
+                                  open && 'rotate-90'
+                                )}
+                              />
+                              {open ? (
+                                <Folder02 size={13} strokeWidth={1.8} className="shrink-0 text-foreground" />
+                              ) : (
+                                <Folder01 size={13} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
+                              )}
+                              <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium">
+                                {project.name}
+                              </span>
+                              <span className="shrink-0 rounded-full bg-muted px-1.5 py-px font-mono text-[10px] text-muted-foreground">
+                                {project.sessions.length}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-hover/proj:opacity-100"
+                              title={`New session in ${project.name}`}
+                              aria-label={`New session in ${project.name}`}
+                              onClick={() => onCompose(project.cwd)}
+                            >
+                              <Plus size={13} strokeWidth={2} />
+                            </button>
+                          </div>
+
+                          <AnimatePresence initial={false}>
+                            {open && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.15, ease: 'easeOut' }}
+                                className="overflow-hidden"
+                              >
+                                {project.sessions.length > 0 ? (
+                                  <div className="ml-4 border-l border-border pl-2">
+                                    {project.sessions.map((session) => groupedSessionRow(session))}
+                                  </div>
+                                ) : (
+                                  <div className="ml-4 border-l border-border pl-2">
+                                    <button
+                                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+                                      onClick={() => onCompose(project.cwd)}
+                                    >
+                                      <Plus size={12} strokeWidth={1.8} className="shrink-0" />
+                                      <span className="text-[12px]">Start first session</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      )
+                    })}
+
+                    {grouped.every((project) => project.sessions.length === 0) && (
+                      <div className="mt-2 rounded-lg border border-dashed border-border/70 px-3 py-5 text-center">
+                        <Message01
+                          size={18}
+                          strokeWidth={1.6}
+                          className="mx-auto mb-2 text-muted-foreground/40"
+                        />
+                        <p className="text-[11.5px] text-muted-foreground/70">
+                          {knownProjects.length === 0 ? 'No projects yet' : 'No sessions yet'}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
                 <div className="space-y-[3px] pt-0.5">
                   <AnimatePresence initial={false}>
                     {visibleSessions.map((session) => sessionRow(session))}
@@ -642,6 +876,8 @@ function Sidebar({
                       {knownProjects.length > 0 ? 'New session' : 'Add project'}
                     </button>
                   </div>
+                )}
+                  </>
                 )}
 
                 {/* Archived shelf. Count only while collapsed — expanded, the
@@ -763,7 +999,7 @@ function Sidebar({
       {/* Project picker. Fixed-positioned so the sidebar's collapse clip cannot
           cut it off. */}
       <AnimatePresence>
-        {projectMenuOpen && !collapsed && (
+        {projectMenuOpen && !collapsed && !isGrouped && (
           <motion.div
             ref={projectMenuRef}
             variants={bloomDown}

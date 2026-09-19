@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, KeyboardEvent, ClipboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { AddToList, ChevronRight, Search01, Tick01 } from './ui/icons'
+import { AddToList, ChevronRight, HelpCircle, MouseLeftClick05, MouseRightClick05, Search01, Tick01 } from './ui/icons'
+import JellyRadio from './ui/JellyRadio'
+import HoverTooltip from './ui/HoverTooltip'
 import type { ContentBlock, ProvidersInfo, ReasoningEffort } from '../../../shared/protocol'
-import type { ModelSelectorVariant } from '../preferences'
+import type { EffortSelectorVariant, ModelSelectorVariant } from '../preferences'
 import { cn } from '../util'
 import { commandMatches, parseCommand, type CommandName } from '../commands'
 import { composerFocus, composerModelPicker } from '../shortcuts'
@@ -360,6 +362,10 @@ const EFFORTS: { label: string; value: ReasoningEffort }[] = [
   { label: 'Max', value: 'max' }
 ]
 
+// Half the slider thumb (14px wide), inset from each end of the effort track so
+// the thumb never overhangs the rounded rail at the first or last step.
+const EFFORT_EDGE = 11
+
 interface Props {
   running: boolean
   onSend(content: ContentBlock[], queue: boolean): Promise<void>
@@ -381,6 +387,8 @@ interface Props {
   compact?: boolean
   /** Model picker presentation: compact dropdown or gallery with provider rail. */
   modelSelectorVariant?: ModelSelectorVariant
+  /** Effort picker presentation: slider rail (default) or the original chip row. */
+  effortSelectorVariant?: EffortSelectorVariant
 }
 
 type HoverStyle = { opacity: number; transform: string; transition: string }
@@ -403,7 +411,8 @@ export default function Composer({
   onDismissNotice,
   onCommand,
   compact = false,
-  modelSelectorVariant = 'compact'
+  modelSelectorVariant = 'compact',
+  effortSelectorVariant = 'slider'
 }: Props): JSX.Element {
   const [text, setText] = useState('')
   const [modelsOpen, setModelsOpen] = useState(false)
@@ -446,8 +455,19 @@ export default function Composer({
       if (modelMenu.current && !modelMenu.current.contains(event.target as Node)) setModelsOpen(false)
       if (effortMenuRef.current && !effortMenuRef.current.contains(event.target as Node)) setEffortMenuOpen(false)
     }
+    // Selecting a level never dismisses the panel on its own — dismissing is
+    // the user's call: click elsewhere, or press Escape.
+    const onKey = (event: globalThis.KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      setModelsOpen(false)
+      setEffortMenuOpen(false)
+    }
     document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [])
 
   useEffect(() => {
@@ -602,6 +622,60 @@ export default function Composer({
   const currentEffort = effortUnsupported ? '' : effort
   const currentEffortLabel = EFFORTS.find((item) => item.value === currentEffort)?.label ?? 'Default'
 
+  // ── effort slider (ported from the PromptBar effort selector) ──────────────
+  // Every level the backend accepts stays reachable from this one control, and
+  // step positions are computed from the track width so the dots, fill and thumb
+  // all land on the same rail geometry at any panel size.
+  const effortIndex = Math.max(0, EFFORTS.findIndex((item) => item.value === currentEffort))
+  const maxedEffort = EFFORTS.length > 1 && effortIndex === EFFORTS.length - 1
+  const effortStepAt = (index: number): string =>
+    `calc(${EFFORT_EDGE}px + (100% - ${EFFORT_EDGE * 2}px) * ${index / Math.max(1, EFFORTS.length - 1)})`
+  // The fill runs to the far edge at the last step; anywhere else it stops half
+  // a thumb past the active dot so the thumb sits flush on its end.
+  const effortFillAt = (index: number): string =>
+    index === EFFORTS.length - 1 ? '100%' : `calc(${effortStepAt(index)} + 7px)`
+
+  const setEffortAt = (index: number): void => {
+    const next = EFFORTS[Math.max(0, Math.min(EFFORTS.length - 1, index))]
+    if (!next || next.value === currentEffort) return
+    onSetEffort?.(next.value)
+  }
+
+  // Drag anywhere on the rail: the nearest step to the pointer wins, so a plain
+  // click is just a zero-length drag.
+  const effortFromPointer = (event: React.PointerEvent<HTMLDivElement>): void => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const ratio = (event.clientX - rect.left - EFFORT_EDGE) / Math.max(1, rect.width - EFFORT_EDGE * 2)
+    setEffortAt(Math.round(ratio * (EFFORTS.length - 1)))
+  }
+
+  const onEffortKey = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      setEffortAt(effortIndex + 1)
+      return
+    }
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      setEffortAt(effortIndex - 1)
+      return
+    }
+    if (event.key === 'Home') {
+      event.preventDefault()
+      setEffortAt(0)
+      return
+    }
+    if (event.key === 'End') {
+      event.preventDefault()
+      setEffortAt(EFFORTS.length - 1)
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setEffortMenuOpen(false)
+    }
+  }
+
   const cycleProvider = (step: number): void => {
     const list = providers?.providers ?? []
     if (list.length === 0) return
@@ -626,6 +700,7 @@ export default function Composer({
   const galleryEmptyHint =
     provider && provider.models.length > 0 ? `No models match “${modelQuery}”.` : 'No models discovered yet.'
   const isGallery = modelSelectorVariant === 'gallery'
+  const effortSlider = effortSelectorVariant !== 'chips'
 
   // --- Voice Recording Logic ---
   const stopRecording = useCallback(() => {
@@ -1461,73 +1536,182 @@ export default function Composer({
                 </div>
               )}
 
-              {/* Reasoning Effort Button with DynamicBarsIcon */}
+              {/* Reasoning effort: the slider variant opens its rail panel on
+                  click; the chips variant cycles levels on click and only
+                  right-click expands the JellyRadio popup. */}
               <div className="relative" ref={effortMenuRef}>
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  disabled={effortUnsupported || !onSetEffort}
-                  onClick={() => {
-                    const index = EFFORTS.findIndex((item) => item.value === currentEffort)
-                    const next = EFFORTS[(index + 1) % EFFORTS.length]
-                    onSetEffort?.(next.value)
-                  }}
-                  onContextMenu={(e) => {
-                    e.preventDefault()
-                    setEffortMenuOpen((v) => !v)
-                  }}
-                  className={cn(
-                    'chip group h-8 px-2.5 flex items-center gap-1.5',
-                    effortMenuOpen && 'chip-active'
-                  )}
-                  title={
-                    effortUnsupported
-                      ? 'This model does not support reasoning'
-                      : 'Reasoning effort (right-click to pick)'
-                  }
-                  aria-haspopup="menu"
-                  aria-expanded={effortMenuOpen}
-                >
-                  <DynamicBarsIcon level={currentEffortLabel} />
-                  <span className="text-xs font-medium select-none transition-colors">
-                    <MorphingText text={currentEffortLabel} />
-                  </span>
-                </button>
+                {(() => {
+                  const trigger = (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      disabled={effortUnsupported || !onSetEffort}
+                      onClick={() => {
+                        if (effortSlider) {
+                          setEffortMenuOpen((v) => !v)
+                          return
+                        }
+                        // Chips variant: left-click steps through the levels;
+                        // the JellyRadio popup only opens on right-click.
+                        setEffortAt((effortIndex + 1) % EFFORTS.length)
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        setEffortMenuOpen((v) => !v)
+                      }}
+                      className={cn(
+                        'chip group h-8 px-2.5 flex items-center gap-1.5',
+                        effortMenuOpen && 'chip-active'
+                      )}
+                      title={
+                        effortUnsupported
+                          ? 'This model does not support reasoning'
+                          : effortSlider
+                            ? `Reasoning effort: ${currentEffortLabel}`
+                            : undefined
+                      }
+                      aria-haspopup="dialog"
+                      aria-expanded={effortMenuOpen}
+                    >
+                      <DynamicBarsIcon level={currentEffortLabel} />
+                      <span className="text-xs font-medium select-none transition-colors">
+                        <MorphingText text={currentEffortLabel} />
+                      </span>
+                    </button>
+                  )
+                  // The chips variant advertises both gestures with a real
+                  // tooltip; the mouse icons stand in for "left/right-click".
+                  return effortSlider ? (
+                    trigger
+                  ) : (
+                    <HoverTooltip
+                      label={
+                        <span className="flex flex-col gap-1 py-0.5">
+                          <span className="flex items-center gap-1.5">
+                            <MouseLeftClick05 size={13} strokeWidth={1.8} />
+                            to cycle
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <MouseRightClick05 size={13} strokeWidth={1.8} />
+                            to expand
+                          </span>
+                        </span>
+                      }
+                    >
+                      {trigger}
+                    </HoverTooltip>
+                  )
+                })()}
 
                 <AnimatePresence>
                   {effortMenuOpen && !effortUnsupported && (
                     <motion.div
+                      key={effortSlider ? 'effort-slider' : 'effort-chips'}
                       style={{ transformOrigin: 'bottom left' }}
-                      className="absolute bottom-full left-0 z-50 mb-2.5 flex max-w-[260px] items-center gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1 shadow-lg"
+                      className={cn(
+                        'absolute bottom-full left-0 z-50 mb-2.5 rounded-2xl border border-border bg-card shadow-lg',
+                        effortSlider
+                          ? 'w-[248px] px-3.5 pb-3.5 pt-3'
+                          // JellyRadio measures its own padding; the panel just
+                          // frames it. No scrolling: every level is visible.
+                          : 'p-1'
+                      )}
                       variants={bloomUp}
                       initial="initial"
                       animate="animate"
                       exit="exit"
                       transition={BLOOM_FAST}
+                      role={effortSlider ? 'dialog' : 'menu'}
+                      aria-label="Reasoning effort"
                     >
-                      {EFFORTS.map(({ label, value }) => {
-                        const activeItem = value === currentEffort
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onSetEffort?.(value)
-                              setEffortMenuOpen(false)
-                            }}
-                            className={cn(
-                              'flex h-7 items-center gap-1 rounded-full px-2.5 text-[11.5px] font-medium whitespace-nowrap outline-none transition-colors',
-                              activeItem
-                                ? 'bg-primary text-primary-foreground'
-                                : 'text-muted-foreground hover:bg-hover hover:text-foreground'
-                            )}
-                          >
-                            {label}
-                          </button>
-                        )
-                      })}
+                      {effortSlider ? (
+                      <>
+                      <div className="flex items-center gap-2 text-[13px] leading-[18px]">
+                        <span className="text-muted-foreground">Effort</span>
+                        <span className="font-medium text-foreground">{currentEffortLabel}</span>
+                        <span
+                          className="ml-auto inline-flex text-muted-foreground"
+                          title="Higher effort thinks longer before answering"
+                        >
+                          <HelpCircle size={14} strokeWidth={1.8} />
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex justify-between text-[12px] leading-4 text-muted-foreground/70">
+                        <span>Faster</span>
+                        <span>Smarter</span>
+                      </div>
+
+                      {/* Rail: a click or drag snaps to the nearest level, and the
+                          focused rail steps with arrows / Home / End. */}
+                      <div
+                        role="slider"
+                        tabIndex={0}
+                        aria-label="Effort"
+                        aria-valuemin={0}
+                        aria-valuemax={EFFORTS.length - 1}
+                        aria-valuenow={effortIndex}
+                        aria-valuetext={currentEffortLabel}
+                        className="relative mt-2 h-[22px] cursor-pointer touch-none select-none rounded-full bg-hover outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onPointerDown={(event) => {
+                          if (event.button !== 0) return
+                          try {
+                            event.currentTarget.setPointerCapture(event.pointerId)
+                          } catch {
+                            // Pointer capture is best-effort — dragging still works without it.
+                          }
+                          event.currentTarget.focus({ preventScroll: true })
+                          effortFromPointer(event)
+                        }}
+                        onPointerMove={(event) => {
+                          if (event.buttons & 1) effortFromPointer(event)
+                        }}
+                        onKeyDown={onEffortKey}
+                      >
+                        <span
+                          aria-hidden="true"
+                          style={{ width: effortFillAt(effortIndex) }}
+                          className={cn(
+                            'absolute inset-y-0 left-0 rounded-full transition-[width,background-color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none',
+                            maxedEffort ? 'bg-info/35' : 'bg-foreground/18'
+                          )}
+                        />
+                        {EFFORTS.map((item, index) => (
+                          <i
+                            key={item.value || 'default'}
+                            aria-hidden="true"
+                            style={{ left: effortStepAt(index) }}
+                            className="absolute top-1/2 -ml-0.5 -mt-0.5 size-1 rounded-full bg-foreground/30"
+                          />
+                        ))}
+                        <span
+                          aria-hidden="true"
+                          style={{ left: effortStepAt(effortIndex) }}
+                          className={cn(
+                            'absolute -top-[3px] -ml-[7px] h-7 w-3.5 rounded-[7px] shadow-[0_2px_6px_rgba(0,0,0,0.25)] transition-[left,background-color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none',
+                            maxedEffort ? 'bg-info' : 'bg-foreground'
+                          )}
+                        />
+                      </div>
+                      </>
+                      ) : (
+                        // JellyRadio: every level visible at once, springy
+                        // barge/swell motion. Wire values map to the radio's
+                        // keys with '' → 'default' so keys stay non-empty.
+                        <JellyRadio
+                          ariaLabel="Reasoning effort"
+                          size="sm"
+                          gap={6}
+                          radius={14}
+                          items={EFFORTS.map(({ label, value }) => ({ value: value || 'default', label }))}
+                          value={currentEffort || 'default'}
+                          onChange={(next) => {
+                            // Deliberately stays open — the user dismisses the
+                            // panel themselves (outside click or Escape).
+                            onSetEffort?.(next === 'default' ? '' : (next as ReasoningEffort))
+                          }}
+                        />
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>

@@ -520,6 +520,7 @@ export default function App(): JSX.Element {
         onRename={renameSession}
         onArchive={archiveSession}
         onRestore={restoreSession}
+        sidebarVariant={preferences.sidebarVariant}
       />
       <main className="main-panel surface-grain relative flex min-w-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -585,6 +586,7 @@ export default function App(): JSX.Element {
                 onSetEffort={(effort) => void changeEffort(effort)}
                 sendOnEnter={preferences.sendOnEnter}
                 modelSelectorVariant={preferences.modelSelectorVariant}
+                effortSelectorVariant={preferences.effortSelectorVariant}
                 queuedFollowUps={queuedFollowUps.filter((pending) => pending.sessionId === chat.sessionId).map((pending) => pending.label)}
                 notice={chat.notice}
                 onDismissNotice={() => dispatch({ type: 'notice', text: null })}
@@ -612,6 +614,7 @@ export default function App(): JSX.Element {
             onDismissNotice={() => setHomeNotice(null)}
             sendOnEnter={preferences.sendOnEnter}
             modelSelectorVariant={preferences.modelSelectorVariant}
+            effortSelectorVariant={preferences.effortSelectorVariant}
             onCommand={handleCommand}
           />
         )}

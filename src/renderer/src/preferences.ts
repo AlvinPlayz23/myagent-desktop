@@ -2,6 +2,8 @@ export type ThemePreference = 'system' | 'dark' | 'light'
 export type MessageSize = 'compact' | 'default' | 'large'
 export type ToolActivityDisplay = 'expanded' | 'compact' | 'hidden'
 export type ModelSelectorVariant = 'compact' | 'gallery'
+export type EffortSelectorVariant = 'slider' | 'chips'
+export type SidebarVariant = 'inbox' | 'grouped'
 
 export interface Preferences {
   theme: ThemePreference
@@ -11,6 +13,16 @@ export interface Preferences {
   sendOnEnter: boolean
   toolActivityDisplay: ToolActivityDisplay
   modelSelectorVariant: ModelSelectorVariant
+  /**
+   * Effort picker presentation: the slider rail, or the original row of level
+   * chips. The chips variant also restores click-to-cycle on the trigger.
+   */
+  effortSelectorVariant: EffortSelectorVariant
+  /**
+   * Sidebar presentation: the inbox-style flat filtered list, or the original
+   * grouped view with every project folder expanded in one place.
+   */
+  sidebarVariant: SidebarVariant
   /** Whether the desktop material should be visible through the app shell. */
   transparencyEnabled: boolean
   /** 0 is more opaque; 100 lets more of the desktop material show through. */
@@ -31,6 +43,8 @@ export const defaults: Preferences = {
   sendOnEnter: true,
   toolActivityDisplay: 'compact',
   modelSelectorVariant: 'compact',
+  effortSelectorVariant: 'slider',
+  sidebarVariant: 'inbox',
   transparencyEnabled: true,
   transparency: 50,
   appName: DEFAULT_APP_NAME
@@ -55,6 +69,8 @@ export function loadPreferences(): Preferences {
       ...stored,
       toolActivityDisplay: stored.toolActivityDisplay === 'expanded' || stored.toolActivityDisplay === 'hidden' ? stored.toolActivityDisplay : 'compact',
       modelSelectorVariant: stored.modelSelectorVariant === 'gallery' ? 'gallery' : 'compact',
+      effortSelectorVariant: stored.effortSelectorVariant === 'chips' ? 'chips' : 'slider',
+      sidebarVariant: stored.sidebarVariant === 'grouped' ? 'grouped' : 'inbox',
       transparencyEnabled: stored.transparencyEnabled !== false,
       transparency: normalizeTransparency(stored.transparency),
       appName: normalizeAppName(stored.appName ?? defaults.appName)

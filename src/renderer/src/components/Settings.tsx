@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Archive01, ArchiveRestore, Check, ComputerTerminal, Globe02, Keyboard01, Message01, Search01, Settings01 } from './ui/icons'
 import type { ConnState } from '../state'
-import { normalizeAppName, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant } from '../preferences'
+import { normalizeAppName, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
 import { cn } from '../util'
 import { shortcuts, shortcutCategories, formatCombo } from '../shortcuts'
@@ -55,6 +55,16 @@ const toolDisplays: Array<{ value: ToolActivityDisplay; title: string; detail: s
 const modelSelectorVariants: Array<{ value: ModelSelectorVariant; title: string; detail: string }> = [
   { value: 'compact', title: 'Compact', detail: 'Classic dropdown with search and provider cycler' },
   { value: 'gallery', title: 'Gallery', detail: 'Provider rail with Quick Search and radio rows' }
+]
+
+const effortSelectorVariants: Array<{ value: EffortSelectorVariant; title: string; detail: string }> = [
+  { value: 'slider', title: 'Slider', detail: 'Single rail — drag or step through every reasoning level' },
+  { value: 'chips', title: 'Chips', detail: 'Click the control to cycle levels; right-click opens the JellyRadio row with every level visible' }
+]
+
+const sidebarVariants: Array<{ value: SidebarVariant; title: string; detail: string }> = [
+  { value: 'inbox', title: 'Inbox', detail: 'Flat filtered list with project picker and live-run pinning' },
+  { value: 'grouped', title: 'Grouped', detail: 'All folders in one place with expandable project sections' }
 ]
 
 function SettingsSection({
@@ -466,6 +476,22 @@ export default function Settings({
                   <div className="grid gap-2.5 p-4 sm:grid-cols-2">
                     {modelSelectorVariants.map((item) => (
                       <ChoiceCard key={item.value} {...item} current={preferences.modelSelectorVariant} onSelect={(modelSelectorVariant) => onChange({ modelSelectorVariant })} />
+                    ))}
+                  </div>
+                </SettingsSection>
+
+                <SettingsSection title="Effort selector">
+                  <div className="grid gap-2.5 p-4 sm:grid-cols-2">
+                    {effortSelectorVariants.map((item) => (
+                      <ChoiceCard key={item.value} {...item} current={preferences.effortSelectorVariant} onSelect={(effortSelectorVariant) => onChange({ effortSelectorVariant })} />
+                    ))}
+                  </div>
+                </SettingsSection>
+
+                <SettingsSection title="Sidebar">
+                  <div className="grid gap-2.5 p-4 sm:grid-cols-2">
+                    {sidebarVariants.map((item) => (
+                      <ChoiceCard key={item.value} {...item} current={preferences.sidebarVariant} onSelect={(sidebarVariant) => onChange({ sidebarVariant })} />
                     ))}
                   </div>
                 </SettingsSection>

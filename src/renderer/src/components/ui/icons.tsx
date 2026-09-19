@@ -1,5 +1,5 @@
 import { HugeiconsIcon, type HugeiconsIconProps } from '@hugeicons/react'
-import { Globe2, Keyboard, GitBranch, GitCommitVertical, GitPullRequestArrow, RefreshCw, Undo2, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
+import { CircleHelp, Globe2, Keyboard, GitBranch, GitCommitVertical, GitPullRequestArrow, RefreshCw, Undo2, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
 import {
   Add01Icon,
   AddToListIcon,
@@ -29,6 +29,8 @@ import {
   Loading03Icon,
   Message01Icon,
   MoreHorizontalIcon,
+  MouseLeftClick05Icon,
+  MouseRightClick05Icon,
   PanelLeftOpenIcon,
   Rotate01Icon,
   Search01Icon,
@@ -80,11 +82,14 @@ export const Refresh01 = RefreshCw
 export const Undo01 = Undo2
 export const ArrowDownTray = ArrowDownToLine
 export const ArrowUpTray = ArrowUpFromLine
+export const HelpCircle = CircleHelp
 export const LayoutAlignLeft = makeIcon(LayoutAlignLeftIcon)
 export const LayoutAlignRight = makeIcon(LayoutAlignRightIcon)
 export const Loading03 = makeIcon(Loading03Icon)
 export const Message01 = makeIcon(Message01Icon)
 export const MoreHorizontal = makeIcon(MoreHorizontalIcon)
+export const MouseLeftClick05 = makeIcon(MouseLeftClick05Icon)
+export const MouseRightClick05 = makeIcon(MouseRightClick05Icon)
 export const PanelLeftOpen = makeIcon(PanelLeftOpenIcon)
 export const Rotate01 = makeIcon(Rotate01Icon)
 export const Search01 = makeIcon(Search01Icon)
