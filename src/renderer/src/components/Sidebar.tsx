@@ -533,7 +533,10 @@ function Sidebar({
             : 'w-[264px] duration-[280ms] ease-[cubic-bezier(0.34,1.4,0.64,1)]'
         )}
       >
-        <div className="drag-region h-9 shrink-0" />
+        <div
+          className="drag-region h-9 shrink-0"
+          onDoubleClick={() => window.myagent.toggleMaximizeWindow().catch(() => {})}
+        />
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2">
           {/* Running sessions sit above the project picker so a run in another

@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme, screen } from 'electron'
 import { execFile } from 'child_process'
 import fs from 'fs'
 import { join } from 'path'
@@ -262,6 +262,30 @@ function createWindow(): void {
   })
   win.on('maximize', pushWindowMaximized)
   win.on('unmaximize', pushWindowMaximized)
+  // Aero-snap / taskbar / keyboard restores don't always pair with the button
+  // path: re-push the settled state after moves and resizes so a missed event
+  // can't leave the renderer's caption icon stuck.
+  win.on('moved', pushWindowMaximized)
+  win.on('resized', pushWindowMaximized)
+  // Frameless windows don't get native Aero-snap: the web drag-region moves
+  // the window, but DWM only watches real captions, so dragging to the top
+  // edge never maximizes. Emulate that one gesture — while the window is
+  // being moved with the cursor pressed against the top edge of its display,
+  // maximize, matching the native drag-to-top behaviour. Win32 only: other
+  // platforms keep their own window-manager gestures.
+  if (process.platform === 'win32') {
+    win.on('move', () => {
+      if (!win || win.isDestroyed() || win.isMaximized()) return
+      try {
+        const cursor = screen.getCursorScreenPoint()
+        const display = screen.getDisplayNearestPoint(cursor)
+        const withinX = cursor.x >= display.bounds.x && cursor.x < display.bounds.x + display.bounds.width
+        if (withinX && cursor.y <= display.bounds.y + 2) win.maximize()
+      } catch {
+        // A failed snap leaves the window where the drag put it.
+      }
+    })
+  }
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }

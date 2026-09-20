@@ -1464,6 +1464,18 @@
   background: rgb(var(--shell-rgb) / 0.72);
 }
 
+/* While DWM animates a maximize/resize, a transparent window repaints in
+   software — the sidebar blur and panel grain dominate that cost, so the
+   renderer drops them until the size settles (see the resize listener in
+   App.tsx). Plain selectors: the class lives on <html>. */
+.window-resizing aside {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.window-resizing .surface-grain {
+  background-image: none;
+}
+
 /* Sidebar scroll edge fade - per-glyph alternative to overlay gradient
    (comet/crates/ui/src/edge_fade.rs: 32px band). Mask fades top/bottom
    so the glass scroll feels infinite. */
@@ -1587,6 +1599,14 @@
   stroke-linejoin: miter;
   stroke-width: 1;
   shape-rendering: crispEdges;
+}
+.window-control svg.window-control-hugeicon {
+  width: 12px;
+  height: 12px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  shape-rendering: auto;
 }
 .window-control-close:hover {
   background: #c42b1c;

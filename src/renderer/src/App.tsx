@@ -101,7 +101,33 @@ export default function App(): JSX.Element {
       document.documentElement.classList.toggle('window-maximized', maximized)
     }
     window.myagent.windowMaximized().then(setMaximized).catch(() => {})
-    return window.myagent.onWindowMaximized(setMaximized)
+    const offMaximized = window.myagent.onWindowMaximized(setMaximized)
+    // A transparent (Win10 fallback) window repaints in software while DWM
+    // animates a maximize/resize — the "fills left, then right" stutter. The
+    // sidebar blur and panel grain dominate that repaint cost, so drop them
+    // while the size is settling and restore them once it stops changing.
+    let resizeTimer: number | null = null
+    const onResize = (): void => {
+      document.documentElement.classList.add('window-resizing')
+      if (resizeTimer !== null) window.clearTimeout(resizeTimer)
+      resizeTimer = window.setTimeout(() => {
+        resizeTimer = null
+        document.documentElement.classList.remove('window-resizing')
+      }, 250)
+    }
+    window.addEventListener('resize', onResize)
+    // Re-sync after focus: a missed maximize event must not stick forever.
+    const onFocus = (): void => {
+      window.myagent.windowMaximized().then(setMaximized).catch(() => {})
+    }
+    window.addEventListener('focus', onFocus)
+    return () => {
+      offMaximized()
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('focus', onFocus)
+      if (resizeTimer !== null) window.clearTimeout(resizeTimer)
+      document.documentElement.classList.remove('window-resizing')
+    }
   }, [])
 
   useEffect(() => {
@@ -524,7 +550,15 @@ export default function App(): JSX.Element {
       />
       <main className="main-panel surface-grain relative flex min-w-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="drag-region relative flex h-9 shrink-0 items-center gap-2 overflow-visible px-2 pr-[140px]">
+        <div
+          className="drag-region relative flex h-9 shrink-0 items-center gap-2 overflow-visible px-2 pr-[140px]"
+          onDoubleClick={(e) => {
+            // Tabs, buttons and inputs own their double-clicks — only empty
+            // titlebar area toggles maximize, like a native caption.
+            if ((e.target as HTMLElement).closest('button, input, textarea, select, a, [role="button"]')) return
+            window.myagent.toggleMaximizeWindow().catch(() => {})
+          }}
+        >
           <span className="shrink-0 select-none truncate pl-2 text-[12.5px] font-semibold tracking-tight text-foreground">
             {normalizeAppName(preferences.appName)}
           </span>
