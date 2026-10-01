@@ -11,7 +11,7 @@ const isBuiltinEntry = (entry: ProviderEntry): boolean =>
   entry.origin != null ? entry.origin === 'builtin' : entry.source === 'auth'
 
 const fieldClass =
-  'mt-1.5 block h-9 w-full rounded-xl border border-border bg-background px-3 font-sans text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring/30'
+  'mt-1.5 block h-9 w-full rounded-xl border border-border bg-background px-3 font-sans text-ui-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring/30'
 
 export default function ProviderManager({
   providers,
@@ -114,8 +114,8 @@ export default function ProviderManager({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 sm:p-8 overflow-hidden">
       <div>
-        <h1 className="m-0 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">AI Providers</h1>
-        <p className="mt-1 text-xs text-muted-foreground/80">Configure model providers, custom endpoints, and API credentials.</p>
+        <h1 className="m-0 text-ui-xl font-semibold tracking-tight text-foreground sm:text-ui-xl">AI Providers</h1>
+        <p className="mt-1 text-ui-sm text-muted-foreground">Configure model providers, custom endpoints, and API credentials.</p>
       </div>
 
       {/* Sliding panel container */}
@@ -132,7 +132,7 @@ export default function ProviderManager({
               className="space-y-3"
             >
               <div className="flex items-center justify-between px-1">
-                <h2 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">
+                <h2 className="flex items-center gap-2 text-ui-sm font-semibold uppercase tracking-[0.08em] text-foreground-subtlest">
                   <span className="inline-block h-px w-3 bg-border" aria-hidden />
                   Configured Providers ({providers.providers.length})
                 </h2>
@@ -142,7 +142,7 @@ export default function ProviderManager({
                     <button
                       type="button"
                       onClick={() => add(true)}
-                      className="h-7.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-all outline-none cursor-pointer hover:bg-hover hover:text-foreground"
+                      className="h-7.5 rounded-lg border border-border bg-background px-3 text-ui-sm font-medium text-muted-foreground transition-all outline-none cursor-pointer hover:bg-hover hover:text-foreground"
                     >
                       + Catalog Provider
                     </button>
@@ -150,7 +150,7 @@ export default function ProviderManager({
                   <button
                     type="button"
                     onClick={() => add(false)}
-                    className="h-7.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-all outline-none cursor-pointer hover:bg-hover hover:text-foreground"
+                    className="h-7.5 rounded-lg border border-border bg-background px-3 text-ui-sm font-medium text-muted-foreground transition-all outline-none cursor-pointer hover:bg-hover hover:text-foreground"
                   >
                     + Custom Endpoint
                   </button>
@@ -163,7 +163,7 @@ export default function ProviderManager({
                   return (
                     <div
                       key={provider.name}
-                      className="group relative flex cursor-pointer flex-col justify-between rounded-2xl border border-border bg-card/70 p-4 transition-all duration-150 outline-none hover:border-foreground/20 hover:bg-muted/40"
+                      className="group relative flex cursor-pointer flex-col justify-between rounded-xl border border-border bg-card/70 p-4 transition-all duration-150 outline-none hover:border-foreground/20 hover:bg-muted/40"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-3">
@@ -173,8 +173,8 @@ export default function ProviderManager({
                             className="rounded-lg bg-background ring-1 ring-border/70 shrink-0"
                           />
                           <div className="min-w-0">
-                            <span className="block truncate text-xs font-semibold text-foreground">{provider.name}</span>
-                            <span className="block truncate font-mono text-[10.5px] text-muted-foreground/70">
+                            <span className="block truncate text-ui-sm font-semibold text-foreground">{provider.name}</span>
+                            <span className="block truncate font-mono text-ui-xs text-foreground-subtlest">
                               {provider.baseUrl || 'Default Endpoint'}
                             </span>
                           </div>
@@ -182,24 +182,24 @@ export default function ProviderManager({
 
                         <div className="flex shrink-0 items-center gap-1.5">
                           {defaultProv && (
-                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-ui-xs font-semibold text-primary">
                               Default
                             </span>
                           )}
                           {provider.origin && (
-                            <span className="rounded-full border border-border/80 px-1.5 py-px font-mono text-[9.5px] uppercase tracking-wider text-muted-foreground/80">
+                            <span className="rounded-full border border-border/80 px-1.5 py-px font-mono text-ui-xs uppercase tracking-wider text-muted-foreground">
                               {provider.origin === 'builtin_override' ? 'override' : provider.origin}
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-2.5 text-[11px] text-muted-foreground/80">
+                      <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-2.5 text-ui-sm text-muted-foreground">
                         <span>{provider.models.length} model{provider.models.length === 1 ? '' : 's'} available</span>
                         <button
                           type="button"
                           onClick={() => openConfig(provider)}
-                          className="rounded-lg border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-hover cursor-pointer outline-none"
+                          className="rounded-lg border border-border bg-background px-2.5 py-1 text-ui-sm font-medium text-foreground transition-colors hover:bg-hover cursor-pointer outline-none"
                         >
                           Configure →
                         </button>
@@ -225,25 +225,25 @@ export default function ProviderManager({
                   <button
                     type="button"
                     onClick={back}
-                    className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground cursor-pointer outline-none"
+                    className="flex items-center gap-1.5 text-ui-sm font-medium text-muted-foreground transition-colors hover:text-foreground cursor-pointer outline-none"
                   >
                     ← Back
                   </button>
                   <span className="text-border">·</span>
-                  <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">
+                  <h2 className="text-ui-sm font-semibold uppercase tracking-[0.08em] text-foreground-subtlest">
                     {selected ? `Configure: ${selected}` : form.builtin ? 'Add Catalog Provider' : 'Add Custom Endpoint'}
                   </h2>
                 </div>
                 {current && isDefault(current) && (
-                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <span className="rounded-full border border-border px-2 py-0.5 text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Current Default
                   </span>
                 )}
               </div>
 
-              <div className="rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-xs space-y-4">
+              <div className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-xs space-y-4">
                 {form.builtin && !selected && (
-                  <label className="block text-xs font-semibold text-foreground">
+                  <label className="block text-ui-sm font-semibold text-foreground">
                     Select Catalog Provider
                     <select
                       value={form.name}
@@ -262,7 +262,7 @@ export default function ProviderManager({
                 )}
 
                 {!form.builtin && (
-                  <label className="block text-xs font-semibold text-foreground">
+                  <label className="block text-ui-sm font-semibold text-foreground">
                     Provider Name
                     <input
                       value={form.name}
@@ -275,18 +275,18 @@ export default function ProviderManager({
                 )}
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block text-xs font-semibold text-foreground">
+                  <label className="block text-ui-sm font-semibold text-foreground">
                     Base URL
                     <input
                       value={form.baseUrl}
                       onChange={(event) => update({ baseUrl: event.target.value })}
-                      className={cn(fieldClass, 'font-mono text-[11.5px]')}
+                      className={cn(fieldClass, 'font-mono text-ui-sm')}
                       placeholder="https://api.example.com/v1"
                     />
                   </label>
 
-                  <label className="block text-xs font-semibold text-foreground">
-                    API Key <span className="font-normal text-muted-foreground/70">(leave blank to keep saved key)</span>
+                  <label className="block text-ui-sm font-semibold text-foreground">
+                    API Key <span className="font-normal text-foreground-subtlest">(leave blank to keep saved key)</span>
                     <input
                       type="password"
                       value={form.apiKey}
@@ -297,13 +297,13 @@ export default function ProviderManager({
                   </label>
                 </div>
 
-                <label className="block text-xs font-semibold text-foreground">
+                <label className="block text-ui-sm font-semibold text-foreground">
                   Default Model ID
                   <input
                     list="provider-models"
                     value={form.model}
                     onChange={(event) => update({ model: event.target.value })}
-                    className={cn(fieldClass, 'font-mono text-[11.5px]')}
+                    className={cn(fieldClass, 'font-mono text-ui-sm')}
                     placeholder="e.g. gpt-4o, claude-3-5-sonnet, deepseek-r1"
                   />
                   <datalist id="provider-models">
@@ -314,7 +314,7 @@ export default function ProviderManager({
                 </label>
 
                 {form.model && modelDetail && (
-                  <div className="rounded-xl border border-border/60 bg-muted/30 px-3.5 py-2.5 font-mono text-[11px] text-muted-foreground">
+                  <div className="rounded-xl border border-border/60 bg-muted/30 px-3.5 py-2.5 font-mono text-ui-sm text-muted-foreground">
                     {reasoningNote}
                   </div>
                 )}
@@ -322,7 +322,7 @@ export default function ProviderManager({
                 <div className="pt-2 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    className="h-8.5 rounded-xl bg-foreground px-4 text-xs font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                    className="h-8.5 rounded-xl bg-foreground px-4 text-ui-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                     onClick={save}
                     disabled={busy}
                   >
@@ -331,7 +331,7 @@ export default function ProviderManager({
 
                   <button
                     type="button"
-                    className="h-8.5 rounded-xl border border-border bg-background px-3.5 text-xs font-medium text-foreground transition-colors hover:bg-hover disabled:opacity-50"
+                    className="h-8.5 rounded-xl border border-border bg-background px-3.5 text-ui-sm font-medium text-foreground transition-colors hover:bg-hover disabled:opacity-50"
                     onClick={discover}
                     disabled={busy || !form.name || !form.baseUrl}
                   >
@@ -341,7 +341,7 @@ export default function ProviderManager({
                   {current && (
                     <button
                       type="button"
-                      className="h-8.5 rounded-xl border border-border bg-background px-3.5 text-xs font-medium text-foreground transition-colors hover:bg-hover disabled:opacity-50"
+                      className="h-8.5 rounded-xl border border-border bg-background px-3.5 text-ui-sm font-medium text-foreground transition-colors hover:bg-hover disabled:opacity-50"
                       onClick={async () => {
                         setBusy(true)
                         try {
@@ -363,7 +363,7 @@ export default function ProviderManager({
                   {current && (
                     <button
                       type="button"
-                      className="h-8.5 rounded-xl px-3.5 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                      className="h-8.5 rounded-xl px-3.5 text-ui-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/10 disabled:opacity-50"
                       onClick={async () => {
                         if (!window.confirm(`Remove ${current.name}?`)) return
                         setBusy(true)
@@ -384,7 +384,7 @@ export default function ProviderManager({
                 </div>
 
                 {error && (
-                  <div className="rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-2.5 text-xs text-destructive-foreground">
+                  <div className="rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-2.5 text-ui-sm text-destructive-foreground">
                     {error}
                   </div>
                 )}

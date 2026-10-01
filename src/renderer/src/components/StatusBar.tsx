@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { motion } from 'motion/react'
 import type { ChatState, ConnState } from '../state'
 import { cn } from '../util'
+import { FlipMetricValue } from './ui/flip-metric-value'
 
 interface Props {
   conn: ConnState
@@ -26,7 +27,7 @@ const DOT: Record<ConnState, string> = {
 
 function StatusBar({ conn, detail, version, chat }: Props): JSX.Element {
   return (
-    <footer className="flex h-7 shrink-0 items-center gap-2.5 px-4 text-[11px] text-muted-foreground">
+    <footer className="flex h-7 shrink-0 items-center gap-2.5 px-4 text-ui-sm text-muted-foreground">
       <motion.span
         key={conn}
         className={cn('size-1.5 shrink-0 rounded-full', DOT[conn])}
@@ -51,11 +52,12 @@ function StatusBar({ conn, detail, version, chat }: Props): JSX.Element {
               running
             </motion.span>
           )}
-          <span className="font-mono" title="context size (last request total tokens)">
-            {chat.lastTokens > 0 ? `${(chat.lastTokens / 1000).toFixed(1)}k tok` : '—'}
+          <span className="flex items-center gap-1 font-mono" title="context size (last request total tokens)">
+            <FlipMetricValue value={chat.lastTokens > 0 ? `${(chat.lastTokens / 1000).toFixed(1)}k` : '—'} />
+            <span>tok</span>
           </span>
           <span className="font-mono" title="cumulative cost this session">
-            ${chat.cost.toFixed(4)}
+            $<FlipMetricValue value={chat.cost.toFixed(4)} />
           </span>
         </>
       )}

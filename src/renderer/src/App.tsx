@@ -5,19 +5,21 @@ import { api, ApiError } from './api'
 import { activeChat, contentMatches, contentText, initialState, loadHistory, newChat, reducer } from './state'
 import { createStreamCoalescer, type StreamCoalescer } from './streamCoalescer'
 import { baseName } from './util'
+import { startChromeAnimation } from './chromeAnimation'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
 import ChatErrorBoundary from './components/ChatErrorBoundary'
 import Composer from './components/Composer'
 import StatusBar from './components/StatusBar'
 import Home from './components/Home'
-import ChatHeader from './components/ChatHeader'
+import TopBar from './components/TopBar'
 import Settings from './components/Settings'
 import WindowControls from './components/WindowControls'
 import TabBar from './components/TabBar'
 import OpenWith from './components/OpenWith'
 import GitPanel from './components/GitPanel'
-import { applyTheme, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
+import { applyTheme, applyFontSize, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
+import { Sparkles } from './components/ui/icons'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
 import DebugPanel from './debug-panel/DebugPanel'
@@ -58,6 +60,7 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     applyTheme(preferences.theme)
+    applyFontSize(preferences.interfaceFontSize)
     savePreferences(preferences)
     const query = window.matchMedia('(prefers-color-scheme: dark)')
     const onChange = (): void => {
@@ -295,7 +298,18 @@ export default function App(): JSX.Element {
 
   const selectHomeCwd = useCallback((cwd: string) => dispatch({ type: 'home', cwd }), [])
 
-  const toggleSidebar = useCallback(() => setSidebarCollapsed((value) => !value), [])
+  // Both of these animate the width of a panel that sits next to the chat
+  // column, which reflows the transcript and repaints the shell around it — see
+  // chromeAnimation.ts for what gets masked while they run. The duration passed
+  // here matches each animation's own token.
+  const toggleSidebar = useCallback(() => {
+    startChromeAnimation(240)
+    setSidebarCollapsed((value) => !value)
+  }, [])
+  const toggleGit = useCallback(() => {
+    startChromeAnimation(200)
+    setGitOpen((value) => !value)
+  }, [])
   const toggleSettings = useCallback(() => setView((v) => (v === 'settings' ? 'content' : 'settings')), [])
   const openSettings = useCallback(() => setView('settings'), [])
 
@@ -559,8 +573,11 @@ export default function App(): JSX.Element {
             window.myagent.toggleMaximizeWindow().catch(() => {})
           }}
         >
-          <span className="shrink-0 select-none truncate pl-2 text-[12.5px] font-semibold tracking-tight text-foreground">
-            {normalizeAppName(preferences.appName)}
+          <span className="flex shrink-0 select-none items-center gap-1.5 pl-2">
+            <Sparkles size={13} strokeWidth={1.8} className="text-muted-foreground" />
+            <span className="truncate text-ui-caption font-semibold tracking-tight text-foreground">
+              {normalizeAppName(preferences.appName)}
+            </span>
           </span>
           <TabBar
             tabOrder={state.tabOrder}
@@ -578,8 +595,26 @@ export default function App(): JSX.Element {
               <OpenWith cwd={chat.cwd} />
             </div>
           )}
+          <TopBar
+            chat={chat}
+            title={chat ? (() => { const s = state.sessions.find((s) => s.id === chat.sessionId); return s?.title || s?.preview })() : undefined}
+            onCompact={compact}
+            onRename={() => {
+              if (!chat) return
+              const s = state.sessions.find((s) => s.id === chat.sessionId)
+              renameSession(chat.sessionId, s?.title || s?.preview || '')
+            }}
+            onArchive={() => { if (chat) archiveSession(chat.sessionId) }}
+            onToggleDebug={() => setDebugOpen((v) => !v)}
+            debugOpen={debugOpen}
+            onToggleGit={toggleGit}
+            gitOpen={gitOpen}
+            onSettings={toggleSettings}
+            settingsOpen={view === 'settings'}
+            onHelp={() => setModal('help')}
+          />
         </div>
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="popLayout">
         <motion.div
           key={chat ? `chat-${chat.sessionId}` : 'home'}
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -590,20 +625,6 @@ export default function App(): JSX.Element {
         >
         {chat ? (
           <>
-            <ChatHeader
-              chat={chat}
-              title={(() => { const s = state.sessions.find((s) => s.id === chat.sessionId); return s?.title || s?.preview })()}
-              onCompact={compact}
-              onRename={() => {
-                const s = state.sessions.find((s) => s.id === chat.sessionId)
-                renameSession(chat.sessionId, s?.title || s?.preview || '')
-              }}
-              onArchive={() => archiveSession(chat.sessionId)}
-              onToggleDebug={() => setDebugOpen((v) => !v)}
-              debugOpen={debugOpen}
-              onToggleGit={() => setGitOpen((v) => !v)}
-              gitOpen={gitOpen}
-            />
             <ChatErrorBoundary key={chat.sessionId}>
               <Chat key={chat.sessionId} chat={chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} />
             </ChatErrorBoundary>
@@ -650,6 +671,9 @@ export default function App(): JSX.Element {
             modelSelectorVariant={preferences.modelSelectorVariant}
             effortSelectorVariant={preferences.effortSelectorVariant}
             onCommand={handleCommand}
+            recentSessions={state.sessions.filter((s) => !archivedSessionIds.has(s.id)).slice(0, 6)}
+            onOpenSession={openSession}
+            onSettings={toggleSettings}
           />
         )}
         </motion.div>
@@ -669,7 +693,7 @@ export default function App(): JSX.Element {
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: 320, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
+              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
               className="shrink-0 overflow-hidden border-l border-border/60 bg-card/40"
             >
               <div className="h-full w-[320px]">

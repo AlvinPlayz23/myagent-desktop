@@ -58,9 +58,9 @@ This feature touches exactly two files outside this folder, both marked
 with `debug-panel:` comments (`grep -r "debug-panel:" desktop/src` finds
 them):
 
-1. `../components/ChatHeader.tsx` — the toggle button and `onToggleDebug`
-   prop.
-2. `../App.tsx` — the `debugOpen` state, the prop wired into `ChatHeader`,
+1. `../components/TopBar.tsx` — the toggle button and `onToggleDebug` /
+   `debugOpen` props (the ChatHeader row was merged into TopBar).
+2. `../App.tsx` — the `debugOpen` state, the props wired into `TopBar`,
    and the `<DebugPanel>` render call.
 
 To remove the feature entirely: delete this `debug-panel/` folder, then

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Folder01 } from './ui/icons'
+import { Folder01, Sparkles } from './ui/icons'
 import type { ChatItem, ChatState } from '../state'
 import type { Message } from '../../../shared/protocol'
 import type { ToolActivityDisplay } from '../preferences'
@@ -8,16 +8,23 @@ import MessageView from './MessageView'
 import Working from './Working'
 import ToolGroup, { type WorkEntry } from './ToolGroup'
 import { ArrowDown02 } from './ui/icons'
+import { ScrollFadeViewport } from './ui/scroll-fade-viewport'
 
 // Rises a timeline entry in as it appends to a live conversation. Rows that
 // are part of the first render (history load / session resume) pass
 // animate=false so an entire transcript never replays its entrance.
+//
+// `transcript-row` lets the browser skip layout and paint for rows scrolled out
+// of view, which is what keeps a long session from getting heavier than a short
+// one. Nothing in a row paints outside its own box (the message actions card is
+// inline by design), so its paint containment clips nothing.
 function Entrance({ animate, children }: { animate: boolean; children: ReactNode }): JSX.Element {
   return (
     <motion.div
-      initial={animate ? { opacity: 0, y: 10 } : false}
+      className="transcript-row"
+      initial={animate ? { opacity: 0, y: 6 } : false}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
+      transition={{ duration: 0.16, ease: 'easeOut' }}
     >
       {children}
     </motion.div>
@@ -161,7 +168,7 @@ export default function Chat({
       // Only a node that survives to flushSegment as the turn's answer is ever
       // painted with the button. It is ignored for user messages.
       return (
-        <div key={key} className="mt-5">
+        <div key={key} className="transcript-row mt-5">
           <MessageView
             msg={item.msg}
             messageSize={messageSize}
@@ -173,7 +180,7 @@ export default function Chat({
     }
     if (item.kind === 'compaction') {
       return (
-        <div key={key} className="mt-5 flex items-center gap-3 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
+        <div key={key} className="mt-5 flex items-center gap-3 text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
           <span>context compacted</span>
           <span className="font-mono font-normal normal-case tracking-normal">
             {Math.round(item.info.tokensBefore / 1000)}k → {Math.round(item.info.tokensAfter / 1000)}k tokens
@@ -289,17 +296,27 @@ export default function Chat({
 
   return (
     <div className="relative min-h-0 flex-1">
-      <div className="h-full overflow-y-auto" ref={scroller} onScroll={onScroll} onWheel={onUserWheel} onTouchStart={stopGlide} onTouchMove={onUserTouch}>
+      <ScrollFadeViewport
+        ref={scroller}
+        className="h-full"
+        onScroll={onScroll}
+        onWheel={onUserWheel}
+        onTouchStart={stopGlide}
+        onTouchMove={onUserTouch}
+      >
       <div className="mx-auto flex max-w-3xl flex-col px-5 pb-6 pt-7 sm:px-8" ref={contentRef}>
         {chat.items.length === 0 && !chat.streaming && (
-          <div className="mt-[9vh] flex flex-col items-center gap-5 text-center [animation:rise_0.4s_ease]">
+          <div className="mt-[8vh] flex flex-col items-center gap-4 text-center [animation:rise_0.4s_ease]">
+            <span className="grid size-11 place-items-center rounded-2xl border border-border bg-card shadow-sm">
+              <Sparkles size={18} strokeWidth={1.8} className="text-foreground" />
+            </span>
             <div className="flex flex-col items-center gap-1.5">
-              <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Fresh session</h2>
-              <p className="max-w-md text-[13px] leading-relaxed text-muted-foreground">
-                Describe what you want built, fixed, or explained.
+              <h2 className="text-ui-lg font-semibold tracking-[-0.015em] text-foreground">Fresh session</h2>
+              <p className="max-w-md text-ui-caption leading-relaxed text-muted-foreground">
+                Describe what you want built, fixed, or explained — the agent works directly in this folder.
               </p>
             </div>
-            <code className="inline-flex min-w-0 items-center gap-2 font-mono text-[11px] text-muted-foreground">
+            <code className="surface-card inline-flex min-w-0 max-w-full items-center gap-2 rounded-full px-3.5 py-1.5 font-mono text-ui-sm text-muted-foreground">
               <Folder01 size={12} strokeWidth={1.8} className="shrink-0" />
               <span className="min-w-0 truncate">{chat.cwd}</span>
             </code>
@@ -324,7 +341,7 @@ export default function Chat({
           </div>
         )}
       </div>
-      </div>
+      </ScrollFadeViewport>
       {/* Jump to latest: floats over the transcript while scrolled away from
           the bottom. Clicking glides back down and re-pins autoscroll on
           arrival. */}

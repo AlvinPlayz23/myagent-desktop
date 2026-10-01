@@ -28,7 +28,7 @@ export default function HoverTooltip({
       <span
         role="tooltip"
         className={cn(
-          'pointer-events-none absolute left-1/2 z-50 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border/60 bg-popover px-2 py-1.5 text-[11.5px] font-medium text-foreground opacity-0 shadow-lg',
+          'pointer-events-none absolute left-1/2 z-50 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border/60 bg-popover px-2 py-1.5 text-ui-sm font-medium text-foreground opacity-0 shadow-lg',
           'transition-[opacity,transform] duration-150 ease-out delay-0 group-hover/tip:delay-[350ms] group-focus-within/tip:delay-[350ms]',
           'motion-reduce:transition-none',
           side === 'top' ? 'bottom-full mb-1.5 translate-y-1' : 'top-full mt-1.5 -translate-y-1',

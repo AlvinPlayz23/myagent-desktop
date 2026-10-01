@@ -54,10 +54,10 @@ function DiffFor({ path, staged }: { path: string; staged: boolean }): JSX.Eleme
   }, [cwd, path, staged])
 
   if (diff === 'loading') {
-    return <div className="px-2 py-2 text-[11px] text-muted-foreground/60">Loading diff…</div>
+    return <div className="px-2 py-2 text-ui-sm text-muted-foreground">Loading diff…</div>
   }
   if (diff === null) {
-    return <div className="px-2 py-2 text-[11px] text-muted-foreground/60">No textual changes.</div>
+    return <div className="px-2 py-2 text-ui-sm text-muted-foreground">No textual changes.</div>
   }
   return (
     <div className="mx-2 my-1 max-h-[320px] overflow-y-auto">
@@ -122,17 +122,17 @@ function FileRow({
               )}
             </motion.span>
           )}
-          <span className={cn('w-3 shrink-0 text-center font-mono text-[10px] font-bold', meta.tone)}>
+          <span className={cn('w-3 shrink-0 text-center font-mono text-ui-xs font-bold', meta.tone)}>
             {meta.badge}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">{name}</span>
+          <span className="min-w-0 flex-1 truncate text-ui-sm text-foreground">{name}</span>
           {dir && (
-            <span className="hidden shrink-0 truncate text-[10.5px] text-muted-foreground/60 sm:inline">{dir}</span>
+            <span className="hidden shrink-0 truncate text-ui-xs text-muted-foreground sm:inline">{dir}</span>
           )}
         </button>
 
         {(file.insertions > 0 || file.deletions > 0) && (
-          <span className="shrink-0 font-mono text-[10px] tabular-nums">
+          <span className="shrink-0 font-mono text-ui-xs tabular-nums">
             <span className="text-success">+{file.insertions}</span>{' '}
             <span className="text-destructive">-{file.deletions}</span>
           </span>
@@ -151,7 +151,7 @@ function FileRow({
             type="button"
             title={file.staged ? 'Unstage' : 'Stage'}
             onClick={file.staged ? onUnstage : onStage}
-            className="grid size-5 place-items-center rounded text-[13px] leading-none text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+            className="grid size-5 place-items-center rounded text-ui-caption leading-none text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
           >
             {file.staged ? '-' : '+'}
           </button>
@@ -317,7 +317,7 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
 
   if (!cwd) {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-center text-xs text-muted-foreground/70">
+      <div className="flex h-full items-center justify-center px-6 text-center text-ui-sm text-foreground-subtlest">
         Open a session to see its repository.
       </div>
     )
@@ -326,11 +326,11 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
   if (status && !status.isRepo) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="text-xs text-muted-foreground/70">This folder is not a git repository.</p>
+        <p className="text-ui-sm text-foreground-subtlest">This folder is not a git repository.</p>
         <button
           type="button"
           onClick={() => act('init', () => window.myagent.git.init(cwd))}
-          className="h-8 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-hover"
+          className="h-8 rounded-lg border border-border bg-background px-3 text-ui-sm font-medium text-foreground transition-colors hover:bg-hover"
         >
           Initialize repository
         </button>
@@ -351,11 +351,11 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
             title={status?.upstream ? `Tracking ${status.upstream}` : 'No upstream'}
           >
             <GitBranch01 size={13} className="shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-foreground">
+            <span className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground">
               {status ? (status.branch ?? 'detached') : '—'}
             </span>
             {!!status && (status.ahead > 0 || status.behind > 0) && (
-              <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+              <span className="shrink-0 font-mono text-ui-xs text-muted-foreground">
                 {status.ahead > 0 && `↑${status.ahead}`}
                 {status.behind > 0 && `↓${status.behind}`}
               </span>
@@ -371,7 +371,7 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
                 animate="animate"
                 exit="exit"
                 transition={BLOOM_FAST}
-                className="absolute left-0 top-8 z-50 max-h-[280px] w-[240px] origin-top-left overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-xl shadow-black/25"
+                className="absolute left-0 top-8 z-50 max-h-[280px] w-[240px] origin-top-left overflow-y-auto rounded-lg border border-popover-border bg-menu $1 shadow-md"
               >
                 {branches.map((b) => (
                   <button
@@ -381,7 +381,7 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
                       setBranchOpen(false)
                       if (!b.current) act('checkout', () => window.myagent.git.checkout(cwd, b.name))
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors hover:bg-hover"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-ui-sm transition-colors hover:bg-hover"
                   >
                     {b.current ? (
                       <Check size={11} className="shrink-0 text-success" />
@@ -399,7 +399,7 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
                   </button>
                 ))}
                 {branches.length === 0 && (
-                  <div className="px-3 py-2 text-center text-[11px] text-muted-foreground/60">No branches</div>
+                  <div className="px-3 py-2 text-center text-ui-sm text-muted-foreground">No branches</div>
                 )}
               </motion.div>
             )}
@@ -446,14 +446,14 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
       </div>
 
       {error && (
-        <div className="shrink-0 border-b border-destructive/20 bg-destructive/5 px-3 py-1.5 font-mono text-[10.5px] text-destructive-foreground">
+        <div className="shrink-0 border-b border-destructive/20 bg-destructive/5 px-3 py-1.5 font-mono text-ui-xs text-destructive-foreground">
           {error}
         </div>
       )}
 
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-1 py-1.5">
         {status && status.files.length === 0 && (
-          <div className="px-3 py-8 text-center text-[11.5px] text-muted-foreground/60">
+          <div className="px-3 py-8 text-center text-ui-sm text-muted-foreground">
             No changes. Working tree is clean.
           </div>
         )}
@@ -461,13 +461,13 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
         {staged.length > 0 && (
           <div className="mb-2">
             <div className="flex items-center justify-between px-2 pb-0.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              <span className="text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Staged ({staged.length})
               </span>
               <button
                 type="button"
                 onClick={() => act('unstage', () => window.myagent.git.unstage(cwd, []))}
-                className="text-[10.5px] text-muted-foreground transition-colors hover:text-foreground"
+                className="text-ui-xs text-muted-foreground transition-colors hover:text-foreground"
               >
                 Unstage all
               </button>
@@ -479,13 +479,13 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
         {unstaged.length > 0 && (
           <div>
             <div className="flex items-center justify-between px-2 pb-0.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              <span className="text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Changes ({unstaged.length})
               </span>
               <button
                 type="button"
                 onClick={() => act('stage', () => window.myagent.git.stage(cwd, []))}
-                className="text-[10.5px] text-muted-foreground transition-colors hover:text-foreground"
+                className="text-ui-xs text-muted-foreground transition-colors hover:text-foreground"
               >
                 Stage all
               </button>
@@ -506,17 +506,17 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
             ) : (
               <ChevronRight size={11} className="shrink-0 text-muted-foreground" />
             )}
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+            <span className="text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Recent commits
             </span>
           </button>
           {showLog &&
             commits.map((c) => (
               <div key={c.hash} className="flex items-start gap-1.5 px-2 py-1" title={`${c.author} · ${c.date}`}>
-                <GitCommit01 size={11} className="mt-0.5 shrink-0 text-muted-foreground/50" />
+                <GitCommit01 size={11} className="mt-0.5 shrink-0 text-foreground-subtlest" />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[11.5px] text-foreground">{c.subject}</div>
-                  <div className="truncate font-mono text-[10px] text-muted-foreground/60">
+                  <div className="truncate text-ui-sm text-foreground">{c.subject}</div>
+                  <div className="truncate font-mono text-ui-xs text-muted-foreground">
                     {c.shortHash} · {c.author}
                   </div>
                 </div>
@@ -532,7 +532,7 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
           onChange={(e) => setMessage(e.target.value)}
           placeholder={staged.length > 0 ? `Commit ${staged.length} staged file(s)…` : 'Commit message…'}
           rows={2}
-          className="w-full resize-none rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-input focus:ring-1 focus:ring-ring/30"
+          className="w-full resize-none rounded-lg border border-border bg-background px-2.5 py-1.5 text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest focus:border-input focus:ring-1 focus:ring-ring/30"
         />
         <button
           type="button"
@@ -544,7 +544,7 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
               return res
             })
           }
-          className="mt-1.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
+          className="mt-1.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-ui-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
         >
           {busy === 'commit' ? <Loading03 size={12} className="animate-spin" /> : <GitCommit01 size={12} />}
           Commit

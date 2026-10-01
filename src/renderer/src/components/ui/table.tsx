@@ -22,7 +22,7 @@ export function Table({
     children: (
       <table
         className={cn(
-          "w-full caption-bottom in-data-[variant=card]:border-separate in-data-[variant=card]:border-spacing-0 text-sm",
+          "w-full caption-bottom in-data-[variant=card]:border-separate in-data-[variant=card]:border-spacing-0 text-ui-caption",
           className,
         )}
         data-slot="table"
@@ -141,7 +141,7 @@ export function TableCaption({
   return (
     <caption
       className={cn(
-        "in-data-[variant=card]:my-4 mt-4 text-muted-foreground text-sm",
+        "in-data-[variant=card]:my-4 mt-4 text-muted-foreground text-ui-caption",
         className,
       )}
       data-slot="table-caption"

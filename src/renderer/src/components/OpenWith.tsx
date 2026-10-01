@@ -68,7 +68,7 @@ export default function OpenWith({ cwd, disabled }: { cwd: string; disabled?: bo
         title={cwd}
         onClick={() => setOpen((v) => !v)}
         className={
-          'flex h-7 items-center gap-1.5 rounded-full border border-border bg-card/70 pl-2.5 pr-2 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-card disabled:pointer-events-none disabled:opacity-40 ' +
+          'flex h-7 items-center gap-1.5 rounded-full border border-border bg-card/70 pl-2.5 pr-2 text-ui-sm font-medium text-foreground shadow-sm transition-colors hover:bg-card disabled:pointer-events-none disabled:opacity-40 ' +
           (open ? 'bg-selected' : '')
         }
       >
@@ -85,7 +85,7 @@ export default function OpenWith({ cwd, disabled }: { cwd: string; disabled?: bo
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="absolute right-0 top-9 z-50 whitespace-nowrap rounded-lg border border-border bg-popover px-2.5 py-1 text-[11px] text-muted-foreground shadow-lg shadow-black/20"
+            className="absolute right-0 top-9 z-50 whitespace-nowrap rounded-lg border border-popover-border bg-menu px-2.5 py-1 text-ui-sm text-muted-foreground shadow-md"
           >
             Couldn't open — folder missing or app not installed
           </motion.div>
@@ -100,13 +100,13 @@ export default function OpenWith({ cwd, disabled }: { cwd: string; disabled?: bo
             animate="animate"
             exit="exit"
             transition={BLOOM_FAST}
-            className="absolute right-0 top-9 z-50 w-[190px] overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-xl shadow-black/25"
+            className="absolute right-0 top-9 z-50 w-[190px] overflow-hidden rounded-lg border border-popover-border bg-menu py-1 shadow-md"
           >
             {TARGETS.map(({ id, label, Icon }) => (
               <button
                 key={id}
                 type="button"
-                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-foreground transition-colors hover:bg-hover"
+                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-ui-caption text-foreground transition-colors hover:bg-hover"
                 onClick={() => void pick(id)}
               >
                 <Icon size={14} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />

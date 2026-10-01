@@ -32,7 +32,7 @@ export function ProgressLabel({
 }: ProgressPrimitive.Label.Props): React.ReactElement {
   return (
     <ProgressPrimitive.Label
-      className={cn("font-medium text-sm", className)}
+      className={cn("font-medium text-ui-caption", className)}
       data-slot="progress-label"
       {...props}
     />
@@ -74,7 +74,7 @@ export function ProgressValue({
 }: ProgressPrimitive.Value.Props): React.ReactElement {
   return (
     <ProgressPrimitive.Value
-      className={cn("text-sm tabular-nums", className)}
+      className={cn("text-ui-caption tabular-nums", className)}
       data-slot="progress-value"
       {...props}
     />

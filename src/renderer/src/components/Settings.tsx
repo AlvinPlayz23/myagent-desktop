@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Archive01, ArchiveRestore, Check, ComputerTerminal, Globe02, Keyboard01, Message01, Search01, Settings01 } from './ui/icons'
+import { Archive01, ArchiveRestore, ComputerTerminal, Globe02, Keyboard01, Message01, Search01, Settings01 } from './ui/icons'
 import type { ConnState } from '../state'
-import { normalizeAppName, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant } from '../preferences'
+import { normalizeAppName, normalizeFontSize, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
 import { cn } from '../util'
 import { shortcuts, shortcutCategories, formatCombo } from '../shortcuts'
@@ -81,13 +81,13 @@ function SettingsSection({
   return (
     <section className={cn('space-y-2.5', className)}>
       <div className="flex items-center justify-between px-1">
-        <h2 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">
+        <h2 className="flex items-center gap-2 text-ui-sm font-semibold uppercase tracking-[0.08em] text-foreground-subtlest">
           <span className="inline-block h-px w-3 bg-border" aria-hidden />
           {title}
         </h2>
         {headerAction && <div className="flex h-5 items-center justify-end">{headerAction}</div>}
       </div>
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-xs">
+      <div className="relative overflow-hidden rounded-xl border border-border bg-panel text-card-foreground">
         {children}
       </div>
     </section>
@@ -117,8 +117,8 @@ function SettingsRow({
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1 space-y-0.5">
-          <h3 className="text-[13px] font-semibold tracking-[-0.01em] text-foreground">{title}</h3>
-          {description && <p className="text-xs leading-relaxed text-muted-foreground/80">{description}</p>}
+          <h3 className="text-ui-caption font-semibold tracking-[-0.01em] text-foreground">{title}</h3>
+          {description && <p className="text-ui-sm leading-relaxed text-muted-foreground">{description}</p>}
         </div>
         {control && <div className="flex shrink-0 items-center gap-2 sm:justify-end">{control}</div>}
       </div>
@@ -127,44 +127,96 @@ function SettingsRow({
   )
 }
 
-function ChoiceCard<T extends string>({
-  value,
+function ChoiceRail<T extends string>({
+  id,
+  label,
+  options,
   current,
-  title,
-  detail,
   onSelect
 }: {
-  value: T
+  id: string
+  label: string
+  options: ReadonlyArray<{ value: T; title: string }>
   current: T
-  title: string
-  detail: string
   onSelect(value: T): void
 }): JSX.Element {
-  const selected = value === current
+  const items = useRef<Array<HTMLButtonElement | null>>([])
+
+  // Roving tabindex: arrows walk the rail, Home/End jump to either end.
+  const onKeyDown = (index: number, event: React.KeyboardEvent<HTMLButtonElement>): void => {
+    let next = -1
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % options.length
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + options.length) % options.length
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = options.length - 1
+    if (next < 0) return
+    event.preventDefault()
+    onSelect(options[next].value)
+    items.current[next]?.focus()
+  }
+
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(value)}
-      className={cn(
-        'relative flex flex-1 cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-left outline-none transition-all duration-150',
-        selected
-          ? 'border-foreground/30 bg-muted/60 shadow-xs ring-1 ring-border'
-          : 'border-border/80 bg-background/50 hover:border-foreground/20 hover:bg-muted/30'
-      )}
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="inline-flex items-center gap-0.5 rounded-[10px] bg-muted p-0.5"
     >
-      <span
-        className={cn(
-          'mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border transition-colors',
-          selected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 bg-transparent'
-        )}
-      >
-        {selected && <Check size={10} strokeWidth={2.5} />}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[12.5px] font-semibold text-foreground">{title}</span>
-        <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground/80">{detail}</span>
-      </span>
-    </button>
+      {options.map((item, index) => {
+        const selected = item.value === current
+        return (
+          <button
+            key={item.value}
+            ref={(element) => {
+              items.current[index] = element
+            }}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => onSelect(item.value)}
+            onKeyDown={(event) => onKeyDown(index, event)}
+            className={cn(
+              'relative flex h-7.5 cursor-pointer items-center justify-center rounded-lg px-3 text-ui-sm outline-none transition-colors',
+              selected ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {selected && (
+              <motion.span
+                layoutId={`settings-choice-pill-${id}`}
+                className="absolute inset-0 rounded-lg bg-background shadow-xs ring-1 ring-border dark:bg-input"
+                transition={{ type: 'spring', stiffness: 620, damping: 48 }}
+              />
+            )}
+            <span className="relative whitespace-nowrap">{item.title}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** A flat settings row whose control is a segmented rail, with the selected
+ *  option's explanation standing in for the row description. */
+function ChoiceRailRow<T extends string>({
+  id,
+  title,
+  options,
+  current,
+  onSelect
+}: {
+  id: string
+  title: string
+  options: ReadonlyArray<{ value: T; title: string; detail: string }>
+  current: T
+  onSelect(value: T): void
+}): JSX.Element {
+  const active = options.find((item) => item.value === current)
+  return (
+    <SettingsRow
+      title={title}
+      description={active?.detail}
+      control={<ChoiceRail id={id} label={title} options={options} current={current} onSelect={onSelect} />}
+    />
   )
 }
 
@@ -197,7 +249,7 @@ function ToggleRow({
           <span
             className={cn(
               'absolute left-0 top-0.5 size-4 rounded-full shadow-sm transition-transform duration-200',
-              checked ? 'translate-x-[18px] bg-primary-foreground' : 'translate-x-0.5 bg-white'
+              checked ? 'translate-x-[18px] bg-primary-foreground' : 'translate-x-0.5 bg-background'
             )}
           />
         </button>
@@ -277,7 +329,7 @@ export default function Settings({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
-      className="no-drag fixed inset-0 z-[100] flex items-center justify-center bg-black/65 backdrop-blur-md p-4 sm:p-6"
+      className="no-drag fixed inset-0 z-[100] flex items-center justify-center bg-overlay backdrop-blur-md p-4 sm:p-6"
       onClick={onClose}
     >
       <motion.div
@@ -285,11 +337,11 @@ export default function Settings({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 6 }}
         transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-        className="no-drag relative flex h-[720px] max-h-[90vh] w-[900px] max-w-[95vw] overflow-hidden rounded-[22px] border border-border bg-sidebar text-card-foreground shadow-2xl p-1.5 gap-1.5"
+        className="no-drag relative flex h-[720px] max-h-[90vh] w-[900px] max-w-[95vw] overflow-hidden rounded-2xl border border-popover-border bg-popover text-popover-foreground shadow-lg p-1.5 gap-1.5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Left Sidebar inside Popup */}
-        <aside className="w-56 shrink-0 p-3.5 flex flex-col gap-4">
+        <aside className="flex w-56 shrink-0 flex-col gap-4 p-3.5">
           <div className="flex items-center justify-between">
             <button
               type="button"
@@ -298,7 +350,7 @@ export default function Settings({
                 e.stopPropagation()
                 onClose?.()
               }}
-              className="flex items-center gap-2 text-xs font-semibold text-muted-foreground/80 hover:text-foreground transition-colors outline-none cursor-pointer"
+              className="flex items-center gap-2 text-ui-sm font-semibold text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer"
             >
               <CloseIcon />
               <span>Settings</span>
@@ -306,19 +358,19 @@ export default function Settings({
           </div>
 
           <div className="relative flex items-center">
-            <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground/60" />
+            <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search settings…"
-              className="h-8.5 w-full rounded-xl border border-border bg-background pl-8 pr-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-input focus:ring-1 focus:ring-ring/30"
+              className="h-8.5 w-full rounded-xl border border-border bg-background pl-8 pr-2.5 text-ui-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring/30"
             />
           </div>
 
           <div className="no-scrollbar flex-1 overflow-y-auto space-y-4 pt-1">
             {filteredCategories.map((group) => (
               <div key={group.group} className="space-y-1">
-                <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/60">
+                <div className="px-2 pb-1 text-ui-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                   {group.group}
                 </div>
                 {group.items.map(({ id, label, icon: Icon }) => {
@@ -329,8 +381,8 @@ export default function Settings({
                       type="button"
                       onClick={() => setSection(id)}
                       className={cn(
-                        'relative flex h-8.5 w-full items-center gap-2.5 rounded-xl px-2.5 text-left text-xs font-medium transition-colors outline-none cursor-pointer',
-                        active ? 'text-foreground font-semibold' : 'text-muted-foreground/80 hover:bg-hover/70 hover:text-foreground'
+                        'relative flex h-8.5 w-full items-center gap-2.5 rounded-xl px-2.5 text-left text-ui-sm font-medium transition-colors outline-none cursor-pointer',
+                        active ? 'text-foreground font-semibold' : 'text-muted-foreground hover:bg-hover/70 hover:text-foreground'
                       )}
                     >
                       {active && (
@@ -340,7 +392,7 @@ export default function Settings({
                           transition={{ type: 'spring', stiffness: 620, damping: 48 }}
                         />
                       )}
-                      <Icon size={14} strokeWidth={1.8} className={cn('relative shrink-0', active ? 'text-foreground' : 'text-muted-foreground/60')} />
+                      <Icon size={14} strokeWidth={1.8} className={cn('relative shrink-0', active ? 'text-foreground' : 'text-muted-foreground')} />
                       <span className="relative min-w-0 truncate">{label}</span>
                     </button>
                   )
@@ -351,7 +403,7 @@ export default function Settings({
         </aside>
 
         {/* Right Curved Card Content Area matching reference image */}
-        <div className="min-w-0 flex-1 rounded-[18px] border border-border/60 bg-card overflow-y-auto shadow-sm">
+        <div className="min-w-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card text-card-foreground">
           {section === 'providers' ? (
             <motion.div
               key="providers"
@@ -379,16 +431,18 @@ export default function Settings({
             {section === 'appearance' && (
               <>
                 <div>
-                  <h1 className="m-0 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Appearance</h1>
-                  <p className="mt-1 text-xs text-muted-foreground/80">Customize theme, window transparency, and desktop presentation.</p>
+                  <h1 className="m-0 text-ui-xl font-semibold tracking-tight text-foreground sm:text-ui-xl">Appearance</h1>
+                  <p className="mt-1 text-ui-sm text-muted-foreground">Customize theme, window transparency, and desktop presentation.</p>
                 </div>
 
                 <SettingsSection title="Theme">
-                  <div className="grid gap-2.5 p-4 sm:grid-cols-3">
-                    {themes.map((item) => (
-                      <ChoiceCard key={item.value} {...item} current={preferences.theme} onSelect={(theme) => onChange({ theme })} />
-                    ))}
-                  </div>
+                  <ChoiceRailRow
+                    id="theme"
+                    title="Theme"
+                    options={themes}
+                    current={preferences.theme}
+                    onSelect={(theme) => onChange({ theme })}
+                  />
                 </SettingsSection>
 
                 <SettingsSection title="Window & Interface">
@@ -402,10 +456,10 @@ export default function Settings({
                   <SettingsRow
                     title="Window transparency"
                     description="Adjust desktop backdrop blending intensity for acrylic and mica materials."
-                    control={<output className="font-mono text-xs tabular-nums text-muted-foreground">{preferences.transparency}%</output>}
+                    control={<output className="font-mono text-ui-sm tabular-nums text-muted-foreground">{preferences.transparency}%</output>}
                   >
                     <div className="mt-3 flex items-center gap-3">
-                      <span className="text-[10.5px] font-medium text-muted-foreground/70">Solid</span>
+                      <span className="text-ui-xs font-medium text-foreground-subtlest">Solid</span>
                       <input
                         aria-label="Window transparency"
                         type="range"
@@ -417,7 +471,7 @@ export default function Settings({
                         onChange={(event) => onChange({ transparency: Number(event.target.value) })}
                         className="transparency-slider min-w-0 flex-1"
                       />
-                      <span className="text-[10.5px] font-medium text-muted-foreground/70">Clear</span>
+                      <span className="text-ui-xs font-medium text-foreground-subtlest">Clear</span>
                     </div>
                   </SettingsRow>
 
@@ -427,6 +481,27 @@ export default function Settings({
                     detail="Minimize UI animations, blurs, and transitional effects."
                     onChange={(reducedMotion) => onChange({ reducedMotion })}
                   />
+
+                  <SettingsRow
+                    title="Interface size"
+                    description="Scale all interface text. Spacing, radii, and icons stay fixed."
+                    control={<output className="font-mono text-ui-sm tabular-nums text-muted-foreground">{preferences.interfaceFontSize}px</output>}
+                  >
+                    <div className="mt-3 flex items-center gap-3">
+                      <span className="text-ui-xs font-medium text-foreground-subtlest">Small</span>
+                      <input
+                        aria-label="Interface size"
+                        type="range"
+                        min="12"
+                        max="18"
+                        step="0.5"
+                        value={preferences.interfaceFontSize}
+                        onChange={(event) => onChange({ interfaceFontSize: normalizeFontSize(Number(event.target.value)) })}
+                        className="transparency-slider min-w-0 flex-1"
+                      />
+                      <span className="text-ui-xs font-medium text-foreground-subtlest">Large</span>
+                    </div>
+                  </SettingsRow>
 
                   <SettingsRow
                     title="App title"
@@ -441,7 +516,7 @@ export default function Settings({
                         autoComplete="off"
                         onChange={(e) => onChange({ appName: e.target.value })}
                         onBlur={(e) => onChange({ appName: normalizeAppName(e.target.value) })}
-                        className="h-8.5 w-44 rounded-lg border border-border bg-background px-3 font-mono text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring/30"
+                        className="h-8.5 w-44 rounded-lg border border-border bg-background px-3 font-mono text-ui-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring/30"
                       />
                     }
                   />
@@ -452,48 +527,58 @@ export default function Settings({
             {section === 'chat' && (
               <>
                 <div>
-                  <h1 className="m-0 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Chat</h1>
-                  <p className="mt-1 text-xs text-muted-foreground/80">Configure message density, tool activity visualization, and input behavior.</p>
+                  <h1 className="m-0 text-ui-xl font-semibold tracking-tight text-foreground sm:text-ui-xl">Chat</h1>
+                  <p className="mt-1 text-ui-sm text-muted-foreground">Configure message density, tool activity visualization, and input behavior.</p>
                 </div>
 
                 <SettingsSection title="Message density">
-                  <div className="grid gap-2.5 p-4 sm:grid-cols-3">
-                    {sizes.map((item) => (
-                      <ChoiceCard key={item.value} {...item} current={preferences.messageSize} onSelect={(messageSize) => onChange({ messageSize })} />
-                    ))}
-                  </div>
+                  <ChoiceRailRow
+                    id="message-size"
+                    title="Message density"
+                    options={sizes}
+                    current={preferences.messageSize}
+                    onSelect={(messageSize) => onChange({ messageSize })}
+                  />
                 </SettingsSection>
 
                 <SettingsSection title="Tool execution cards">
-                  <div className="grid gap-2.5 p-4 sm:grid-cols-3">
-                    {toolDisplays.map((item) => (
-                      <ChoiceCard key={item.value} {...item} current={preferences.toolActivityDisplay} onSelect={(toolActivityDisplay) => onChange({ toolActivityDisplay })} />
-                    ))}
-                  </div>
+                  <ChoiceRailRow
+                    id="tool-activity"
+                    title="Tool execution cards"
+                    options={toolDisplays}
+                    current={preferences.toolActivityDisplay}
+                    onSelect={(toolActivityDisplay) => onChange({ toolActivityDisplay })}
+                  />
                 </SettingsSection>
 
                 <SettingsSection title="Model selector">
-                  <div className="grid gap-2.5 p-4 sm:grid-cols-2">
-                    {modelSelectorVariants.map((item) => (
-                      <ChoiceCard key={item.value} {...item} current={preferences.modelSelectorVariant} onSelect={(modelSelectorVariant) => onChange({ modelSelectorVariant })} />
-                    ))}
-                  </div>
+                  <ChoiceRailRow
+                    id="model-selector"
+                    title="Model selector"
+                    options={modelSelectorVariants}
+                    current={preferences.modelSelectorVariant}
+                    onSelect={(modelSelectorVariant) => onChange({ modelSelectorVariant })}
+                  />
                 </SettingsSection>
 
                 <SettingsSection title="Effort selector">
-                  <div className="grid gap-2.5 p-4 sm:grid-cols-2">
-                    {effortSelectorVariants.map((item) => (
-                      <ChoiceCard key={item.value} {...item} current={preferences.effortSelectorVariant} onSelect={(effortSelectorVariant) => onChange({ effortSelectorVariant })} />
-                    ))}
-                  </div>
+                  <ChoiceRailRow
+                    id="effort-selector"
+                    title="Effort selector"
+                    options={effortSelectorVariants}
+                    current={preferences.effortSelectorVariant}
+                    onSelect={(effortSelectorVariant) => onChange({ effortSelectorVariant })}
+                  />
                 </SettingsSection>
 
                 <SettingsSection title="Sidebar">
-                  <div className="grid gap-2.5 p-4 sm:grid-cols-2">
-                    {sidebarVariants.map((item) => (
-                      <ChoiceCard key={item.value} {...item} current={preferences.sidebarVariant} onSelect={(sidebarVariant) => onChange({ sidebarVariant })} />
-                    ))}
-                  </div>
+                  <ChoiceRailRow
+                    id="sidebar-variant"
+                    title="Sidebar"
+                    options={sidebarVariants}
+                    current={preferences.sidebarVariant}
+                    onSelect={(sidebarVariant) => onChange({ sidebarVariant })}
+                  />
                 </SettingsSection>
 
                 <SettingsSection title="Behavior">
@@ -516,13 +601,13 @@ export default function Settings({
             {section === 'archive' && (
               <>
                 <div>
-                  <h1 className="m-0 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Archive</h1>
-                  <p className="mt-1 text-xs text-muted-foreground/80">Archived threads remain stored locally and can be restored at any time.</p>
+                  <h1 className="m-0 text-ui-xl font-semibold tracking-tight text-foreground sm:text-ui-xl">Archive</h1>
+                  <p className="mt-1 text-ui-sm text-muted-foreground">Archived threads remain stored locally and can be restored at any time.</p>
                 </div>
 
                 <SettingsSection title="Archived Threads">
                   {archivedSessions.length === 0 ? (
-                    <div className="px-5 py-10 text-center text-xs text-muted-foreground/70">
+                    <div className="px-5 py-10 text-center text-ui-sm text-foreground-subtlest">
                       No archived sessions found.
                     </div>
                   ) : (
@@ -536,7 +621,7 @@ export default function Settings({
                             <button
                               type="button"
                               onClick={() => onRestore(session.id)}
-                              className="flex h-7.5 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                              className="flex h-7.5 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-ui-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
                             >
                               <ArchiveRestore size={13} strokeWidth={1.8} /> Restore
                             </button>
@@ -552,8 +637,8 @@ export default function Settings({
             {section === 'shortcuts' && (
               <>
                 <div>
-                  <h1 className="m-0 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Keyboard Shortcuts</h1>
-                  <p className="mt-1 text-xs text-muted-foreground/80">Global hotkeys for fast keyboard navigation.</p>
+                  <h1 className="m-0 text-ui-xl font-semibold tracking-tight text-foreground sm:text-ui-xl">Keyboard Shortcuts</h1>
+                  <p className="mt-1 text-ui-sm text-muted-foreground">Global hotkeys for fast keyboard navigation.</p>
                 </div>
 
                 {shortcutCategories.map((category) => (
@@ -563,7 +648,7 @@ export default function Settings({
                       .map((s) => (
                         <SettingsRow
                           key={s.id}
-                          title={<span className="font-normal text-foreground/90">{s.description}</span>}
+                          title={<span className="font-normal text-muted-foreground">{s.description}</span>}
                           control={<kbd className="shortcut-key">{formatCombo(s.combo)}</kbd>}
                         />
                       ))}
@@ -575,8 +660,8 @@ export default function Settings({
             {section === 'about' && (
               <>
                 <div>
-                  <h1 className="m-0 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">About</h1>
-                  <p className="mt-1 text-xs text-muted-foreground/80">Desktop runtime environment and server status.</p>
+                  <h1 className="m-0 text-ui-xl font-semibold tracking-tight text-foreground sm:text-ui-xl">About</h1>
+                  <p className="mt-1 text-ui-sm text-muted-foreground">Desktop runtime environment and server status.</p>
                 </div>
 
                 <SettingsSection title="System Information">
@@ -585,7 +670,7 @@ export default function Settings({
                     control={
                       <span
                         className={cn(
-                          'rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize',
+                          'rounded-full px-2.5 py-0.5 text-ui-sm font-semibold capitalize',
                           conn === 'connected' ? 'bg-success/15 text-success-foreground' : 'bg-muted text-muted-foreground'
                         )}
                       >
@@ -595,16 +680,16 @@ export default function Settings({
                   />
                   <SettingsRow
                     title="Myagent server"
-                    control={<code className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">{serverVersion ? `serve ${serverVersion}` : 'detecting...'}</code>}
+                    control={<code className="rounded bg-muted px-2 py-0.5 font-mono text-ui-sm text-muted-foreground">{serverVersion ? `serve ${serverVersion}` : 'detecting...'}</code>}
                   />
                   <SettingsRow
                     title="Desktop app"
-                    control={<code className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">0.1.0</code>}
+                    control={<code className="rounded bg-muted px-2 py-0.5 font-mono text-ui-sm text-muted-foreground">0.1.0</code>}
                   />
                 </SettingsSection>
 
                 {detail && (
-                  <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 font-mono text-xs text-destructive-foreground">
+                  <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 font-mono text-ui-sm text-destructive-foreground">
                     {detail}
                   </div>
                 )}
@@ -613,7 +698,7 @@ export default function Settings({
                   <button
                     type="button"
                     onClick={onReconnect}
-                    className="h-8.5 rounded-lg border border-border bg-background px-4 text-xs font-semibold text-foreground transition-colors hover:bg-hover"
+                    className="h-8.5 rounded-lg border border-border bg-background px-4 text-ui-sm font-semibold text-foreground transition-colors hover:bg-hover"
                   >
                     Reconnect server
                   </button>

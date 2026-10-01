@@ -82,7 +82,7 @@ function ToolGroup({
   // Duration comes from tool-run timestamps so resumed history keeps summaries.
   if (running || toolCount === 0) {
     return (
-      <section className="mt-5 [animation:rise_0.25s_ease]">
+      <section className="mt-5 transcript-rise">
         <div className="flex flex-col gap-0.5">
           {entries.map((entry) => (
             <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
@@ -95,7 +95,7 @@ function ToolGroup({
   const startedAt = Math.min(...runs.map((r) => r.createdAt))
   const endedAt = Math.max(...runs.map((r) => r.updatedAt))
   return (
-    <section className="mt-5 [animation:rise_0.25s_ease]">
+    <section className="mt-5 transcript-rise">
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
@@ -103,7 +103,7 @@ function ToolGroup({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
             transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-            className="flex flex-col gap-0.5 will-change-transform"
+            className="flex flex-col gap-0.5"
           >
             {entries.map((entry) => (
               <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
@@ -118,11 +118,11 @@ function ToolGroup({
         aria-expanded={open}
       >
         <span className="h-px flex-1 bg-border transition-colors group-hover:bg-muted-foreground/25" />
-        <span className="flex shrink-0 items-center gap-1.5 text-[11.5px] font-medium transition-colors group-hover:text-foreground/80">
+        <span className="flex shrink-0 items-center gap-1.5 text-ui-sm font-medium transition-colors group-hover:text-muted-foreground">
           <ChevronRight
             size={13}
             strokeWidth={1.8}
-            className={cn('transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]', open && '-rotate-90')}
+            className={cn('transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]', open && '-rotate-90')}
           />
           {`Worked for ${duration(endedAt - startedAt)} · ${toolCount} tool${toolCount === 1 ? '' : 's'}`}
           {errors.length > 0 && (

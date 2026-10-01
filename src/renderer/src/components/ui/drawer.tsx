@@ -98,7 +98,7 @@ export function DrawerBackdrop({
   return (
     <DrawerPrimitive.Backdrop
       className={cn(
-        "fixed inset-0 z-50 bg-black/32 opacity-[calc(1-var(--drawer-swipe-progress))] backdrop-blur-sm transition-opacity duration-450 ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:opacity-0 data-starting-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-swiping:duration-0 supports-[-webkit-touch-callout:none]:absolute",
+        "fixed inset-0 z-50 bg-overlay opacity-[calc(1-var(--drawer-swipe-progress))] backdrop-blur-sm transition-opacity duration-450 ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:opacity-0 data-starting-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-swiping:duration-0 supports-[-webkit-touch-callout:none]:absolute",
         className,
       )}
       data-slot="drawer-backdrop"
@@ -288,7 +288,7 @@ export function DrawerTitle({
   return (
     <DrawerPrimitive.Title
       className={cn(
-        "font-heading font-semibold text-xl leading-none",
+        "font-heading font-semibold text-ui-xl leading-none",
         className,
       )}
       data-slot="drawer-title"
@@ -303,7 +303,7 @@ export function DrawerDescription({
 }: DrawerPrimitive.Description.Props): React.ReactElement {
   return (
     <DrawerPrimitive.Description
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-muted-foreground text-ui-caption", className)}
       data-slot="drawer-description"
       {...props}
     />
@@ -417,7 +417,7 @@ export function DrawerMenuItem({
 }): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "flex min-h-9 w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-64 data-[variant=destructive]:text-destructive-foreground sm:min-h-8 sm:text-sm [&>svg:not([class*='opacity-'])]:opacity-80 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4 [&>svg]:pointer-events-none [&>svg]:-mx-0.5 [&>svg]:shrink-0",
+      "flex min-h-9 w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-ui-base text-foreground outline-none hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-64 data-[variant=destructive]:text-destructive-foreground sm:min-h-8 sm:text-ui-caption [&>svg:not([class*='opacity-'])]:opacity-80 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4 [&>svg]:pointer-events-none [&>svg]:-mx-0.5 [&>svg]:shrink-0",
       className,
     ),
     "data-slot": "drawer-menu-item",
@@ -474,7 +474,7 @@ export function DrawerMenuGroupLabel({
 }: useRender.ComponentProps<"div">): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "px-2 py-1.5 font-medium text-muted-foreground text-xs",
+      "px-2 py-1.5 font-medium text-muted-foreground text-ui-sm",
       className,
     ),
     "data-slot": "drawer-menu-group-label",
@@ -495,7 +495,7 @@ export function DrawerMenuTrigger({
   return (
     <DrawerTrigger
       className={cn(
-        "flex min-h-9 w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none hover:bg-accent hover:text-accent-foreground sm:min-h-8 sm:text-sm [&_svg:not(:last-child)]:-mx-0.5 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "flex min-h-9 w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-ui-base text-foreground outline-none hover:bg-accent hover:text-accent-foreground sm:min-h-8 sm:text-ui-caption [&_svg:not(:last-child)]:-mx-0.5 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className,
       )}
       data-slot="drawer-menu-trigger"
@@ -525,7 +525,7 @@ export function DrawerMenuCheckboxItem({
     <CheckboxPrimitive.Root
       checked={checked}
       className={cn(
-        "grid min-h-9 w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none hover:bg-accent hover:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-64 sm:min-h-8 sm:text-sm [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0",
+        "grid min-h-9 w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-ui-base text-foreground outline-none hover:bg-accent hover:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-64 sm:min-h-8 sm:text-ui-caption [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0",
         variant === "switch"
           ? "grid-cols-[1fr_auto] gap-4 pe-1.5"
           : "grid-cols-[1rem_1fr] pe-4",
@@ -599,7 +599,7 @@ export function DrawerMenuRadioItem({
   return (
     <RadioPrimitive.Root
       className={cn(
-        "grid min-h-9 w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none hover:bg-accent hover:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-64 sm:min-h-8 sm:text-sm [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0",
+        "grid min-h-9 w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-ui-base text-foreground outline-none hover:bg-accent hover:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-64 sm:min-h-8 sm:text-ui-caption [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0",
         "grid-cols-[1rem_1fr] items-center pe-4",
         className,
       )}

@@ -141,7 +141,7 @@ export function AutocompleteItem({
   return (
     <AutocompletePrimitive.Item
       className={cn(
-        "flex min-h-8 cursor-default select-none items-center rounded-sm px-2 py-1 text-base outline-none data-disabled:pointer-events-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm",
+        "flex min-h-8 cursor-default select-none items-center rounded-sm px-2 py-1 text-ui-base outline-none data-disabled:pointer-events-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-ui-caption",
         className,
       )}
       data-slot="autocomplete-item"
@@ -185,7 +185,7 @@ export function AutocompleteGroupLabel({
   return (
     <AutocompletePrimitive.GroupLabel
       className={cn(
-        "px-2 py-1.5 font-medium text-muted-foreground text-xs",
+        "px-2 py-1.5 font-medium text-muted-foreground text-ui-sm",
         className,
       )}
       data-slot="autocomplete-group-label"
@@ -201,7 +201,7 @@ export function AutocompleteEmpty({
   return (
     <AutocompletePrimitive.Empty
       className={cn(
-        "not-empty:p-2 text-center text-base text-muted-foreground sm:text-sm",
+        "not-empty:p-2 text-center text-ui-base text-muted-foreground sm:text-ui-caption",
         className,
       )}
       data-slot="autocomplete-empty"
@@ -269,7 +269,7 @@ export function AutocompleteStatus({
   return (
     <AutocompletePrimitive.Status
       className={cn(
-        "px-3 py-2 font-medium text-muted-foreground text-xs empty:m-0 empty:p-0",
+        "px-3 py-2 font-medium text-muted-foreground text-ui-sm empty:m-0 empty:p-0",
         className,
       )}
       data-slot="autocomplete-status"

@@ -20,7 +20,56 @@
     "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono:
     "Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Consolas,
-    "Liberation Mono", monospace;
+    "Liberation Mono", "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", monospace;
+
+  /* ── UI type scale ────────────────────────────────────────────────────────
+     Every piece of application-interface text uses one of these tokens, which
+     all derive from --ui-font-size (the Appearance → Interface size setting).
+     This replaces ad-hoc `text-[11.5px]` values and built-in `text-sm`/`text-xs`
+     on interface chrome, and makes interface scaling a single-variable change.
+     Only intrinsic content (code, diff, terminal output) keeps its own numeric
+     size settings. See DESIGN.md. */
+  --text-ui-2xs: calc(var(--ui-font-size) - 5px);
+  --text-ui-xs: calc(var(--ui-font-size) - 4px);
+  --text-ui-sm: calc(var(--ui-font-size) - 2px);
+  --text-ui-caption: calc(var(--ui-font-size) - 1px);
+  --text-ui-base: var(--ui-font-size);
+  --text-ui-lg: calc(var(--ui-font-size) + 2px);
+  --text-ui-xl: calc(var(--ui-font-size) + 4px);
+  /* iOS focus-zoom floor for editable controls; a platform constant, not a
+     hierarchy step. Never use it as a general UI size. */
+  --text-mobile-input-safe: 16px;
+
+  /* ── semantic surfaces ────────────────────────────────────────────────────
+     Layered surface vocabulary so page / card / overlay stop being ad-hoc.
+     Prefer text hierarchy plus these backgrounds over new borders. */
+  --color-background-alt: var(--background-alt);
+  --color-header: var(--header);
+  --color-panel: var(--panel);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-card-selected: var(--card-selected);
+  --color-menu: var(--menu);
+  --color-menu-hover: var(--menu-hover);
+  --color-popover-border: var(--popover-border);
+  --color-input-border: var(--input-border);
+  --color-input-border-hover: var(--input-border-hover);
+  --color-input-border-focused: var(--input-border-focused);
+  --color-input-focused: var(--input-focused);
+  /* ── text roles ───────────────────────────────────────────────────────────
+     primary / secondary / tertiary / on-fill, independent of font size. */
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-foreground-subtlest: var(--foreground-subtlest);
+  --color-foreground-inverse: var(--foreground-inverse);
+  /* Brand accent — emphasis, active indicators, links. Never a page fill. */
+  --color-brand: var(--brand);
+  /* Diff-specific colors: distinct from success/destructive on purpose. */
+  --color-diff-added: var(--diff-added);
+  --color-diff-added-foreground: var(--diff-added-foreground);
+  --color-diff-removed: var(--diff-removed);
+  --color-diff-removed-foreground: var(--diff-removed-foreground);
+  /* Scrim behind modals/menus; theme-aware so dark mode does not double-dark. */
+  --color-overlay: var(--overlay);
 
   --color-warning-foreground: var(--warning-foreground);
   --color-warning: var(--warning);
@@ -190,51 +239,99 @@
   --color-neutral-950: #0a0a0a;
   --color-white: #ffffff;
   --color-black: #000000;
+  /* ZCode's semantic families, pinned to hex for the same oklch/color-mix reason
+     as the neutrals above. Values match ZCode's @theme (green-600 success,
+     red-600 destructive, yellow-600 warning, sky brand). */
+  --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-yellow-500: #eab308;
+  --color-yellow-600: #ca8a04;
+  --color-sky-400: #38bdf8;
+  --color-sky-500: #0ea5e9;
+  --color-sky-600: #0284c7;
 }
 
 :root {
   color-scheme: light;
   --radius: 0.625rem;
   --window-radius: 0px;
-  --background: var(--color-white);
+  /* Interface font size. The Appearance control mutates this one variable;
+     never touch the root html font-size (that would scale padding, radii and
+     icons too). Default matches the previous hard-coded body size. */
+  --ui-font-size: 13.5px;
+  /* ── ZCode palette (light) ──────────────────────────────────────────────
+     Values mirrored from ZCode packages/ui/src/styles.css @theme. The shell
+     trio (--shell*) stays ours: this window is frameless and acrylic/mica
+     blended, which ZCode is not. */
+  --background: var(--color-neutral-50);
   --shell: #f5f5f5;
   --shell-rgb: 245 245 245;
   --shell-opacity: 0.88;
   --shell-translucent: rgb(var(--shell-rgb) / var(--shell-opacity));
   --shell-clear: rgb(var(--shell-rgb) / var(--shell-opacity));
-  --sidebar: var(--color-neutral-50);
+  --sidebar: var(--color-neutral-100);
   --elevated: #ffffff;
   --subtle: rgba(0, 0, 0, 0.030);
-  --hover: rgba(0, 0, 0, 0.050);
-  --selected: rgba(0, 0, 0, 0.080);
+  --hover: var(--color-neutral-200);
+  --selected: color-mix(in srgb, var(--color-neutral-950) 10%, transparent);
   --code: var(--color-white);
-  --foreground: var(--color-neutral-800);
+  /* ZCode reads body text at neutral-700, not -800: softer, and the reason
+     its dense transcript stays comfortable over a long session. */
+  --foreground: var(--color-neutral-700);
+  --background-alt: color-mix(in srgb, var(--color-neutral-100) 60%, transparent);
+  --header: var(--color-neutral-100);
+  --panel: var(--color-neutral-100);
+  --surface: color-mix(in srgb, var(--color-neutral-950) 3%, transparent);
+  --surface-hover: color-mix(in srgb, var(--color-neutral-950) 5%, transparent);
+  --card-selected: var(--color-neutral-200);
+  --menu: var(--color-white);
+  --menu-hover: var(--color-neutral-100);
+  --popover-border: var(--border);
+  --input-border: var(--border);
+  --input-border-hover: color-mix(in srgb, var(--color-neutral-950) 20%, transparent);
+  --input-border-focused: var(--brand);
+  --input-focused: var(--color-neutral-50);
+  /* Text roles, as alpha ramps off the body color (ZCode's exact formula). */
+  --foreground-subtle: color-mix(in srgb, var(--color-neutral-700) 60%, transparent);
+  --foreground-subtlest: color-mix(in srgb, var(--color-neutral-700) 40%, transparent);
+  --foreground-inverse: var(--color-white);
+  --brand: var(--color-sky-400);
+  /* Diff is a solid semantic pair in ZCode, not a translucent success wash —
+     an added/removed line has to read as a decision, not a state tint. */
+  --diff-added: var(--color-green-600);
+  --diff-added-foreground: var(--foreground-inverse);
+  --diff-removed: var(--color-red-600);
+  --diff-removed-foreground: var(--foreground-inverse);
+  --overlay: rgb(0 0 0 / 0.35);
   --card: var(--color-white);
-  --card-foreground: var(--color-neutral-800);
+  --card-foreground: var(--color-neutral-700);
   --popover: var(--color-white);
-  --popover-foreground: var(--color-neutral-800);
-  --primary: var(--color-neutral-800);
+  --popover-foreground: var(--color-neutral-700);
+  --primary: var(--color-neutral-950);
   --primary-foreground: var(--color-neutral-50);
-  --secondary: --alpha(var(--color-black) / 4%);
-  --secondary-foreground: var(--color-neutral-800);
-  --muted: --alpha(var(--color-black) / 4%);
-  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-black));
-  --accent: --alpha(var(--color-black) / 4%);
-  --accent-foreground: var(--color-neutral-800);
-  --destructive: var(--color-red-500);
-  --border: --alpha(var(--color-black) / 8%);
-  --input: --alpha(var(--color-black) / 10%);
+  --secondary: var(--color-neutral-300);
+  --secondary-foreground: var(--color-neutral-700);
+  --muted: color-mix(in srgb, var(--color-neutral-950) 4%, transparent);
+  --muted-foreground: var(--foreground-subtle);
+  --accent: color-mix(in srgb, var(--color-neutral-950) 4%, transparent);
+  --accent-foreground: var(--color-neutral-700);
+  --destructive: var(--color-red-600);
+  --border: color-mix(in srgb, var(--color-neutral-950) 10%, transparent);
+  --input: var(--color-white);
   --ring: var(--color-neutral-400);
-  --destructive-foreground: var(--color-red-700);
+  --destructive-foreground: var(--foreground-inverse);
   --info: var(--color-blue-500);
   --info-foreground: var(--color-blue-700);
-  --success: var(--color-emerald-500);
-  --success-foreground: var(--color-emerald-700);
-  --warning: var(--color-amber-500);
-  --warning-foreground: var(--color-amber-700);
-  /* "A run is live." Pink rather than amber: running is routine, not a
-     warning, and the harsh yellow read as one. */
-  --busy: #db2777;
+  --success: var(--color-green-600);
+  --success-foreground: var(--foreground-inverse);
+  --warning: var(--color-yellow-600);
+  --warning-foreground: var(--foreground-inverse);
+  /* "A run is live." ZCode signals running with the warning family, so this
+     tracks it instead of the old pink — pink was the only hue in the palette
+     that belonged to no other role. */
+  --busy: var(--color-yellow-600);
   --chart-1: var(--color-orange-600);
   --chart-2: var(--color-teal-600);
   --chart-3: var(--color-cyan-900);
@@ -251,46 +348,78 @@
   --sidebar-ring: var(--color-neutral-400);
 }
 
-/* Sharp neutral dark mode — near-black surfaces, glass-border shadows, no warm hues. */
+/* ── ZCode palette (dark) ────────────────────────────────────────────────
+   This is the single biggest visual change from the old near-black theme.
+   ZCode sits on neutral-900 with a real neutral-800 card/popover step, so
+   elevation reads as a surface difference instead of a hairline. The previous
+   theme had card ~= background, which made every card look like a flat hole. */
 .dark {
   color-scheme: dark;
-  --background: color-mix(in srgb, var(--color-neutral-950) 95%, var(--color-white));
+  --background: var(--color-neutral-900);
   --shell: #0e0e0e;
   --shell-rgb: 14 14 14;
   --shell-opacity: 0.72;
   --shell-translucent: rgb(var(--shell-rgb) / var(--shell-opacity));
   --shell-clear: rgb(var(--shell-rgb) / var(--shell-opacity));
-  --sidebar: color-mix(in srgb, var(--color-neutral-950) 97%, var(--color-white));
-  --elevated: #141414;
+  /* Sidebar is the deepest surface in ZCode's dark theme — the shell, not the
+     content, is what recedes. */
+  --sidebar: var(--color-neutral-950);
+  --elevated: var(--color-neutral-800);
   --subtle: rgba(255, 255, 255, 0.030);
-  --hover: rgba(255, 255, 255, 0.055);
-  --selected: rgba(255, 255, 255, 0.090);
-  --code: color-mix(in srgb, var(--background) 98%, var(--color-white));
-  --foreground: var(--color-neutral-100);
-  --card: color-mix(in srgb, var(--background) 98%, var(--color-white));
-  --card-foreground: var(--color-neutral-100);
-  --popover: color-mix(in srgb, var(--background) 98%, var(--color-white));
-  --popover-foreground: var(--color-neutral-100);
-  --primary: var(--color-neutral-100);
-  --primary-foreground: var(--color-neutral-800);
-  --secondary: --alpha(var(--color-white) / 4%);
-  --secondary-foreground: var(--color-neutral-100);
-  --muted: --alpha(var(--color-white) / 4%);
-  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-white));
-  --accent: --alpha(var(--color-white) / 4%);
-  --accent-foreground: var(--color-neutral-100);
-  --destructive: color-mix(in srgb, var(--color-red-500) 90%, var(--color-white));
-  --border: --alpha(var(--color-white) / 6%);
-  --input: --alpha(var(--color-white) / 8%);
+  --hover: var(--surface-hover);
+  --selected: color-mix(in srgb, var(--color-white) 10%, transparent);
+  --code: var(--color-neutral-950);
+  /* neutral-200 body text, not -100: keeps bright UI text off the top of the
+     range and closer to ZCode's reading contrast. */
+  --foreground: var(--color-neutral-200);
+  --background-alt: color-mix(in srgb, var(--color-neutral-800) 60%, transparent);
+  --header: var(--color-neutral-900);
+  --panel: var(--color-neutral-900);
+  --surface: color-mix(in srgb, var(--color-white) 5%, transparent);
+  --surface-hover: color-mix(in srgb, var(--color-white) 10%, transparent);
+  --card-selected: var(--color-neutral-700);
+  /* Menus go DARKER than the card they open over. That inversion is what stops
+     a dropdown from reading as another card. */
+  --menu: var(--color-neutral-950);
+  --menu-hover: var(--color-neutral-900);
+  --popover-border: var(--border);
+  --input-border: var(--border);
+  --input-border-hover: color-mix(in srgb, var(--color-neutral-50) 30%, transparent);
+  --input-border-focused: var(--brand);
+  --input-focused: var(--color-neutral-950);
+  --foreground-subtle: color-mix(in srgb, var(--color-neutral-200) 60%, transparent);
+  --foreground-subtlest: color-mix(in srgb, var(--color-neutral-200) 30%, transparent);
+  --foreground-inverse: var(--color-white);
+  --brand: var(--color-sky-500);
+  --diff-added: var(--color-green-500);
+  --diff-added-foreground: var(--foreground-inverse);
+  --diff-removed: var(--color-red-500);
+  --diff-removed-foreground: var(--foreground-inverse);
+  --overlay: rgb(0 0 0 / 0.6);
+  --card: var(--color-neutral-800);
+  --card-foreground: var(--color-neutral-200);
+  --popover: var(--color-neutral-800);
+  --popover-foreground: var(--color-neutral-200);
+  --primary: var(--color-neutral-50);
+  --primary-foreground: var(--color-neutral-950);
+  --secondary: var(--color-neutral-700);
+  --secondary-foreground: var(--color-neutral-200);
+  --muted: color-mix(in srgb, var(--color-white) 5%, transparent);
+  --muted-foreground: var(--foreground-subtle);
+  --accent: color-mix(in srgb, var(--color-neutral-950) 50%, transparent);
+  --accent-foreground: var(--color-neutral-200);
+  --destructive: var(--color-red-500);
+  --border: color-mix(in srgb, var(--color-neutral-50) 10%, transparent);
+  --input: var(--color-neutral-800);
   --ring: var(--color-neutral-500);
-  --destructive-foreground: var(--color-red-400);
+  --destructive-foreground: var(--foreground-inverse);
   --info: var(--color-blue-500);
   --info-foreground: var(--color-blue-400);
-  --success: var(--color-emerald-500);
-  --success-foreground: var(--color-emerald-400);
-  --warning: var(--color-amber-500);
-  --warning-foreground: var(--color-amber-400);
-  --busy: #f472b6;
+  --success: var(--color-green-500);
+  --success-foreground: var(--foreground-inverse);
+  --warning: var(--color-yellow-500);
+  --warning-foreground: var(--foreground-inverse);
+  --busy: var(--color-yellow-500);
   --chart-1: var(--color-blue-700);
   --chart-2: var(--color-emerald-500);
   --chart-3: var(--color-amber-500);
@@ -327,7 +456,9 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    font-size: 13.5px;
+    /* Interface default size = text-ui-base. The Appearance control changes
+       only --ui-font-size; geometry (rem) stays fixed. */
+    font-size: var(--ui-font-size);
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -358,14 +489,19 @@
    motion/react bloom, so no t-dropdown here. */
 :root {
   /* ── Motion tokens — shared scale ────────────────────────────── */
-  /* Durations */
-  --duration-stagger: 40ms;  /* per-item stagger offset */
-  --duration-micro: 80ms;  /* tooltip/path delay, shake segment, large stagger */
-  --duration-quick: 150ms;  /* modal/dropdown close, text swap, tooltip appear */
-  --duration-fast: 250ms;  /* icon swap, dropdown/modal open, tabs sliding, page slide */
-  --duration-medium: 350ms;  /* panel close, toast close */
-  --duration-slow: 400ms;  /* panel open, skeleton content reveal, input clear */
-  --duration-very-slow: 500ms;  /* emphasis moments, badge appear, text reveal, success check */
+  /* Durations — tuned so the app reads as immediate: local feedback lands
+     inside ~120ms and a whole surface inside ~220ms. Nothing on an interaction
+     path runs past --duration-slow. The only longer values left in the scale
+     are the deliberate one-off celebrations (success check, badge pop, jelly
+     radio), which keep their own tokens further down this block. */
+  --duration-instant: 90ms;  /* hover fills, press states: must read as synchronous */
+  --duration-stagger: 30ms;  /* per-item stagger offset */
+  --duration-micro: 60ms;  /* tooltip/path delay, shake segment, large stagger */
+  --duration-quick: 120ms;  /* modal/dropdown close, text swap, tooltip appear */
+  --duration-fast: 160ms;  /* icon swap, dropdown/modal open, tabs sliding, page slide */
+  --duration-medium: 200ms;  /* panel close, toast close */
+  --duration-slow: 220ms;  /* panel open, skeleton content reveal, input clear */
+  --duration-very-slow: 300ms;  /* emphasis moments, badge appear, text reveal, success check (motion:allow-long: the scale's celebration rung) */
   /* Easings */
   --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);  /* modal/dropdown/panel open + close, page slide, resize, position change */
   --ease-in-out: ease-in-out;  /* icon swap, text swap, text reveal, skeleton reveal */
@@ -384,13 +520,32 @@
   --scale-medium: 0.97;  /* dropdown open */
   --scale-small: 0.98;  /* tooltip open */
   --scale-tiny: 0.99;  /* dropdown close */
-  /* Blur */
-  --blur-small: 2px;  /* panel reveal, icon swap, text swap, skeleton reveal, number pop-in */
-  --blur-medium: 3px;  /* page slide, text reveal */
+  /* Blur.
+     Every motion path that used to reach for one of these now animates
+     opacity / transform only. An animated `filter` is re-rasterized on every
+     frame and cannot be composited, and inside a translucent window (sidebar
+     backdrop-filter + acrylic behind it) that is the most expensive thing the
+     renderer can be asked to do — it is the reason the app felt heavy rather
+     than merely slow. They stay declared at 0 rather than being deleted, so the
+     snippets keep their documented knob and re-enabling one is a deliberate
+     act. --blur-large is the exception: it belongs to the one-shot
+     success-check celebration on a small element. */
+  --blur-small: 0px;  /* panel reveal, icon swap, text swap, skeleton reveal, number pop-in */
+  --blur-medium: 0px;  /* page slide, text reveal */
   --blur-large: 8px;  /* success check open */
 
+  /* Will-change.
+     The static will-change hints that shipped with these snippets are gone. A
+     hint is a promise about the next few frames; written into a class rule it is
+     a promise kept for the life of the mount, so every transcript row and every
+     snippet surface was pinning a compositor layer — and its memory — for good.
+     Chromium promotes an element the moment a transform/opacity animation starts
+     on it, so the hint bought almost nothing it was not about to get anyway. It
+     is kept only where an element exists just as long as it animates: the ui/
+     popups, which mount and unmount around their own open/close transition. */
+
   /* Card resize */
-  --resize-dur: 300ms;
+  --resize-dur: 200ms;
   --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Number pop-in */
   --digit-dur: 500ms;
@@ -413,40 +568,40 @@
   --badge-pop-ease: cubic-bezier(0.34, 1.36, 0.64, 1);
   --badge-close-ease: cubic-bezier(0.4, 0, 0.2, 1);
   /* Text states swap */
-  --text-swap-dur: 150ms;
+  --text-swap-dur: 120ms;
   --text-swap-translate-y: 4px;
-  --text-swap-blur: 2px;
+  --text-swap-blur: 0px;
   --text-swap-ease: ease-in-out;
   /* Menu dropdown */
-  --dropdown-open-dur: 250ms;
-  --dropdown-close-dur: 150ms;
+  --dropdown-open-dur: 140ms;
+  --dropdown-close-dur: 110ms;
   --dropdown-pre-scale: 0.97;
   --dropdown-closing-scale: 0.99;
   --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Modal open / close */
-  --modal-open-dur: 250ms;
-  --modal-close-dur: 150ms;
+  --modal-open-dur: 180ms;
+  --modal-close-dur: 110ms;
   --modal-scale: 0.96;
   --modal-scale-close: 0.96;
   --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Panel reveal */
-  --panel-open-dur: 400ms;
-  --panel-close-dur: 350ms;
+  --panel-open-dur: 220ms;
+  --panel-close-dur: 160ms;
   --panel-translate-y: 100px;
-  --panel-blur: 2px;
+  --panel-blur: 0px;
   --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Page side-by-side */
-  --page-slide-dur: 250ms;
-  --page-fade-dur: 250ms;
+  --page-slide-dur: 180ms;
+  --page-fade-dur: 160ms;
   --page-slide-distance: 8px;
-  --page-blur: 3px;
+  --page-blur: 0px;
   --page-stagger: 0ms;
   --page-exit-enabled: 1;
   --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --page-fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Icon swap */
-  --icon-swap-dur: 250ms;
-  --icon-swap-blur: 2px;
+  --icon-swap-dur: 140ms;
+  --icon-swap-blur: 0px;
   --icon-swap-start-scale: 0.25;
   --icon-swap-ease: ease-in-out;
   /* Success check */
@@ -524,10 +679,10 @@
   --tt-bg: #ffffff;
   --tt-fg: #2f2f2f;
   /* Texts reveal */
-  --stagger-dur: 500ms;
-  --stagger-distance: 12px;
-  --stagger-stagger: 40ms;
-  --stagger-blur: 3px;
+  --stagger-dur: 240ms;
+  --stagger-distance: 6px;
+  --stagger-stagger: 30ms;
+  --stagger-blur: 0px;
   --stagger-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Card hover tilt */
   --tilt-perspective: 1000px;
@@ -551,9 +706,12 @@
   --morph-scale: 0.97;
   --morph-blur: 2px;
   /* Accordion expand */
-  --acc-expand: 250ms;
-  --acc-collapse: 250ms;
-  --acc-chevron: 250ms;
+  /* Accordion.
+     A disclosure is a local action — it should track the click, not perform.
+     Paired with the grid-template-rows track above; see .t-acc-panel. */
+  --acc-expand: 160ms;
+  --acc-collapse: 160ms;
+  --acc-chevron: 160ms;
   --acc-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Toast open / close */
   --toast-open: 350ms;
@@ -598,10 +756,10 @@
   --toggle-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
   /* Thinking states */
   --think-hold: 2000ms;
-  --think-swap: 150ms;
+  --think-swap: 130ms;
   --think-gap: 50ms;
-  --think-distance: 8px;
-  --think-blur: 2px;
+  --think-distance: 6px;
+  --think-blur: 0px;
   --think-shimmer: 2000ms;
   --think-base: #7c7c7c;
   --think-highlight: #0d0d0d;
@@ -614,8 +772,8 @@
   --reason-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Streaming text */
   --stream-gap: 60ms;
-  --stream-fade: 350ms;
-  --stream-blur: 1px;
+  --stream-fade: 200ms;
+  --stream-blur: 0px;
   --stream-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Matrix dot loader */
   --matrix-cycle: 1200ms;
@@ -649,7 +807,7 @@
   --tt-fg: #e5e5e5;
 }
 
-/* Lines start translated down + blurred + invisible; .is-shown
+/* Lines start translated down and invisible; .is-shown
    on the parent flips them to their resting state. The second
    line's transition-delay holds it back by --stagger-stagger
    so the eye lands on the headline first. */
@@ -657,31 +815,25 @@
   display: block;
   opacity: 0;
   transform: translateY(var(--stagger-distance));
-  filter: blur(var(--stagger-blur));
   transition:
     opacity   var(--stagger-dur) var(--stagger-ease),
-    transform var(--stagger-dur) var(--stagger-ease),
-    filter    var(--stagger-dur) var(--stagger-ease);
-  will-change: transform, opacity, filter;
+    transform var(--stagger-dur) var(--stagger-ease);
 }
 .t-stagger-line--2 { transition-delay: var(--stagger-stagger); }
 
 .t-stagger.is-shown .t-stagger-line {
   opacity: 1;
   transform: translateY(0);
-  filter: blur(0);
 }
-/* Exit decouples from the stagger: same fade for every line,
-   no Y return, no blur — so the disappearance reads as a
-   single quiet fade instead of a reverse reveal. */
+/* Exit decouples from the stagger: same fade for every line and
+   no Y return — so the disappearance reads as a single quiet fade
+   instead of a reverse reveal. */
 .t-stagger.is-hiding .t-stagger-line {
   opacity: 0;
   transform: translateY(0);
-  filter: blur(0);
   transition:
     opacity 200ms ease,
-    transform 0s linear,
-    filter 0s linear;
+    transform 0s linear;
   transition-delay: 0s;
 }
 
@@ -699,7 +851,6 @@
   transition:
     opacity var(--stagger-dur) var(--stagger-ease),
     transform var(--stagger-dur) var(--stagger-ease),
-    filter var(--stagger-dur) var(--stagger-ease),
     background-color var(--duration-quick) var(--ease-smooth-out);
 }
 .t-gallery-row:hover,
@@ -746,8 +897,17 @@
     transform var(--duration-fast) var(--ease-smooth-out);
 }
 
-/* ── transitions-dev snippets (verbatim) ────────────────────────────
-   Each block below is pasted verbatim from its reference file.
+/* ── transitions-dev snippets ─────────────────────────────────────────
+   Each block below is pasted verbatim from its reference file, with three
+   deliberate deviations, each documented where it lands:
+     1. No animated blur anywhere (rule 1 in scripts/check-motion.mjs). The
+        snippets' blur also resolved open-vs-close animation through blur; here
+        open-vs-close is carried by the duration/ease token pairs instead.
+     2. No static will-change hints in a class rule; Chromium promotes on
+        animation start (rule 2). Kept only in components/ui/, where a popup
+        exists just as long as it animates.
+     3. No duration over 250ms without an allowlist (rule 3). One-off
+        celebrations keep their own numbers inside their token block.
    Motion drivers (motion/react bloom, Base UI) stay as-is; these
    classes cover the matching surfaces documented per block. */
 
@@ -759,7 +919,6 @@
   transition:
     transform var(--dropdown-open-dur) var(--dropdown-ease),
     opacity   var(--dropdown-open-dur) var(--dropdown-ease);
-  will-change: transform, opacity;
 }
 .t-dropdown[data-origin="top-right"]     { transform-origin: top right; }
 .t-dropdown[data-origin="top-center"]    { transform-origin: top center; }
@@ -793,7 +952,6 @@
   transition:
     transform var(--modal-open-dur) var(--modal-ease),
     opacity   var(--modal-open-dur) var(--modal-ease);
-  will-change: transform, opacity;
 }
 .t-modal.is-open {
   transform: scale(1);
@@ -816,8 +974,8 @@
 .t-toast {
   opacity: 0;
   transform: translateY(var(--toast-distance)) scale(var(--toast-scale));
+  /* motion:allow-blur */
   filter: blur(var(--toast-blur));
-  will-change: transform, opacity, filter;
   transition:
     opacity var(--toast-close) var(--toast-ease),
     transform var(--toast-close) var(--toast-ease),
@@ -838,7 +996,10 @@
 }
 
 /* grid-template-rows 0fr → 1fr gives a clean height animation
-   with no JS measurement; the inner element clips overflow. */
+   with no JS measurement; the inner element clips overflow. The
+   inner fades on opacity alone — an animated blur here would
+   re-rasterize the panel contents every frame (see the Blur note
+   in the token block). */
 .t-acc-panel {
   display: grid;
   grid-template-rows: 0fr;
@@ -851,17 +1012,11 @@
 .t-acc-panel-inner {
   overflow: hidden;
   opacity: 0;
-  filter: blur(2px);
-  transition:
-    opacity var(--acc-collapse) var(--acc-ease),
-    filter var(--acc-collapse) var(--acc-ease);
+  transition: opacity var(--acc-collapse) var(--acc-ease);
 }
 .t-acc[data-open="true"] .t-acc-panel-inner {
   opacity: 1;
-  filter: blur(0);
-  transition:
-    opacity var(--acc-expand) var(--acc-ease),
-    filter var(--acc-expand) var(--acc-ease);
+  transition: opacity var(--acc-expand) var(--acc-ease);
 }
 /* Flip the chevron vertically to turn the "v" into a "^".
    scaleY(-1) about the centre passes through a flat line at
@@ -932,7 +1087,6 @@
   transition:
     transform var(--tabs-dur) var(--tabs-ease),
     width     var(--tabs-dur) var(--tabs-ease);
-  will-change: transform, width;
   z-index: 0;
   pointer-events: none;
 }
@@ -944,22 +1098,17 @@
 .t-text-swap {
   display: inline-block;
   transform: translateY(0);
-  filter: blur(0);
   opacity: 1;
   transition:
     transform var(--text-swap-dur) var(--text-swap-ease),
-    filter    var(--text-swap-dur) var(--text-swap-ease),
     opacity   var(--text-swap-dur) var(--text-swap-ease);
-  will-change: transform, filter, opacity;
 }
 .t-text-swap.is-exit {
   transform: translateY(calc(var(--text-swap-translate-y) * -1));
-  filter: blur(var(--text-swap-blur));
   opacity: 0;
 }
 .t-text-swap.is-enter-start {
   transform: translateY(var(--text-swap-translate-y));
-  filter: blur(var(--text-swap-blur));
   opacity: 0;
   transition: none;
 }
@@ -976,20 +1125,16 @@
   grid-area: 1 / 1;
   transition:
     opacity   var(--icon-swap-dur) var(--icon-swap-ease),
-    filter    var(--icon-swap-dur) var(--icon-swap-ease),
     transform var(--icon-swap-dur) var(--icon-swap-ease);
-  will-change: opacity, filter, transform;
 }
 .t-icon-swap[data-state="a"] .t-icon[data-icon="a"],
 .t-icon-swap[data-state="b"] .t-icon[data-icon="b"] {
   opacity: 1;
-  filter: blur(0);
   transform: scale(1);
 }
 .t-icon-swap[data-state="a"] .t-icon[data-icon="b"],
 .t-icon-swap[data-state="b"] .t-icon[data-icon="a"] {
   opacity: 0;
-  filter: blur(var(--icon-swap-blur));
   transform: scale(var(--icon-swap-start-scale));
 }
 
@@ -1003,19 +1148,40 @@
   background-size: 256px 256px;
 }
 
+/* A row in the chat transcript. `content-visibility: auto` lets the browser skip
+   layout and paint for rows scrolled out of view, so opening a long session
+   costs about the same as opening a short one — which is the difference you feel,
+   since switching tabs remounts the whole transcript. The `auto` keyword on
+   contain-intrinsic-size makes each row remember its last measured height, so the
+   estimate self-corrects after the first paint, and the autoscroll in Chat.tsx
+   re-snaps to scrollHeight while pinned — an initial estimate can never leave a
+   session stranded. Clip-safe here: nothing inside a row paints outside its own
+   box (the message-actions card is inline by design, and the composer's popovers
+   are not in the transcript). */
+@utility transcript-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 160px;
+}
+
+/* A transcript row announcing itself. Deliberately short: appended content
+   should not keep the reader waiting on its own entrance, and during a run
+   several rows can land within the same second. */
+@utility transcript-rise {
+  animation: rise var(--duration-quick) var(--ease-smooth-out);
+}
+
 @keyframes t-badge-slide-in {
   from { transform: translate(var(--badge-offset-x), var(--badge-offset-y)); }
   to   { transform: translate(0, 0); }
 }
 
-/* .t-badge is the absolutely-positioned wrapper for the dot.
-   Adjust top/right (or left/bottom) to anchor it on your trigger. */
+/* A badge celebrating a one-off event (recents count, pending items). It pops in
+   with a small overshoot because the pop is the point — motion:allow-blur below. */
 .t-badge {
   position: absolute;
   top: -6px;
   right: -8px;
   pointer-events: none;
-  will-change: transform;
 }
 .t-badge[data-open="true"] {
   animation: t-badge-slide-in var(--badge-slide-dur) var(--badge-slide-ease);
@@ -1027,16 +1193,17 @@
   transform: scale(1);
   opacity: 1;
   filter: blur(0);
+  /* motion:allow-blur: the pop is the point (see the note on .t-badge) */
   transition:
     transform var(--badge-pop-dur)  var(--badge-pop-ease),
     opacity   var(--badge-fade-dur) var(--badge-pop-ease),
     filter    var(--badge-pop-dur)  var(--badge-pop-ease);
-  will-change: transform, opacity, filter;
 }
 .t-badge[data-open="false"] .t-badge-dot {
   transform: scale(0);
   opacity: 0;
   filter: blur(var(--badge-blur));
+  /* motion:allow-blur: part of the same one-shot pop */
   transition:
     transform var(--badge-pop-close-dur)  var(--badge-close-ease),
     opacity   var(--badge-fade-close-dur) var(--badge-close-ease),
@@ -1053,7 +1220,6 @@
    across states so the tween never shifts inner content. */
 .t-input {
   transition: border-color 150ms ease-out;
-  will-change: transform;
 }
 .t-input.is-error {
   /* Error border auto-reverts on the hold timer, so the
@@ -1107,7 +1273,6 @@
   transition:
     width  var(--resize-dur) var(--resize-ease),
     height var(--resize-dur) var(--resize-ease);
-  will-change: width, height;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1117,23 +1282,18 @@
 .t-panel-slide {
   transform: translateY(var(--panel-translate-y));
   opacity: 0;
-  filter: blur(var(--panel-blur));
   pointer-events: none;
   transition:
     transform var(--panel-close-dur) var(--panel-ease),
-    opacity   var(--panel-close-dur) var(--panel-ease),
-    filter    var(--panel-close-dur) var(--panel-ease);
-  will-change: transform, opacity, filter;
+    opacity   var(--panel-close-dur) var(--panel-ease);
 }
 .t-panel-slide[data-open="true"] {
   transform: translateY(0);
   opacity: 1;
-  filter: blur(0);
   pointer-events: auto;
   transition:
     transform var(--panel-open-dur) var(--panel-ease),
-    opacity   var(--panel-open-dur) var(--panel-ease),
-    filter    var(--panel-open-dur) var(--panel-ease);
+    opacity   var(--panel-open-dur) var(--panel-ease);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1155,19 +1315,15 @@
   opacity: 0;
   pointer-events: none;
   transform: translateX(calc(var(--t-page-from-x, 0px) * var(--page-exit-enabled)));
-  filter: blur(calc(var(--page-blur) * var(--page-exit-enabled)));
   transition:
     opacity   var(--page-fade-dur)  var(--page-fade-ease),
-    transform var(--page-slide-dur) var(--page-slide-ease),
-    filter    var(--page-slide-dur) var(--page-slide-ease);
-  will-change: opacity, transform, filter;
+    transform var(--page-slide-dur) var(--page-slide-ease);
 }
 .t-page-slide[data-page="1"] .t-page[data-page-id="1"],
 .t-page-slide[data-page="2"] .t-page[data-page-id="2"] {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
-  filter: blur(0);
   transition-delay: var(--page-stagger);
 }
 
@@ -1230,13 +1386,10 @@
   color: var(--think-base);
   white-space: nowrap;
   transform: translateY(0);
-  filter: blur(0);
   opacity: 1;
   transition:
     transform var(--think-swap) var(--think-ease),
-    filter var(--think-swap) var(--think-ease),
     opacity var(--think-swap) var(--think-ease);
-  will-change: transform, filter, opacity;
 }
 /* Shimmer sweeps the glyphs only (background-clip: text). */
 .t-think-text::before {
@@ -1263,13 +1416,11 @@
 /* The outgoing line floats over the box so both halves animate. */
 .t-think-text.is-exit {
   transform: translateY(calc(var(--think-distance) * -1));
-  filter: blur(var(--think-blur));
   opacity: 0;
 }
 .t-think-text.is-enter-start {
   transition: none;
   transform: translateY(var(--think-distance));
-  filter: blur(var(--think-blur));
   opacity: 0;
 }
 
@@ -1280,14 +1431,10 @@
 
 .t-stream-w {
   opacity: 0;
-  filter: blur(var(--stream-blur));
-  transition:
-    opacity var(--stream-fade) var(--stream-ease),
-    filter var(--stream-fade) var(--stream-ease);
+  transition: opacity var(--stream-fade) var(--stream-ease);
 }
 .t-stream-w.is-in {
   opacity: 1;
-  filter: blur(0);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1300,7 +1447,6 @@
   display: inline-block;
   transform-origin: center;
   opacity: 0;
-  will-change: transform, opacity, filter;
 }
 /* overflow: visible keeps the stroke from clipping while it
    draws; display: block kills the inline whitespace under SVGs. */
@@ -1364,7 +1510,7 @@
 }
 
 .t-toggle { transition: background var(--toggle-track) var(--toggle-ease); }
-.t-toggle-thumb { translate: 0 0; will-change: translate; }
+.t-toggle-thumb { translate: 0 0; }
 .t-toggle[data-on="true"] .t-toggle-thumb { translate: var(--toggle-travel) 0; }
 .t-toggle.is-init[data-on="true"] .t-toggle-thumb { animation: t-toggle-on var(--toggle-dur) var(--toggle-ease) both; }
 .t-toggle.is-init[data-on="false"] .t-toggle-thumb { animation: t-toggle-off var(--toggle-dur) var(--toggle-ease) both; }
@@ -1406,6 +1552,49 @@
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
     0 4px 20px -4px rgba(0, 0, 0, 0.25);
+}
+
+/* Lightweight content card: hairline border, soft lift, and a hover raise.
+   Used by Home quick actions and any grid card so surfaces read as designed
+   rather than bare divs. Keeps the app-grain off (cards sit on --background). */
+@utility surface-card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.04),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.04);
+  transition:
+    border-color var(--duration-quick, 150ms) var(--ease-smooth-out, ease),
+    box-shadow var(--duration-quick, 150ms) var(--ease-smooth-out, ease),
+    transform var(--duration-quick, 150ms) var(--ease-smooth-out, ease),
+    background-color var(--duration-quick, 150ms) var(--ease-smooth-out, ease);
+}
+.surface-card:hover {
+  border-color: var(--input);
+  box-shadow:
+    0 4px 16px -6px rgb(0 0 0 / 0.12),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.05);
+  transform: translateY(-1px);
+}
+.dark .surface-card:hover {
+  box-shadow:
+    0 4px 16px -6px rgb(0 0 0 / 0.5),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.06);
+}
+@media (prefers-reduced-motion: reduce) {
+  .surface-card,
+  .surface-card:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Modal / dialog scrim. One token so the backdrop composites consistently and
+   dark mode does not double-darken. Consumers keep their own backdrop-filter;
+   this only owns the fill color. */
+@utility modal-overlay {
+  background-color: var(--overlay);
 }
 
 /* ── window shell ───────────────────────────────────────────────────────────
@@ -1464,15 +1653,23 @@
   background: rgb(var(--shell-rgb) / 0.72);
 }
 
-/* While DWM animates a maximize/resize, a transparent window repaints in
-   software — the sidebar blur and panel grain dominate that cost, so the
-   renderer drops them until the size settles (see the resize listener in
-   App.tsx). Plain selectors: the class lives on <html>. */
-.window-resizing aside {
+/* Drops the two effects that dominate a repaint pass — the sidebar's
+   backdrop-filter and the chat panel's SVG grain — while a chrome geometry
+   animation runs. Two callers:
+
+   1. `.window-resizing`: DWM animating a maximize/resize, where a transparent
+      window repaints in software (see the resize listener in App.tsx).
+   2. `.chrome-animating`: collapsing the sidebar or opening the git panel, both
+      of which resize a neighbour of the chat column (see chromeAnimation.ts).
+
+   Plain selectors: both classes live on <html>. */
+.window-resizing aside,
+.chrome-animating aside {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-.window-resizing .surface-grain {
+.window-resizing .surface-grain,
+.chrome-animating .surface-grain {
   background-image: none;
 }
 
@@ -1685,18 +1882,16 @@
   color: var(--foreground);
 }
 .chat-markdown h1 {
-  font-size: 1.25rem;
+  font-size: var(--text-ui-xl);
 }
 .chat-markdown h2 {
-  font-size: 1.125rem;
+  font-size: var(--text-ui-lg);
 }
-.chat-markdown h3 {
-  font-size: 1rem;
-}
+.chat-markdown h3,
 .chat-markdown h4,
 .chat-markdown h5,
 .chat-markdown h6 {
-  font-size: 0.875rem;
+  font-size: var(--text-ui-base);
 }
 .chat-markdown h6 {
   color: var(--muted-foreground);
@@ -1731,7 +1926,7 @@
   padding: 0.1rem 0.35rem;
   color: var(--foreground);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--text-ui-sm);
 }
 .chat-markdown pre {
   max-width: 100%;
@@ -1752,7 +1947,7 @@
   width: max-content;
   min-width: 100%;
   border-collapse: collapse;
-  font-size: 0.8rem;
+  font-size: var(--text-ui-base);
   margin: 0;
 }
 .chat-markdown th,
@@ -1805,7 +2000,7 @@
 }
 .codeblock-lang {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--text-ui-xs);
   text-transform: lowercase;
 }
 .codeblock-copy {
@@ -1823,6 +2018,20 @@
   background: var(--hover);
   color: var(--foreground);
 }
+/* Loop animations are paused wholesale while the window is not visible: the
+   Working orb's cells, the shimmer sweep, the streaming caret and the skeletons
+   are all decoration, and none of them should be scheduling paint while the
+   window sits behind another app or on another desktop. Set from main.tsx.
+
+   Transitions are deliberately untouched — a transition is the tail of an
+   interaction that already happened, so pausing one would freeze the UI in a
+   half-applied state rather than save anything. */
+.window-hidden *,
+.window-hidden *::before,
+.window-hidden *::after {
+  animation-play-state: paused !important;
+}
+
 .reduce-motion *,
 .reduce-motion *::before,
 .reduce-motion *::after {
@@ -1843,7 +2052,7 @@
 
 .settings-heading {
   margin: 0 0 0.65rem;
-  font-size: 0.75rem;
+  font-size: var(--text-ui-sm);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1862,12 +2071,12 @@
   justify-content: space-between;
   gap: 1rem;
   color: var(--foreground);
-  font-size: 0.8125rem;
+  font-size: var(--text-ui-base);
 }
 .settings-row code {
   color: var(--muted-foreground);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--text-ui-sm);
 }
 .chat-markdown .codeblock pre {
   margin: 0;
@@ -1889,7 +2098,7 @@
   background: var(--muted);
   color: var(--foreground);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--text-ui-xs);
   line-height: 1;
   white-space: nowrap;
 }
@@ -1906,7 +2115,7 @@
   border: 1px solid var(--border);
   background: transparent;
   color: var(--muted-foreground);
-  font-size: 11.5px;
+  font-size: var(--text-ui-sm);
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
