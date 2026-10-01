@@ -29,5 +29,6 @@ export default defineConfig({
   root: resolve(root, 'src/renderer'),
   plugins: [react(), tailwindcss(), mockBridge()],
   resolve: { alias: { '@': resolve(root, 'src/renderer/src') } },
-  server: { host: '0.0.0.0', port: 5173, strictPort: false, fs: { strict: false } }
+  // The managed Preview probes PORT (3000 by default) and needs a non-loopback host.
+  server: { host: '0.0.0.0', port: Number(process.env.PORT) || 3000, strictPort: true, fs: { strict: false } }
 })
