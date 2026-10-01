@@ -128,7 +128,7 @@ function OverflowMenu({ hiddenIds, labelFor, runningIds, onSelect, onClose }: Ov
           title={`${hiddenIds.length} more tabs`}
           onClick={() => (open ? setOpen(false) : openMenu())}
           className={cn(
-            'flex h-7 cursor-pointer items-center rounded-full border px-2.5 text-[11px] font-semibold select-none',
+            'flex h-7 cursor-pointer items-center rounded-full border px-2.5 text-ui-sm font-semibold select-none',
             open
               ? 'border-border bg-selected text-foreground'
               : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -149,12 +149,12 @@ function OverflowMenu({ hiddenIds, labelFor, runningIds, onSelect, onClose }: Ov
             animate="animate"
             exit="exit"
             transition={BLOOM_FAST}
-            className="no-drag fixed z-[70] w-[240px] origin-top-left overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-xl shadow-black/30"
+            className="no-drag fixed z-[70] w-[240px] origin-top-left overflow-hidden rounded-lg border border-popover-border bg-menu py-1 shadow-md"
             style={{ left: pos.left, top: pos.top }}
             onMouseEnter={() => { cancelClose(); setOpen(true) }}
             onMouseLeave={scheduleClose}
           >
-            <div className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            <div className="px-3 pb-1 pt-1.5 text-ui-xs font-semibold uppercase tracking-wider text-foreground-subtlest">
               Hidden tabs · {hiddenIds.length}
             </div>
             <div className="no-scrollbar max-h-[280px] overflow-y-auto">
@@ -169,7 +169,7 @@ function OverflowMenu({ hiddenIds, labelFor, runningIds, onSelect, onClose }: Ov
                     title={label}
                     onClick={() => { onSelect(id); setOpen(false) }}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(id); setOpen(false) } }}
-                    className="group flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-foreground transition-colors hover:bg-hover"
+                    className="group flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-ui-caption text-foreground transition-colors hover:bg-hover"
                   >
                     {running ? (
                       <span className="size-1.5 shrink-0 rounded-full bg-success" />

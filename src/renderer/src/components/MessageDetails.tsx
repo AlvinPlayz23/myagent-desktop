@@ -46,8 +46,8 @@ function useMeasuredHeight<T extends HTMLElement>(): [React.RefObject<T>, number
 function Field({ label, value }: { label: string; value: string }): JSX.Element {
   return (
     <div>
-      <div className="text-[11.5px] font-medium text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-[14px] tracking-tight text-foreground">{value}</div>
+      <div className="text-ui-sm font-medium text-muted-foreground">{label}</div>
+      <div className="mt-0.5 text-ui-base tracking-tight text-foreground">{value}</div>
     </div>
   )
 }

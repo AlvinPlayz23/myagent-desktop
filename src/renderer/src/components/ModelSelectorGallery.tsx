@@ -83,7 +83,7 @@ export default function ModelSelectorGallery({
     <motion.div
       style={{ transformOrigin: align === 'right' ? 'bottom right' : 'bottom left' }}
       className={cn(
-        'absolute bottom-full z-50 mb-2.5 w-[380px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-border bg-card shadow-lg',
+        'absolute bottom-full z-50 mb-2.5 w-[380px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-lg border border-border bg-menu shadow-md',
         align === 'right' ? 'right-0' : 'left-0'
       )}
       variants={bloomUp}
@@ -124,7 +124,7 @@ export default function ModelSelectorGallery({
         {/* Model list */}
         <div className="min-w-0 flex-1 px-1.5 pb-1.5 pt-1">
           <div className="flex h-8 items-center justify-between gap-2 px-1.5">
-            <span className="text-xs font-medium text-muted-foreground select-none">Models</span>
+            <span className="text-ui-sm font-medium text-muted-foreground select-none">Models</span>
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
@@ -154,7 +154,7 @@ export default function ModelSelectorGallery({
                 onClick={(e) => e.stopPropagation()}
                 placeholder="Quick Search"
                 aria-label="Quick search models"
-                className="h-7 w-28 bg-transparent text-right text-xs text-foreground outline-none placeholder:text-muted-foreground focus:text-left"
+                className="h-7 w-28 bg-transparent text-right text-ui-sm text-foreground outline-none placeholder:text-muted-foreground focus:text-left"
               />
               <QuickSearchIcon size={14} />
             </button>
@@ -182,7 +182,7 @@ export default function ModelSelectorGallery({
                     aria-pressed={active}
                   >
                     <ModelIcon model={modelID} className="size-4 shrink-0 opacity-70" />
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+                    <span className="min-w-0 flex-1 truncate text-ui-caption font-medium text-foreground">
                       {modelID}
                     </span>
                     <span
@@ -196,7 +196,7 @@ export default function ModelSelectorGallery({
                 )
               })
             ) : (
-              <div className="px-3 py-6 text-center text-xs text-muted-foreground/70">{emptyHint}</div>
+              <div className="px-3 py-6 text-center text-ui-sm text-foreground-subtlest">{emptyHint}</div>
             )}
           </div>
         </div>

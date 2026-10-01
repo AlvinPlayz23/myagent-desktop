@@ -94,7 +94,7 @@ export function EmptyTitle({
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn("font-heading font-semibold text-xl", className)}
+      className={cn("font-heading font-semibold text-ui-xl", className)}
       data-slot="empty-title"
       {...props}
     />
@@ -108,7 +108,7 @@ export function EmptyDescription({
   return (
     <div
       className={cn(
-        "text-muted-foreground text-sm [&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4 [[data-slot=empty-title]+&]:mt-1",
+        "text-muted-foreground text-ui-caption [&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4 [[data-slot=empty-title]+&]:mt-1",
         className,
       )}
       data-slot="empty-description"
@@ -124,7 +124,7 @@ export function EmptyContent({
   return (
     <div
       className={cn(
-        "flex w-full min-w-0 max-w-sm flex-col items-center gap-4 text-balance text-sm",
+        "flex w-full min-w-0 max-w-sm flex-col items-center gap-4 text-balance text-ui-caption",
         className,
       )}
       data-slot="empty-content"

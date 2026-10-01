@@ -43,7 +43,7 @@ export function CommandDialogBackdrop({
   return (
     <CommandDialogPrimitive.Backdrop
       className={cn(
-        "fixed inset-0 z-50 bg-black/32 backdrop-blur-sm transition-all duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
+        "fixed inset-0 z-50 bg-overlay backdrop-blur-sm transition-all duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
         className,
       )}
       data-slot="command-dialog-backdrop"
@@ -235,7 +235,7 @@ export function CommandShortcut({
   return (
     <kbd
       className={cn(
-        "ms-auto font-medium font-sans text-muted-foreground/72 text-xs tracking-widest",
+        "ms-auto font-medium font-sans text-muted-foreground text-ui-sm tracking-widest",
         className,
       )}
       data-slot="command-shortcut"
@@ -251,7 +251,7 @@ export function CommandFooter({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-2 rounded-b-[calc(var(--radius-2xl)-1px)] border-t px-5 py-3 text-muted-foreground text-xs",
+        "flex items-center justify-between gap-2 rounded-b-[calc(var(--radius-2xl)-1px)] border-t px-5 py-3 text-muted-foreground text-ui-sm",
         className,
       )}
       data-slot="command-footer"

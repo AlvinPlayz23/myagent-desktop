@@ -16,7 +16,10 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint:motion": "node scripts/check-motion.mjs",
+    "lint:design": "node scripts/check-design.mjs",
+    "lint": "npm run lint:motion && npm run lint:design"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

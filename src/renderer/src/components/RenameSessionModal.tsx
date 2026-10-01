@@ -44,7 +44,7 @@ export default function RenameSessionModal({ initialTitle, onClose, onSave }: Pr
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/35 p-5 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 grid place-items-center bg-overlay p-5 backdrop-blur-[2px]"
       onMouseDown={() => !saving && onClose()}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -52,7 +52,7 @@ export default function RenameSessionModal({ initialTitle, onClose, onSave }: Pr
       transition={{ duration: 0.15, ease: 'easeOut' }}
     >
       <motion.form
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-elevated shadow-2xl"
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-popover-border bg-popover text-popover-foreground shadow-lg"
         onSubmit={submit}
         onMouseDown={(event) => event.stopPropagation()}
         initial="initial"
@@ -62,25 +62,25 @@ export default function RenameSessionModal({ initialTitle, onClose, onSave }: Pr
         transition={BLOOM}
       >
         <div className="border-b border-border px-5 py-4">
-          <h2 className="m-0 text-[15px] font-semibold text-foreground">Rename session</h2>
-          <p className="mb-0 mt-1 text-[12px] text-muted-foreground">This title is saved with the session.</p>
+          <h2 className="m-0 text-ui-lg font-semibold text-foreground">Rename session</h2>
+          <p className="mb-0 mt-1 text-ui-sm text-muted-foreground">This title is saved with the session.</p>
         </div>
         <div className="p-5">
-          <label className="block text-[12px] font-medium text-foreground" htmlFor="session-title">Session title</label>
+          <label className="block text-ui-sm font-medium text-foreground" htmlFor="session-title">Session title</label>
           <input
             id="session-title"
             autoFocus
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="mt-2 h-10 w-full rounded-lg border border-input bg-subtle px-3 text-[13px] text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground"
+            className="mt-2 h-10 w-full rounded-lg border border-input bg-subtle px-3 text-ui-caption text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground"
             placeholder="Session title"
             disabled={saving}
           />
-          {error && <p className="mb-0 mt-2 text-[12px] text-red-500">{error}</p>}
+          {error && <p className="mb-0 mt-2 text-ui-sm text-red-500">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
-          <button type="button" className="rounded-full px-3 py-1.5 text-[12px] font-medium text-muted-foreground hover:bg-hover hover:text-foreground" onClick={onClose} disabled={saving}>Cancel</button>
-          <button type="submit" className="rounded-full bg-foreground px-3.5 py-1.5 text-[12px] font-medium text-background disabled:opacity-50" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          <button type="button" className="rounded-full px-3 py-1.5 text-ui-sm font-medium text-muted-foreground hover:bg-hover hover:text-foreground" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="submit" className="rounded-full bg-foreground px-3.5 py-1.5 text-ui-sm font-medium text-background disabled:opacity-50" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
         </div>
       </motion.form>
     </motion.div>

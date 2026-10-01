@@ -20,13 +20,13 @@ export default class ChatErrorBoundary extends Component<{ children: ReactNode }
     if (this.state.error) {
       return (
         <div className="mx-auto flex max-w-3xl flex-col px-5 pb-6 pt-7 sm:px-8">
-          <div className="rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 text-[12.5px] leading-relaxed text-muted-foreground">
-            <div className="text-[13px] font-semibold text-foreground">Something went wrong showing this transcript.</div>
+          <div className="rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 text-ui-caption leading-relaxed text-muted-foreground">
+            <div className="text-ui-caption font-semibold text-foreground">Something went wrong showing this transcript.</div>
             <p className="mt-1">The app is still running — your session is safe.</p>
             <button
               type="button"
               onClick={() => this.setState({ error: null })}
-              className="mt-2 rounded-md px-2 py-1 text-[12px] font-medium text-foreground/80 transition-colors hover:bg-hover hover:text-foreground"
+              className="mt-2 rounded-md px-2 py-1 text-ui-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
             >
               Try again
             </button>

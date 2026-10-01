@@ -29,6 +29,11 @@ export interface Preferences {
   transparencyEnabled: boolean
   /** 0 is more opaque; 100 lets more of the desktop material show through. */
   transparency: number
+  /**
+   * Interface font size in px. Drives --ui-font-size, so every text-ui-* token
+   * scales while spacing, radii and icons stay fixed. See DESIGN.md.
+   */
+  interfaceFontSize: number
   /** Display name shown in the window's titlebar strip. */
   appName: string
 }
@@ -36,6 +41,8 @@ export interface Preferences {
 const KEY = 'myagent.desktop.preferences'
 const DEFAULT_APP_NAME = 'myagent'
 const APP_NAME_MAX = 32
+const FONT_SIZE_MIN = 12
+const FONT_SIZE_MAX = 18
 
 function normalizeAccent(value: unknown): AccentPreference {
   return value === 'violet' || value === 'jade' || value === 'amber' ? value : 'cobalt'
@@ -54,12 +61,20 @@ export const defaults: Preferences = {
   sidebarVariant: 'inbox',
   transparencyEnabled: true,
   transparency: 50,
+  interfaceFontSize: 13.5,
   appName: DEFAULT_APP_NAME
 }
 
 /** Keep the visual preference safe when localStorage contains old or invalid data. */
 export function normalizeTransparency(value: number | undefined | null): number {
   return Number.isFinite(value) ? Math.min(100, Math.max(0, Math.round(value as number))) : defaults.transparency
+}
+
+/** Clamp the interface font size to a readable band; invalid input falls back. */
+export function normalizeFontSize(value: number | undefined | null): number {
+  return Number.isFinite(value)
+    ? Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round((value as number) * 2) / 2))
+    : defaults.interfaceFontSize
 }
 
 /** Normalize the app title; empty/whitespace falls back to default. */
@@ -81,6 +96,7 @@ export function loadPreferences(): Preferences {
       sidebarVariant: stored.sidebarVariant === 'grouped' ? 'grouped' : 'inbox',
       transparencyEnabled: stored.transparencyEnabled !== false,
       transparency: normalizeTransparency(stored.transparency),
+      interfaceFontSize: normalizeFontSize(stored.interfaceFontSize),
       appName: normalizeAppName(stored.appName ?? defaults.appName)
     }
   } catch {
@@ -104,4 +120,12 @@ export function applyTheme(theme: ThemePreference): void {
 
 export function applyAccent(accent: AccentPreference): void {
   document.documentElement.dataset.accent = normalizeAccent(accent)
+}
+
+/**
+ * Apply the interface font size. Only --ui-font-size moves — never the root
+ * html font size — so the text-ui-* scale grows while layout geometry holds.
+ */
+export function applyFontSize(size: number): void {
+  document.documentElement.style.setProperty('--ui-font-size', `${normalizeFontSize(size)}px`)
 }

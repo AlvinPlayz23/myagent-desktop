@@ -17,7 +17,7 @@ import ModelSelectorGallery, { ModelIcon } from './ModelSelectorGallery'
 // Physics & Colors
 // ----------------------------------------------------------------------
 const SPRING_TRANSITION = "max-width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), height 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
-const EASE_SPRING = "cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+const EASE_EXPAND = "cubic-bezier(0.22, 1, 0.36, 1)"
 
 // ----------------------------------------------------------------------
 // Sub-components requested by USER
@@ -43,7 +43,7 @@ function MorphingText({ text }: { text: string }): JSX.Element {
       </span>
       <span
         key={text}
-        className="absolute inset-0 flex items-center justify-center whitespace-nowrap animate-in fade-in zoom-in-95 duration-300"
+        className="absolute inset-0 flex items-center justify-center whitespace-nowrap animate-in fade-in zoom-in-95 duration-[var(--duration-quick)]"
       >
         {text}
       </span>
@@ -231,12 +231,13 @@ function AttachmentThumb({
       style={{ animationDelay: `${index * 35}ms`, animationFillMode: "backwards" }}
       className={cn(
         "group relative size-12 shrink-0 overflow-hidden rounded-xl border border-border bg-muted outline-none",
-        "transition-transform duration-200 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] hover:scale-[1.04] active:scale-[0.96]",
-        "animate-in fade-in slide-in-from-top-3 zoom-in-90 duration-400"
+        "transition-transform duration-200 ease-[var(--ease-smooth-out)] hover:scale-[1.04] active:scale-[0.96]",
+        "animate-in fade-in slide-in-from-top-3 zoom-in-90 duration-[var(--duration-fast)]"
       )}
       aria-label={`Open preview of ${attachment.name}`}
     >
       <img src={attachment.url} alt={attachment.name} className="attachment-image size-full object-cover" draggable={false} />
+      {/* design:allow — attachment hover scrim over an image thumbnail, not a modal backdrop; it must darken whatever image sits under it. */}
       <span className={cn("absolute inset-0 flex items-start justify-end bg-black/0 transition-colors duration-200", hovered && "bg-black/25")}>
         <span
           role="button"
@@ -244,7 +245,7 @@ function AttachmentThumb({
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onClick={(e) => { e.stopPropagation(); onRemove(attachment.id); }}
           className={cn(
-            "m-1 flex size-4 items-center justify-center rounded-full bg-background/90 text-foreground/70 shadow-sm transition-all duration-200 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] hover:bg-background hover:text-foreground hover:scale-110",
+            "m-1 flex size-4 items-center justify-center rounded-full bg-background/90 text-foreground-subtle shadow-sm transition-all duration-200 ease-[var(--ease-smooth-out)] hover:bg-background hover:text-foreground hover:scale-110",
             hovered ? "opacity-100 scale-100" : "opacity-0 scale-50 pointer-events-none"
           )}
           aria-label={`Remove ${attachment.name}`}
@@ -313,13 +314,17 @@ function AttachmentGalleryModal({
     ? targetRect
     : { top: originRect.top, left: originRect.left, width: originRect.width, height: originRect.height, radius: 12 }
 
-  const animEasing = isClosing ? 'ease-out' : 'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-  const animDur = isClosing ? '0.3s' : '0.45s'
+  // Thumbnail → fullscreen is a spatial morph, so it wants a travel ease rather
+  // than a bounce: an overshoot on top/left/width/height visibly wobbles the
+  // frame past its target. Close is shorter than open, mirroring EASE_IN /
+  // EASE_OUT in motion.ts.
+  const animEasing = isClosing ? 'cubic-bezier(0.64, 0, 0.78, 0)' : 'cubic-bezier(0.22, 1, 0.36, 1)'
+  const animDur = isClosing ? '0.16s' : '0.22s'
   const flipTransition = `top ${animDur} ${animEasing}, left ${animDur} ${animEasing}, width ${animDur} ${animEasing}, height ${animDur} ${animEasing}, border-radius ${animDur} ${animEasing}`
 
   return (
     <div className="fixed inset-0 z-[100]" onClick={handleClose} role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-background/70 backdrop-blur-md transition-opacity duration-400" style={{ opacity: isOpen ? 1 : 0 }} />
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-md transition-opacity duration-[var(--duration-medium)]" style={{ opacity: isOpen ? 1 : 0 }} />
       <div
         style={{
           position: 'fixed',
@@ -338,7 +343,7 @@ function AttachmentGalleryModal({
         type="button" onClick={handleClose}
         style={{ opacity: isOpen ? 1 : 0, transform: isOpen ? "scale(1)" : "scale(0.7)" }}
         className={cn(
-          "fixed right-4 top-4 flex size-9 items-center justify-center rounded-full bg-card/90 text-foreground/70 shadow-md backdrop-blur-sm",
+          "fixed right-4 top-4 flex size-9 items-center justify-center rounded-full bg-card/90 text-foreground-subtle shadow-md backdrop-blur-sm",
           "transition-[opacity,transform,background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] hover:bg-card hover:text-foreground",
           !isOpen && "pointer-events-none"
         )}
@@ -915,8 +920,8 @@ export default function Composer({
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 3 }}
-            transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
-            className="mb-2 flex min-h-10 items-center justify-between gap-3 rounded-xl bg-destructive/8 px-3 text-[11.5px] text-destructive-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--destructive)_20%,transparent)]"
+            transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
+            className="mb-2 flex min-h-10 items-center justify-between gap-3 rounded-xl bg-destructive/8 px-3 text-ui-sm text-destructive-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--destructive)_20%,transparent)]"
           >
             <span>{attachmentError}</span>
             <button type="button" onClick={() => setAttachmentError(null)} className="grid size-8 shrink-0 place-items-center rounded-lg text-destructive-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive-foreground" aria-label="Dismiss attachment error">
@@ -929,7 +934,7 @@ export default function Composer({
       {/* Attachment tab */}
       <div
         aria-hidden={!hasAttachments}
-        style={{ height: hasAttachments ? 68 : 0, transition: `height 0.4s ${EASE_SPRING}` }}
+        style={{ height: hasAttachments ? 68 : 0, transition: `height 0.14s ${EASE_EXPAND}` }}
         className="relative z-0 w-full overflow-hidden"
       >
         <div
@@ -941,7 +946,7 @@ export default function Composer({
             height: 68,
             transform: hasAttachments ? 'translateY(0)' : 'translateY(100%)',
             opacity: hasAttachments ? 1 : 0,
-            transition: `transform 0.4s ${EASE_SPRING}, opacity 0.3s ease-out`
+            transition: `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease-out`
           }}
           className="no-scrollbar flex items-start gap-2 overflow-x-auto rounded-t-2xl border border-b-0 border-border bg-card px-2 pb-1 pt-2"
         >
@@ -960,7 +965,7 @@ export default function Composer({
       {/* Slash-command tab */}
       <div
         aria-hidden={cmdCount === 0}
-        style={{ height: cmdCount > 0 ? cmdHeight : 0, transition: `height 0.4s ${EASE_SPRING}` }}
+        style={{ height: cmdCount > 0 ? cmdHeight : 0, transition: `height 0.14s ${EASE_EXPAND}` }}
         className="relative z-0 w-full overflow-hidden"
       >
         <div
@@ -972,7 +977,7 @@ export default function Composer({
             height: cmdHeight || 1,
             transform: cmdCount > 0 ? 'translateY(0)' : 'translateY(100%)',
             opacity: cmdCount > 0 ? 1 : 0,
-            transition: `transform 0.4s ${EASE_SPRING}, opacity 0.3s ease-out`
+            transition: `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease-out`
           }}
           className="flex flex-col gap-0.5 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted px-1.5 pb-2 pt-1.5"
         >
@@ -981,7 +986,7 @@ export default function Composer({
               key={command.name}
               type="button"
               className={cn(
-                'flex h-[30px] w-full items-center rounded-lg px-2.5 text-left text-[13px] transition-colors',
+                'flex h-[30px] w-full items-center rounded-lg px-2.5 text-left text-ui-caption transition-colors',
                 index === commandIndex ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
               )}
               title={command.description}
@@ -998,7 +1003,7 @@ export default function Composer({
       {/* Follow-ups tab */}
       <div
         aria-hidden={queuedFollowUps.length === 0}
-        style={{ height: queuedFollowUps.length > 0 ? 40 : 0, transition: `height 0.4s ${EASE_SPRING}` }}
+        style={{ height: queuedFollowUps.length > 0 ? 40 : 0, transition: `height 0.14s ${EASE_EXPAND}` }}
         className="relative z-0 w-full overflow-hidden"
       >
         <div
@@ -1010,7 +1015,7 @@ export default function Composer({
             height: 40,
             transform: queuedFollowUps.length > 0 ? 'translateY(0)' : 'translateY(100%)',
             opacity: queuedFollowUps.length > 0 ? 1 : 0,
-            transition: `transform 0.4s ${EASE_SPRING}, opacity 0.3s ease-out`
+            transition: `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease-out`
           }}
           className="flex items-center gap-2 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted px-3"
         >
@@ -1047,15 +1052,15 @@ export default function Composer({
             <span className="size-2 shrink-0 rounded-full bg-muted-foreground/60" aria-hidden />
           )}
           {retrying ? (
-            <span className="shimmer-text min-w-0 flex-1 truncate whitespace-nowrap text-[11.5px] font-medium">{notice}</span>
+            <span className="shimmer-text min-w-0 flex-1 truncate whitespace-nowrap text-ui-sm font-medium">{notice}</span>
           ) : (
-            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[11.5px] font-medium text-muted-foreground">{notice}</span>
+            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-ui-sm font-medium text-muted-foreground">{notice}</span>
           )}
           {!retrying && (
             <button
               type="button"
               onClick={onDismissNotice}
-              className="grid size-5 shrink-0 place-items-center rounded-md text-muted-foreground/70 transition-colors hover:bg-hover hover:text-foreground"
+              className="grid size-5 shrink-0 place-items-center rounded-md text-foreground-subtlest transition-colors hover:bg-hover hover:text-foreground"
               aria-label="Dismiss notice"
               title="Dismiss"
             >
@@ -1065,11 +1070,19 @@ export default function Composer({
         </div>
       </div>
 
-      {/* Main Input: expanded card, or compact pill once a session has started */}
+      {/* Main Input: expanded card, or compact pill once a session has started.
+          `layout` owns this swap: the two branches are different subtrees, so
+          there is nothing for a CSS transition to interpolate between, and the
+          wrapper's own height is content-driven (`height: auto` does not
+          animate). Motion's layout projection animates the delta as a transform,
+          which composites. The class list therefore only transitions the two
+          properties that belong to this same node — radius and fill — and the
+          `t-resize` snippet is gone with them, since its width/height transition
+          never had anything to fire on. */}
       <motion.div
         layout
-        transition={{ type: 'spring', duration: 0.45, bounce: 0.12 }}
-        className={cn('t-resize relative z-10 transition-[width,height,border-radius,background-color] duration-[var(--resize-dur)] ease-[var(--resize-ease)]', compact ? 'rounded-full' : 'rounded-[26px] p-px', running && !compact ? 'bg-input' : 'bg-transparent')}
+        transition={{ type: 'spring', duration: 0.22, bounce: 0 }}
+        className={cn('relative z-10 transition-[border-radius,background-color] duration-[var(--resize-dur)] ease-[var(--resize-ease)]', compact ? 'rounded-full' : 'rounded-[26px] p-px', running && !compact ? 'bg-input' : 'bg-transparent')}
       >
         {compact ? (
         <div
@@ -1109,7 +1122,7 @@ export default function Composer({
               }}
               onKeyDown={onKey}
               onPaste={onPaste}
-              className="block max-h-[120px] min-h-[24px] w-full resize-none border-0 bg-transparent p-0 text-[15px] leading-[24px] text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground/80 disabled:opacity-70"
+              className="block max-h-[120px] min-h-[24px] w-full resize-none border-0 bg-transparent p-0 text-ui-lg leading-[24px] text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground disabled:opacity-70"
             />
           </div>
 
@@ -1124,7 +1137,7 @@ export default function Composer({
                   setModelsOpen((v) => !v)
                 }}
                 className={cn(
-                  'flex h-8 max-w-[160px] items-center gap-1 rounded-full px-2 text-[13px] font-medium text-muted-foreground outline-none transition-colors hover:bg-hover hover:text-foreground',
+                  'flex h-8 max-w-[160px] items-center gap-1 rounded-full px-2 text-ui-caption font-medium text-muted-foreground outline-none transition-colors hover:bg-hover hover:text-foreground',
                   modelsOpen && 'bg-selected text-foreground'
                 )}
                 disabled={running}
@@ -1159,7 +1172,7 @@ export default function Composer({
                   modelsOpen && (
                   <motion.div
                     style={{ transformOrigin: 'bottom right' }}
-                    className="absolute bottom-full right-0 z-50 mb-2.5 w-60 max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-border bg-card p-1 shadow-lg"
+                    className="absolute bottom-full right-0 z-50 mb-2.5 w-60 max-w-[calc(100vw-3rem)] overflow-hidden rounded-lg border border-border bg-menu p-1 shadow-md"
                     variants={bloomUp}
                     initial="initial"
                     animate="animate"
@@ -1167,7 +1180,7 @@ export default function Composer({
                     transition={BLOOM_FAST}
                   >
                     <div className="relative mb-1 flex items-center">
-                      <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground/60" strokeWidth={1.8} />
+                      <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground" strokeWidth={1.8} />
                       <input
                         autoFocus
                         value={modelQuery}
@@ -1190,7 +1203,7 @@ export default function Composer({
                         onMouseDown={(e) => e.stopPropagation()}
                         placeholder="Search models…"
                         aria-label="Search models"
-                        className="h-8 w-full rounded-lg border border-border bg-muted/60 pl-8 pr-2 text-[11.5px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-input focus:ring-1 focus:ring-input"
+                        className="h-8 w-full rounded-lg border border-border bg-muted/60 pl-8 pr-2 text-ui-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-input"
                       />
                     </div>
 
@@ -1212,14 +1225,14 @@ export default function Composer({
                                 setHoverStyle((prev) => ({
                                   opacity: 1,
                                   transform: `translateY(${idx * 34}px) scale(1)`,
-                                  transition: prev.opacity === 0 ? 'opacity 0.15s ease-out' : `transform 0.3s ${EASE_SPRING}, opacity 0.15s ease`
+                                  transition: prev.opacity === 0 ? 'opacity 0.15s ease-out' : `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease`
                                 }))
                               }
                               onClick={(e) => {
                                 e.stopPropagation()
                                 pickModel(ref)
                               }}
-                              className="group relative flex h-8 w-full shrink-0 items-center justify-between rounded-xl px-2.5 text-left text-xs font-medium text-foreground/80 outline-none active:scale-[0.98]"
+                              className="group relative flex h-8 w-full shrink-0 items-center justify-between rounded-xl px-2.5 text-left text-ui-sm font-medium text-muted-foreground outline-none active:scale-[0.98]"
                             >
                               <span className="flex items-center gap-2 min-w-0 truncate">
                                 <ModelIcon model={modelID} className="size-3.5 opacity-85 group-hover:opacity-100 transition-opacity shrink-0" />
@@ -1230,7 +1243,7 @@ export default function Composer({
                           )
                         })
                       ) : (
-                        <div className="px-3 py-4 text-center text-[11.5px] text-muted-foreground/70">
+                        <div className="px-3 py-4 text-center text-ui-sm text-foreground-subtlest">
                           {provider && provider.models.length > 0 ? `No models match “${modelQuery}”.` : 'No models discovered yet.'}
                         </div>
                       )}
@@ -1252,7 +1265,7 @@ export default function Composer({
                       >
                         <ChevronRight size={14} className="rotate-180" />
                       </button>
-                      <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11.5px] font-semibold text-foreground">
+                      <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-ui-sm font-semibold text-foreground">
                         {effectiveActiveProvider && <ProviderLogo providerId={effectiveActiveProvider} size={14} />}
                         <MorphingText text={effectiveActiveProvider ?? 'provider'} />
                       </span>
@@ -1294,7 +1307,7 @@ export default function Composer({
           {/* Recording visualizer */}
           <div
             className={cn(
-              'flex h-8 items-center justify-end gap-[3px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]',
+              'flex h-8 items-center justify-end gap-[3px] overflow-hidden transition-all duration-150 ease-[var(--ease-smooth-out)]',
               isRecording ? 'w-14 opacity-100' : 'w-0 opacity-0 pointer-events-none'
             )}
           >
@@ -1327,16 +1340,16 @@ export default function Composer({
             disabled={submitting}
             aria-label={showArrow ? "Send prompt" : showStop ? "Stop recording or generation" : "Use voice input"}
             style={{ borderRadius: 9999 }}
-            className="flex size-9 shrink-0 items-center justify-center bg-primary text-primary-foreground transition-all duration-300 hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-default shadow-sm disabled:opacity-50"
+            className="flex size-9 shrink-0 items-center justify-center bg-primary text-primary-foreground transition-all duration-[var(--duration-quick)] hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-default shadow-sm disabled:opacity-50"
           >
             <span className="relative flex h-full w-full items-center justify-center">
-              <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showArrow ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 rotate-45 blur-[1px] pointer-events-none")}>
+              <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-150 ease-[var(--ease-smooth-out)]", showArrow ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-45 pointer-events-none")}>
                 <ArrowUpIcon />
               </span>
-              <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showMic ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 -rotate-45 blur-[1px] pointer-events-none")}>
+              <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-150 ease-[var(--ease-smooth-out)]", showMic ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-45 pointer-events-none")}>
                 <WaveformIcon />
               </span>
-              <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showStop ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 rotate-45 blur-[1px] pointer-events-none")}>
+              <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-150 ease-[var(--ease-smooth-out)]", showStop ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-45 pointer-events-none")}>
                 <StopIcon />
               </span>
             </span>
@@ -1366,7 +1379,7 @@ export default function Composer({
               }}
               onKeyDown={onKey}
               onPaste={onPaste}
-              className="min-h-[64px] max-h-[220px] w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-relaxed text-foreground outline-none placeholder:font-medium placeholder:text-muted-foreground/70 disabled:opacity-70"
+              className="min-h-[64px] max-h-[220px] w-full resize-none border-0 bg-transparent p-0 text-ui-base leading-relaxed text-foreground outline-none placeholder:font-medium placeholder:text-foreground-subtlest disabled:opacity-70"
             />
           </div>
 
@@ -1391,7 +1404,7 @@ export default function Composer({
                     title={model || 'Select model'}
                   >
                     <ModelIcon model={shortModel || 'GPT 5.5'} className="size-3.5 opacity-80 group-hover:opacity-100 transition-opacity" />
-                    <span className="truncate select-none text-xs font-medium">
+                    <span className="truncate select-none text-ui-sm font-medium">
                       <MorphingText text={shortModel || 'Select Model'} />
                     </span>
                   </button>
@@ -1418,7 +1431,7 @@ export default function Composer({
                       modelsOpen && (
                       <motion.div
                         style={{ transformOrigin: 'bottom left' }}
-                        className="absolute bottom-full left-0 z-50 mb-2.5 w-60 max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-border bg-card p-1 shadow-lg"
+                        className="absolute bottom-full left-0 z-50 mb-2.5 w-60 max-w-[calc(100vw-3rem)] overflow-hidden rounded-lg border border-border bg-menu p-1 shadow-md"
                         variants={bloomUp}
                         initial="initial"
                         animate="animate"
@@ -1426,7 +1439,7 @@ export default function Composer({
                         transition={BLOOM_FAST}
                       >
                         <div className="relative mb-1 flex items-center">
-                          <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground/60" strokeWidth={1.8} />
+                          <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground" strokeWidth={1.8} />
                           <input
                             autoFocus
                             value={modelQuery}
@@ -1449,7 +1462,7 @@ export default function Composer({
                             onMouseDown={(e) => e.stopPropagation()}
                             placeholder="Search models…"
                             aria-label="Search models"
-                            className="h-8 w-full rounded-lg border border-border bg-muted/60 pl-8 pr-2 text-[11.5px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-input focus:ring-1 focus:ring-input"
+                            className="h-8 w-full rounded-lg border border-border bg-muted/60 pl-8 pr-2 text-ui-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-input"
                           />
                         </div>
 
@@ -1471,14 +1484,14 @@ export default function Composer({
                                     setHoverStyle((prev) => ({
                                       opacity: 1,
                                       transform: `translateY(${idx * 34}px) scale(1)`,
-                                      transition: prev.opacity === 0 ? 'opacity 0.15s ease-out' : `transform 0.3s ${EASE_SPRING}, opacity 0.15s ease`
+                                      transition: prev.opacity === 0 ? 'opacity 0.15s ease-out' : `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease`
                                     }))
                                   }
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     pickModel(ref)
                                   }}
-                                  className="group relative flex h-8 w-full shrink-0 items-center justify-between rounded-xl px-2.5 text-left text-xs font-medium text-foreground/80 outline-none active:scale-[0.98]"
+                                  className="group relative flex h-8 w-full shrink-0 items-center justify-between rounded-xl px-2.5 text-left text-ui-sm font-medium text-muted-foreground outline-none active:scale-[0.98]"
                                 >
                                   <span className="flex items-center gap-2 min-w-0 truncate">
                                     <ModelIcon model={modelID} className="size-3.5 opacity-85 group-hover:opacity-100 transition-opacity shrink-0" />
@@ -1489,7 +1502,7 @@ export default function Composer({
                               )
                             })
                           ) : (
-                            <div className="px-3 py-4 text-center text-[11.5px] text-muted-foreground/70">
+                            <div className="px-3 py-4 text-center text-ui-sm text-foreground-subtlest">
                               {provider && provider.models.length > 0 ? `No models match “${modelQuery}”.` : 'No models discovered yet.'}
                             </div>
                           )}
@@ -1511,7 +1524,7 @@ export default function Composer({
                           >
                             <ChevronRight size={14} className="rotate-180" />
                           </button>
-                          <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11.5px] font-semibold text-foreground">
+                          <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-ui-sm font-semibold text-foreground">
                             {effectiveActiveProvider && <ProviderLogo providerId={effectiveActiveProvider} size={14} />}
                             <MorphingText text={effectiveActiveProvider ?? 'provider'} />
                           </span>
@@ -1574,7 +1587,7 @@ export default function Composer({
                       aria-expanded={effortMenuOpen}
                     >
                       <DynamicBarsIcon level={currentEffortLabel} />
-                      <span className="text-xs font-medium select-none transition-colors">
+                      <span className="text-ui-sm font-medium select-none transition-colors">
                         <MorphingText text={currentEffortLabel} />
                       </span>
                     </button>
@@ -1609,7 +1622,7 @@ export default function Composer({
                       key={effortSlider ? 'effort-slider' : 'effort-chips'}
                       style={{ transformOrigin: 'bottom left' }}
                       className={cn(
-                        'absolute bottom-full left-0 z-50 mb-2.5 rounded-2xl border border-border bg-card shadow-lg',
+                        'absolute bottom-full left-0 z-50 mb-2.5 rounded-lg border border-border bg-menu shadow-md',
                         effortSlider
                           ? 'w-[248px] px-3.5 pb-3.5 pt-3'
                           // JellyRadio measures its own padding; the panel just
@@ -1626,7 +1639,7 @@ export default function Composer({
                     >
                       {effortSlider ? (
                       <>
-                      <div className="flex items-center gap-2 text-[13px] leading-[18px]">
+                      <div className="flex items-center gap-2 text-ui-caption leading-[18px]">
                         <span className="text-muted-foreground">Effort</span>
                         <span className="font-medium text-foreground">{currentEffortLabel}</span>
                         <span
@@ -1637,7 +1650,7 @@ export default function Composer({
                         </span>
                       </div>
 
-                      <div className="mt-3 flex justify-between text-[12px] leading-4 text-muted-foreground/70">
+                      <div className="mt-3 flex justify-between text-ui-sm leading-4 text-foreground-subtlest">
                         <span>Faster</span>
                         <span>Smarter</span>
                       </div>
@@ -1735,7 +1748,7 @@ export default function Composer({
               {/* Audio Wave Visualizer Overlay */}
               <div
                 className={cn(
-                  'flex h-8 items-center justify-end gap-[3px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]',
+                  'flex h-8 items-center justify-end gap-[3px] overflow-hidden transition-all duration-150 ease-[var(--ease-smooth-out)]',
                   isRecording ? 'w-16 opacity-100' : 'w-0 opacity-0 pointer-events-none'
                 )}
               >
@@ -1768,16 +1781,16 @@ export default function Composer({
                 disabled={submitting}
                 aria-label={showArrow ? "Send prompt" : showStop ? "Stop recording or generation" : "Use voice input"}
                 style={{ borderRadius: 9999 }}
-                className="flex h-8 w-8 items-center justify-center bg-primary text-primary-foreground transition-all duration-300 hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-default shadow-sm disabled:opacity-50"
+                className="flex h-8 w-8 items-center justify-center bg-primary text-primary-foreground transition-all duration-[var(--duration-quick)] hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-default shadow-sm disabled:opacity-50"
               >
                 <span className="relative flex h-full w-full items-center justify-center">
-                  <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showArrow ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 rotate-45 blur-[1px] pointer-events-none")}>
+                  <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-150 ease-[var(--ease-smooth-out)]", showArrow ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-45 pointer-events-none")}>
                     <ArrowUpIcon />
                   </span>
-                  <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showMic ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 -rotate-45 blur-[1px] pointer-events-none")}>
+                  <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-150 ease-[var(--ease-smooth-out)]", showMic ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-45 pointer-events-none")}>
                     <MicIcon />
                   </span>
-                  <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]", showStop ? "opacity-100 scale-100 rotate-0 blur-none" : "opacity-0 scale-50 rotate-45 blur-[1px] pointer-events-none")}>
+                  <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-150 ease-[var(--ease-smooth-out)]", showStop ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-45 pointer-events-none")}>
                     <StopIcon />
                   </span>
                 </span>

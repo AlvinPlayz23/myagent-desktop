@@ -28,7 +28,7 @@ export function AlertDialogBackdrop({
   return (
     <AlertDialogPrimitive.Backdrop
       className={cn(
-        "fixed inset-0 z-50 bg-black/32 backdrop-blur-sm transition-all duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
+        "fixed inset-0 z-50 bg-overlay backdrop-blur-sm transition-all duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
         className,
       )}
       data-slot="alert-dialog-backdrop"
@@ -130,7 +130,7 @@ export function AlertDialogTitle({
   return (
     <AlertDialogPrimitive.Title
       className={cn(
-        "font-heading font-semibold text-xl leading-none",
+        "font-heading font-semibold text-ui-xl leading-none",
         className,
       )}
       data-slot="alert-dialog-title"
@@ -145,7 +145,7 @@ export function AlertDialogDescription({
 }: AlertDialogPrimitive.Description.Props): React.ReactElement {
   return (
     <AlertDialogPrimitive.Description
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-muted-foreground text-ui-caption", className)}
       data-slot="alert-dialog-description"
       {...props}
     />

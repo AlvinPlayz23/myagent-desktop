@@ -64,8 +64,8 @@ function CollapseLabel({ show, children }: { show: boolean; children: React.Reac
       {show && (
         <motion.span
           className="whitespace-nowrap"
-          initial={{ opacity: 0, filter: 'blur(4px)' }}
-          animate={{ opacity: 1, filter: 'blur(0px)', transition: { duration: 0.18, delay: 0.08, ease: 'easeOut' } }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: { duration: 0.16, delay: 0.02, ease: 'easeOut' } }}
           exit={{ opacity: 0, transition: { duration: 0.02, ease: 'easeIn' } }}
         >
           {children}
@@ -382,7 +382,6 @@ function Sidebar({
     return (
       <motion.button
         key={session.id}
-        layout="position"
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0 }}
@@ -403,10 +402,10 @@ function Sidebar({
       >
         {/* Line 1 — where: project @ device, with the timestamp pinned right. */}
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate text-[10px] leading-[13px] tracking-[0.01em] text-muted-foreground/60">
-            {project?.name ?? 'project'} <span className="text-muted-foreground/40">@ local</span>
+          <span className="min-w-0 truncate text-ui-xs leading-[13px] tracking-[0.01em] text-muted-foreground">
+            {project?.name ?? 'project'} <span className="text-foreground-subtlest">@ local</span>
           </span>
-          <span className="ml-auto shrink-0 font-mono text-[9.5px] tabular-nums text-muted-foreground/45">
+          <span className="ml-auto shrink-0 font-mono text-ui-xs tabular-nums text-foreground-subtlest">
             {relTime(session.modified)}
           </span>
         </div>
@@ -414,8 +413,8 @@ function Sidebar({
         {/* Line 2 — what: the loudest thing in the row. */}
         <div
           className={cn(
-            'mt-[3px] truncate text-[12.5px] leading-[17px] tracking-[-0.006em]',
-            active ? 'font-medium text-foreground' : 'font-[450] text-foreground/85'
+            'mt-[3px] truncate text-ui-caption leading-[17px] tracking-[-0.006em]',
+            active ? 'font-medium text-foreground' : 'font-[450] text-muted-foreground'
           )}
         >
           {label(session)}
@@ -426,15 +425,15 @@ function Sidebar({
           <GitBranch01
             size={10}
             strokeWidth={1.8}
-            className="shrink-0 text-muted-foreground/45"
+            className="shrink-0 text-foreground-subtlest"
           />
-          <span className="min-w-0 truncate font-mono text-[9.5px] leading-[13px] text-muted-foreground/50">
+          <span className="min-w-0 truncate font-mono text-ui-xs leading-[13px] text-foreground-subtlest">
             {branch ?? '—'}
           </span>
           <AnimatePresence initial={false}>
             {running && (
               <motion.span
-                className="ml-auto flex shrink-0 items-center gap-1.5 text-[10px] font-medium text-[color:var(--busy)]"
+                className="ml-auto flex shrink-0 items-center gap-1.5 text-ui-xs font-medium text-[color:var(--busy)]"
                 initial={{ opacity: 0, scale: 0.92 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.92 }}
@@ -479,13 +478,13 @@ function Sidebar({
         />
         <span
           className={cn(
-            'min-w-0 flex-1 truncate text-[12px]',
+            'min-w-0 flex-1 truncate text-ui-sm',
             active ? 'font-medium text-foreground' : 'text-muted-foreground'
           )}
         >
           {label(session)}
         </span>
-        <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
+        <span className="shrink-0 font-mono text-ui-xs text-muted-foreground">
           {relTime(session.modified)}
         </span>
       </button>
@@ -527,10 +526,13 @@ function Sidebar({
     <TooltipProvider>
       <aside
         className={cn(
+          // One speed both ways: the collapse used to start 80ms late while the
+          // expand ran slower and overshot past the rail's own width, which read
+          // as the sidebar bouncing. toggleSidebar masks the repaint meanwhile.
           'flex shrink-0 flex-col overflow-hidden transition-[width]',
           collapsed
-            ? 'w-14 duration-[170ms] delay-[80ms] ease-[cubic-bezier(0.32,0.72,0,1)]'
-            : 'w-[264px] duration-[280ms] ease-[cubic-bezier(0.34,1.4,0.64,1)]'
+            ? 'w-14 duration-[160ms] ease-[var(--ease-smooth-out)]'
+            : 'w-[264px] duration-[180ms] ease-[var(--ease-smooth-out)]'
         )}
       >
         <div
@@ -613,8 +615,8 @@ function Sidebar({
                         }
                       />
                       <TooltipPopup side="right" sideOffset={10} className="max-w-[240px]">
-                        <div className="truncate text-xs font-medium">{label(session)}</div>
-                        <div className="truncate font-mono text-[10px] text-muted-foreground/70">
+                        <div className="truncate text-ui-sm font-medium">{label(session)}</div>
+                        <div className="truncate font-mono text-ui-xs text-foreground-subtlest">
                           {knownProjects.find((p) => p.cwd === session.cwd)?.name ?? 'project'} · {branchByCwd[session.cwd] ?? '—'}
                         </div>
                       </TooltipPopup>
@@ -622,7 +624,7 @@ function Sidebar({
                   )
                 })}
                 {railSessions.length === 0 && (
-                  <span className="py-1 font-mono text-[10px] text-muted-foreground/30">—</span>
+                  <span className="py-1 font-mono text-ui-xs text-foreground-subtlest">—</span>
                 )}
                 {archived.length > 0 &&
                   railButton(
@@ -647,7 +649,7 @@ function Sidebar({
               <>
                 <button
                   className={cn(
-                    'flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 text-left text-[12.5px] font-medium outline-none',
+                    'flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 text-left text-ui-caption font-medium outline-none',
                     'focus-visible:ring-2 focus-visible:ring-ring',
                     !settling && 'transition-colors hover:bg-hover'
                   )}
@@ -685,13 +687,13 @@ function Sidebar({
                   }}
                 >
                   <Folder02 size={15} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium tracking-[-0.006em] text-foreground">
+                  <span className="min-w-0 flex-1 truncate text-ui-caption font-medium tracking-[-0.006em] text-foreground">
                     {currentProject?.name ?? 'All projects'}
                   </span>
                   <ChevronDown
                     size={13}
                     className={cn(
-                      'shrink-0 text-muted-foreground/70 transition-transform duration-200',
+                      'shrink-0 text-foreground-subtlest transition-transform duration-200',
                       projectMenuOpen && 'rotate-180'
                     )}
                   />
@@ -732,18 +734,17 @@ function Sidebar({
               <motion.div
                 key="expanded"
                 className="w-[248px] shrink-0 pb-2"
-                initial={{ opacity: 0, filter: 'blur(4px)' }}
+                initial={{ opacity: 0 }}
                 animate={{
                   opacity: 1,
-                  filter: 'blur(0px)',
-                  transition: { duration: 0.2, delay: 0.08, ease: 'easeOut' }
+                  transition: { duration: 0.16, delay: 0.02, ease: 'easeOut' }
                 }}
                 exit={{ opacity: 0, transition: { duration: 0.08, ease: 'easeIn' } }}
               >
                 {isGrouped ? (
                   <>
                     <div className="flex items-center justify-between px-2 py-2">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <span className="text-ui-sm font-semibold uppercase tracking-wider text-muted-foreground">
                         Projects
                       </span>
                       <button
@@ -761,8 +762,6 @@ function Sidebar({
                       return (
                         <motion.div
                           key={project.cwd}
-                          layout="position"
-                          transition={{ duration: 0.18, ease: 'easeOut' }}
                           className="pb-1"
                         >
                           <div
@@ -791,10 +790,10 @@ function Sidebar({
                               ) : (
                                 <Folder01 size={13} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
                               )}
-                              <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium">
+                              <span className="min-w-0 flex-1 truncate text-ui-caption font-medium">
                                 {project.name}
                               </span>
-                              <span className="shrink-0 rounded-full bg-muted px-1.5 py-px font-mono text-[10px] text-muted-foreground">
+                              <span className="shrink-0 rounded-full bg-muted px-1.5 py-px font-mono text-ui-xs text-muted-foreground">
                                 {project.sessions.length}
                               </span>
                             </button>
@@ -829,7 +828,7 @@ function Sidebar({
                                       onClick={() => onCompose(project.cwd)}
                                     >
                                       <Plus size={12} strokeWidth={1.8} className="shrink-0" />
-                                      <span className="text-[12px]">Start first session</span>
+                                      <span className="text-ui-sm">Start first session</span>
                                     </button>
                                   </div>
                                 )}
@@ -845,9 +844,9 @@ function Sidebar({
                         <Message01
                           size={18}
                           strokeWidth={1.6}
-                          className="mx-auto mb-2 text-muted-foreground/40"
+                          className="mx-auto mb-2 text-foreground-subtlest"
                         />
-                        <p className="text-[11.5px] text-muted-foreground/70">
+                        <p className="text-ui-sm text-foreground-subtlest">
                           {knownProjects.length === 0 ? 'No projects yet' : 'No sessions yet'}
                         </p>
                       </div>
@@ -855,6 +854,13 @@ function Sidebar({
                   </>
                 ) : (
                   <>
+                {visibleSessions.length > 0 && (
+                  <div className="flex items-center gap-2 px-2.5 pb-0.5 pt-1.5">
+                    <span className="text-ui-sm font-medium text-muted-foreground">Sessions</span>
+                    <span className="h-px min-w-0 flex-1 bg-border/50" />
+                  </div>
+                )}
+
                 <div className="space-y-[3px] pt-0.5">
                   <AnimatePresence initial={false}>
                     {visibleSessions.map((session) => sessionRow(session))}
@@ -866,13 +872,13 @@ function Sidebar({
                     <Message01
                       size={18}
                       strokeWidth={1.6}
-                      className="mx-auto mb-2 text-muted-foreground/40"
+                      className="mx-auto mb-2 text-foreground-subtlest"
                     />
-                    <p className="text-[11.5px] text-muted-foreground/70">
+                    <p className="text-ui-sm text-foreground-subtlest">
                       {knownProjects.length === 0 ? 'No projects yet' : 'No sessions here'}
                     </p>
                     <button
-                      className="mt-2.5 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                      className="mt-2.5 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-ui-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
                       onClick={newSessionAction}
                     >
                       <Plus size={11} strokeWidth={2} />
@@ -888,14 +894,14 @@ function Sidebar({
                 {archived.length > 0 && (
                   <div className="mt-3">
                     <button
-                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-muted-foreground/70 transition-colors hover:bg-hover hover:text-foreground"
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-foreground-subtlest transition-colors hover:bg-hover hover:text-foreground"
                       onClick={() => {
                         setArchivedShown(ARCHIVED_INITIAL)
                         setArchivedOpen((value) => !value)
                       }}
                     >
                       <Archive01 size={12} strokeWidth={1.8} className="shrink-0" />
-                      <span className="whitespace-nowrap text-[11px]">
+                      <span className="whitespace-nowrap text-ui-sm">
                         {archivedOpen ? 'Archived' : `Archived · ${archived.length}`}
                       </span>
                       <span className="h-px min-w-0 flex-1 bg-border/60" />
@@ -916,7 +922,7 @@ function Sidebar({
                               height: 'auto',
                               opacity: 1,
                               transition: {
-                                height: { duration: 0.26, ease: EASE_OUT },
+                                height: { duration: 0.24, ease: EASE_OUT },
                                 opacity: { duration: 0.18, ease: 'easeOut' }
                               }
                             },
@@ -936,7 +942,7 @@ function Sidebar({
                         >
                           <motion.div
                             variants={{
-                              open: { y: 0, transition: { duration: 0.26, ease: EASE_OUT } },
+                              open: { y: 0, transition: { duration: 0.24, ease: EASE_OUT } },
                               closed: { y: -8, transition: { duration: 0.2, ease: EASE_IN } }
                             }}
                             className="mt-0.5 space-y-[3px] pl-1.5"
@@ -959,7 +965,7 @@ function Sidebar({
                                   open: { opacity: 1, transition: { duration: 0.18, ease: EASE_OUT } },
                                   closed: { opacity: 0, transition: { duration: 0.1, ease: EASE_IN } }
                                 }}
-                                className="flex h-8 w-full items-center rounded-lg px-2.5 text-left text-[11px] text-muted-foreground/70 transition-colors hover:bg-hover hover:text-foreground"
+                                className="flex h-8 w-full items-center rounded-lg px-2.5 text-left text-ui-sm text-foreground-subtlest transition-colors hover:bg-hover hover:text-foreground"
                                 onClick={() => setArchivedShown((value) => value + ARCHIVED_PAGE)}
                               >
                                 Show {Math.min(ARCHIVED_PAGE, archived.length - archivedShown)} more
@@ -983,7 +989,7 @@ function Sidebar({
           <div className="mb-1 h-px bg-border/50" />
           <button
             className={cn(
-              'flex h-9 w-full items-center gap-2 rounded-lg text-left text-[12px] font-medium outline-none',
+              'flex h-9 w-full items-center gap-2 rounded-lg text-left text-ui-sm font-medium outline-none',
               'focus-visible:ring-2 focus-visible:ring-ring',
               settingsOpen ? 'bg-selected text-foreground' : 'text-muted-foreground',
               !settingsOpen && !settling && 'transition-colors hover:bg-hover hover:text-foreground',
@@ -1010,27 +1016,27 @@ function Sidebar({
             animate="animate"
             exit="exit"
             transition={BLOOM_FAST}
-            className="fixed z-[60] w-[252px] origin-top-left overflow-hidden rounded-xl border border-border bg-popover p-1.5 shadow-xl shadow-black/30"
+            className="fixed z-[60] w-[252px] origin-top-left overflow-hidden rounded-lg border border-popover-border bg-menu $1 shadow-md"
             style={{
               left: projectButtonRef.current?.getBoundingClientRect().left ?? 12,
               top: (projectButtonRef.current?.getBoundingClientRect().bottom ?? 80) + 6
             }}
           >
             <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-muted/50 px-2.5">
-              <Search01 size={12} strokeWidth={1.8} className="shrink-0 text-muted-foreground/70" />
+              <Search01 size={12} strokeWidth={1.8} className="shrink-0 text-foreground-subtlest" />
               <input
                 autoFocus
                 value={projectQuery}
                 onChange={(event) => setProjectQuery(event.target.value)}
                 placeholder="Search projects…"
-                className="h-8 min-w-0 flex-1 bg-transparent text-[12px] text-foreground outline-none placeholder:text-muted-foreground/50"
+                className="h-8 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
               />
             </div>
 
             <div className="no-scrollbar mt-1 max-h-[240px] overflow-y-auto">
               <button
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12px] transition-colors hover:bg-hover',
+                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-ui-sm transition-colors hover:bg-hover',
                   selectedCwd === null && 'bg-selected'
                 )}
                 onClick={() => {
@@ -1047,7 +1053,7 @@ function Sidebar({
                 <button
                   key={project.cwd}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12px] transition-colors hover:bg-hover',
+                    'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-ui-sm transition-colors hover:bg-hover',
                     selectedCwd === project.cwd && 'bg-selected'
                   )}
                   title={project.cwd}
@@ -1065,7 +1071,7 @@ function Sidebar({
               ))}
 
               {filteredProjects.length === 0 && (
-                <p className="px-2.5 py-3 text-center text-[11.5px] text-muted-foreground/60">
+                <p className="px-2.5 py-3 text-center text-ui-sm text-muted-foreground">
                   No match
                 </p>
               )}
@@ -1073,7 +1079,7 @@ function Sidebar({
 
             <div className="mt-1 border-t border-border/60 pt-1">
               <button
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-ui-sm text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
                 onClick={() => {
                   setProjectMenuOpen(false)
                   onAddProject()
@@ -1096,15 +1102,15 @@ function Sidebar({
             animate="animate"
             exit="exit"
             transition={BLOOM_FAST}
-            className="fixed z-[61] w-[240px] origin-top-left overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-xl shadow-black/25"
+            className="fixed z-[61] w-[240px] origin-top-left overflow-hidden rounded-lg border border-popover-border bg-menu $1 shadow-md"
             style={{ left: menu.x, top: menu.y }}
             onContextMenu={(event) => event.preventDefault()}
           >
-            <div className="px-3 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            <div className="px-3 pb-1 pt-1.5 font-mono text-ui-xs uppercase tracking-wider text-foreground-subtlest">
               session · {menu.session.id.slice(0, 8)}
             </div>
             <button
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-foreground transition-colors hover:bg-hover"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-ui-caption text-foreground transition-colors hover:bg-hover"
               onClick={() => {
                 onOpen(menu.session.id)
                 setMenu(null)
@@ -1114,7 +1120,7 @@ function Sidebar({
               <span>Open session</span>
             </button>
             <button
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-foreground transition-colors hover:bg-hover"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-ui-caption text-foreground transition-colors hover:bg-hover"
               onClick={() => {
                 onRename(menu.session.id, menu.session.title || menu.session.preview || '')
                 setMenu(null)
@@ -1125,7 +1131,7 @@ function Sidebar({
             </button>
             {archivedSessionIds.has(menu.session.id) ? (
               <button
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-ui-caption text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
                 onClick={() => {
                   onRestore(menu.session.id)
                   setMenu(null)
@@ -1136,7 +1142,7 @@ function Sidebar({
               </button>
             ) : (
               <button
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-ui-caption text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
                 onClick={() => {
                   onArchive(menu.session.id)
                   setMenu(null)

@@ -24,7 +24,7 @@ function ErrorCard({ raw }: { raw: string }): JSX.Element {
 
   if (dismissed) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-[12px] text-muted-foreground">
+      <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-ui-sm text-muted-foreground">
         <Alert02 size={13} strokeWidth={1.8} className="shrink-0 text-destructive-foreground/70" />
         <span className="min-w-0 flex-1 truncate">
           Something went wrong{parsed.status ? ` (${parsed.status}${parsed.title && parsed.title !== `Request failed (${parsed.status})` ? ` · ${parsed.title}` : ''})` : ''} — dismissed
@@ -32,7 +32,7 @@ function ErrorCard({ raw }: { raw: string }): JSX.Element {
         <button
           type="button"
           onClick={() => setDismissed(false)}
-          className="shrink-0 rounded-md px-2 py-1 font-medium text-foreground/80 transition-colors hover:bg-hover hover:text-foreground"
+          className="shrink-0 rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
         >
           Show
         </button>
@@ -41,21 +41,21 @@ function ErrorCard({ raw }: { raw: string }): JSX.Element {
   }
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 [animation:rise_0.3s_ease]">
+    <div className="flex items-start gap-3 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 transcript-rise">
       <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-destructive/15 text-destructive-foreground">
         <Alert02 size={14} strokeWidth={1.8} />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           {parsed.status != null && (
-            <span className="rounded-md bg-destructive/15 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-destructive-foreground">
+            <span className="rounded-md bg-destructive/15 px-1.5 py-0.5 font-mono text-ui-sm font-semibold text-destructive-foreground">
               {parsed.status}
             </span>
           )}
-          <span className="min-w-0 truncate text-[13px] font-semibold text-foreground">{parsed.title}</span>
+          <span className="min-w-0 truncate text-ui-caption font-semibold text-foreground">{parsed.title}</span>
         </div>
         {(parsed.detail ?? parsed.hint) && (
-          <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-1 text-ui-caption leading-relaxed text-muted-foreground">
             {parsed.detail}
             {parsed.detail && parsed.hint ? ` ${parsed.hint}` : parsed.hint}
           </p>
@@ -64,7 +64,7 @@ function ErrorCard({ raw }: { raw: string }): JSX.Element {
           <button
             type="button"
             onClick={() => void copy()}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-ui-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
             title={copied ? 'Copied' : 'Copy full error'}
             aria-label={copied ? 'Copied' : 'Copy full error'}
           >
@@ -74,7 +74,7 @@ function ErrorCard({ raw }: { raw: string }): JSX.Element {
           <button
             type="button"
             onClick={() => setDismissed(true)}
-            className="rounded-md px-2 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+            className="rounded-md px-2 py-1 text-ui-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
             aria-label="Dismiss error"
           >
             Dismiss
@@ -109,7 +109,7 @@ interface Props {
 }
 
 function MessageView({ msg, streaming, messageSize = 'default', showThinking = true, thinkingDurations, copyable = false }: Props): JSX.Element | null {
-  const messageClass = messageSize === 'compact' ? 'text-[12px]' : messageSize === 'large' ? 'text-[15px]' : 'text-[13.5px]'
+  const messageClass = messageSize === 'compact' ? 'text-ui-sm' : messageSize === 'large' ? 'text-ui-lg' : 'text-ui-base'
   // The wire can deliver `"content": null` (Go nil slice), e.g. a streaming
   // partial that never produced a block before stop/abort. Never let that
   // throw during render — an empty transcript row is always preferable to a
@@ -120,7 +120,7 @@ function MessageView({ msg, streaming, messageSize = 'default', showThinking = t
     const text = blocks.filter((block) => block.type === 'text').map((block) => block.text ?? '').join('')
     const images = blocks.filter((block) => block.type === 'image' && block.data && block.mimeType)
     return (
-      <div className="flex justify-end [animation:rise_0.3s_ease]">
+      <div className="flex justify-end transcript-rise">
         {/* Uniformly rounded, no tail: the corner radius pairs with the
             composer's 24px so a sent message reads as the same object. */}
         <div className={cn('flex max-w-[80%] flex-col gap-2.5 rounded-3xl border border-border bg-hover p-2.5 leading-relaxed text-foreground', text && 'px-4', messageClass)}>
@@ -152,7 +152,7 @@ function MessageView({ msg, streaming, messageSize = 'default', showThinking = t
         .join('\n\n')
 
   return (
-    <div className="group flex [animation:rise_0.3s_ease]">
+    <div className="group flex transcript-rise">
       <div className="flex w-full min-w-0 flex-col gap-0.5">
         {blocks.map((block, i) => {
           if (showThinking && block.type === 'thinking' && (block.thinking || block.redacted)) {

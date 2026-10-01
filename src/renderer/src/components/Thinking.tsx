@@ -79,7 +79,7 @@ export default function Thinking({
           <ThinkingState />
         ) : (
           <>
-            <span className="text-[13px] font-medium leading-[18px] text-muted-foreground/70">
+            <span className="text-ui-caption font-medium leading-[18px] text-foreground-subtlest">
               <span className="text-muted-foreground">Thought</span>
               {durationMs === undefined ? '' : ` for ${duration(durationMs)}`}
             </span>
@@ -87,7 +87,7 @@ export default function Thinking({
               size={12}
               strokeWidth={1.8}
               className={cn(
-                'shrink-0 text-muted-foreground/70 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                'shrink-0 text-foreground-subtlest transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]',
                 open && 'rotate-90'
               )}
             />
@@ -98,7 +98,7 @@ export default function Thinking({
       {paragraphs.length > 0 && (
         <div
           className={cn(
-            'grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            'grid transition-[grid-template-rows,opacity] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)]',
             expanded ? 'grid-rows-[1fr] opacity-100' : 'pointer-events-none grid-rows-[0fr] opacity-0'
           )}
         >
@@ -113,7 +113,7 @@ export default function Thinking({
                 {paragraphs.map((paragraph, i) => (
                   <p
                     key={i}
-                    className="m-0 whitespace-pre-wrap text-[13px] font-[425] leading-5 tracking-[-0.005em] text-muted-foreground [animation:rise_0.42s_cubic-bezier(0.22,1,0.36,1)]"
+                    className="m-0 whitespace-pre-wrap text-ui-caption font-[425] leading-5 tracking-[-0.005em] text-muted-foreground [animation:rise_0.42s_cubic-bezier(0.22,1,0.36,1)]"
                   >
                     {paragraph}
                   </p>

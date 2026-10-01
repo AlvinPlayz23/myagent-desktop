@@ -82,7 +82,7 @@ function Waterfall({ turn }: { turn: LlmTurn }): JSX.Element {
   return (
     <div className="flex flex-col gap-1">
       {segments.map((s, i) => (
-        <div key={i} className="flex items-center gap-2 text-[11px]">
+        <div key={i} className="flex items-center gap-2 text-ui-sm">
           <span className={cn('w-40 shrink-0 truncate', s.ok ? 'text-muted-foreground' : 'text-destructive-foreground')}>
             {s.label}
           </span>
@@ -102,7 +102,7 @@ function Waterfall({ turn }: { turn: LlmTurn }): JSX.Element {
 function TurnRow({ turn, expanded, onToggle }: { turn: LlmTurn; expanded: boolean; onToggle: () => void }): JSX.Element {
   const now = Date.now()
   return (
-    <div className="t-acc border-b border-border/60 px-3 py-2 text-[12px]" data-open={String(expanded)}>
+    <div className="t-acc border-b border-border/60 px-3 py-2 text-ui-sm" data-open={String(expanded)}>
       <button
         className="t-acc-head group flex w-full items-center gap-2 rounded-md py-0.5 text-left transition-[background-color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] hover:bg-hover/60"
         aria-expanded={expanded}
@@ -110,11 +110,11 @@ function TurnRow({ turn, expanded, onToggle }: { turn: LlmTurn; expanded: boolea
       >
         <ChevronRight
           size={12}
-          className={cn('shrink-0 text-muted-foreground/70 transition-[transform] duration-[var(--acc-chevron)] ease-[var(--acc-ease)]', expanded && 'rotate-90')}
+          className={cn('shrink-0 text-foreground-subtlest transition-[transform] duration-[var(--acc-chevron)] ease-[var(--acc-ease)]', expanded && 'rotate-90')}
         />
         <span className={cn('size-1.5 shrink-0 rounded-full', STATUS_DOT[turn.status])} />
         <span className="shrink-0 font-mono font-medium text-foreground">#{turn.id}</span>
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate font-mono text-ui-sm text-muted-foreground">
           {turn.model ?? 'model unknown'}
         </span>
         {turn.status === 'streaming' && <Loading03 size={12} strokeWidth={1.8} className="animate-spin text-primary" />}
@@ -123,7 +123,7 @@ function TurnRow({ turn, expanded, onToggle }: { turn: LlmTurn; expanded: boolea
         )}
       </button>
 
-      <div className="ml-[18px] mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+      <div className="ml-[18px] mt-0.5 flex items-center gap-2 text-ui-sm text-muted-foreground">
         <span>{STATUS_LABEL[turn.status]}</span>
         <span>·</span>
         <span className="font-mono">{formatMs(elapsed(turn, now))}</span>
@@ -147,7 +147,7 @@ function TurnRow({ turn, expanded, onToggle }: { turn: LlmTurn; expanded: boolea
         <div className="t-acc-panel-inner">
           <div className="ml-[18px] mt-2 flex flex-col gap-2 rounded-md border border-border/60 bg-subtle/60 p-2.5">
           <Waterfall turn={turn} />
-          <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 border-t border-border/50 pt-2 text-[11px]">
+          <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 border-t border-border/50 pt-2 text-ui-sm">
             <span className="text-muted-foreground">provider</span>
             <span className="truncate font-mono">{turn.provider ?? '—'}</span>
             <span className="text-muted-foreground">stop reason</span>
@@ -209,14 +209,14 @@ export default function DebugPanel({ sessionId, open, onClose }: Props): JSX.Ele
         >
           ×
         </button>
-        <span className="text-[13px] font-medium text-foreground">LLM Debug</span>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-ui-caption font-medium text-foreground">LLM Debug</span>
+        <span className="text-ui-sm text-muted-foreground">
           {turns.length} turn{turns.length === 1 ? '' : 's'}
         </span>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {ordered.length === 0 ? (
-          <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">
+          <div className="px-3 py-6 text-center text-ui-sm text-muted-foreground">
             No LLM turns yet — send a prompt to see requests here.
           </div>
         ) : (

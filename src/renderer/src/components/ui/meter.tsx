@@ -31,7 +31,7 @@ export function MeterLabel({
 }: MeterPrimitive.Label.Props): React.ReactElement {
   return (
     <MeterPrimitive.Label
-      className={cn("font-medium text-foreground text-sm", className)}
+      className={cn("font-medium text-foreground text-ui-caption", className)}
       data-slot="meter-label"
       {...props}
     />
@@ -70,7 +70,7 @@ export function MeterValue({
 }: MeterPrimitive.Value.Props): React.ReactElement {
   return (
     <MeterPrimitive.Value
-      className={cn("text-foreground text-sm tabular-nums", className)}
+      className={cn("text-foreground text-ui-caption tabular-nums", className)}
       data-slot="meter-value"
       {...props}
     />

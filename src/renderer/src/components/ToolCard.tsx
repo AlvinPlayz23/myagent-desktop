@@ -63,7 +63,7 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
   const shown = full || text.length <= MAX_PREVIEW ? text : text.slice(0, MAX_PREVIEW)
 
   return (
-    <div className="my-0 flex flex-col text-[12px] [animation:rise_0.2s_ease]">
+    <div className="my-0 flex flex-col text-ui-sm transcript-rise">
       <button
         className="group flex w-full items-center gap-2 rounded-md px-1.5 py-0.5 text-left transition-colors hover:bg-hover/60"
         onClick={() => setOpen(!open)}
@@ -71,7 +71,7 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
         <span className="grid w-3.5 place-items-center shrink-0">
           <ChevronRight
             size={12}
-            className={cn('text-muted-foreground/70 transition-transform', open && 'rotate-90')}
+            className={cn('text-foreground-subtlest transition-transform', open && 'rotate-90')}
           />
         </span>
         <span className="grid w-4 place-items-center shrink-0">
@@ -82,20 +82,20 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
           />
         </span>
         <span className="shrink-0 font-medium text-foreground">{run.name}</span>
-        <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted-foreground/90">
+        <span className="min-w-0 flex-1 truncate font-mono text-ui-sm text-muted-foreground">
           {summaryOf(run)}
         </span>
         {diff && (
-          <span className="flex shrink-0 items-center gap-1 font-mono text-[10.5px]">
-            {diff.additions > 0 && <span className="text-success-foreground">+{diff.additions}</span>}
+          <span className="flex shrink-0 items-center gap-1 font-mono text-ui-xs">
+            {diff.additions > 0 && <span className="text-diff-added-foreground">+{diff.additions}</span>}
             {diff.deletions > 0 && (
-              <span className="text-destructive-foreground">−{diff.deletions}</span>
+              <span className="text-diff-removed-foreground">−{diff.deletions}</span>
             )}
           </span>
         )}
         <span
           className={cn(
-            'ml-auto flex shrink-0 items-center gap-1 text-[11px]',
+            'ml-auto flex shrink-0 items-center gap-1 text-ui-sm',
             run.status === 'running' && 'text-foreground font-medium',
             run.status === 'done' && 'text-success-foreground',
             run.status === 'error' && 'text-destructive-foreground',
@@ -105,7 +105,7 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
           {run.status === 'running' && (
             <>
               <Loading03 size={12} strokeWidth={1.8} className="animate-spin" />
-              <span className="text-[11px] text-muted-foreground">running…</span>
+              <span className="text-ui-sm text-muted-foreground">running…</span>
             </>
           )}
           {run.status === 'error' && <Alert02 size={12} strokeWidth={1.8} />}
@@ -121,9 +121,9 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
             transition={{ duration: 0.15, ease: 'easeOut' }}
             className="ml-7 overflow-hidden"
           >
-            <div className="mt-1 border-l-2 border-border/50 pl-3 py-1 font-mono text-[11.5px]">
+            <div className="mt-1 border-l-2 border-border/50 pl-3 py-1 font-mono text-ui-sm">
               {run.name === 'bash' && typeof run.args.command === 'string' && (
-                <div className="mb-1.5 whitespace-pre-wrap break-all rounded-md bg-muted/60 px-2.5 py-1.5 text-foreground">
+                <div className="mb-1.5 whitespace-pre-wrap break-all rounded-md bg-surface px-2.5 py-1.5 text-foreground">
                   <span className="font-bold text-foreground">$</span> {run.args.command}
                 </div>
               )}
@@ -137,8 +137,8 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
                           key={i}
                           className={cn(
                             'block rounded-sm px-1 py-0.2',
-                            line.startsWith('+') && 'bg-success/15 text-success-foreground font-medium',
-                            line.startsWith('-') && 'bg-destructive/15 text-destructive-foreground font-medium',
+                            line.startsWith('+') && 'bg-diff-added/15 text-diff-added-foreground font-medium',
+                            line.startsWith('-') && 'bg-diff-removed/15 text-diff-removed-foreground font-medium',
                             line.startsWith('@@') && 'text-foreground font-semibold opacity-90 my-0.5'
                           )}
                         >
@@ -148,13 +148,13 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
                     : shown}
                 </pre>
               ) : (
-                <div className="italic text-muted-foreground/70">
+                <div className="italic text-foreground-subtlest">
                   {run.status === 'running' ? 'running…' : 'no output'}
                 </div>
               )}
               {text.length > MAX_PREVIEW && !full && (
                 <button
-                  className="mt-1 block font-mono text-[11px] text-foreground underline-offset-2 hover:underline"
+                  className="mt-1 block font-mono text-ui-sm text-foreground underline-offset-2 hover:underline"
                   onClick={() => setFull(true)}
                 >
                   show {(text.length - MAX_PREVIEW).toLocaleString()} more chars
