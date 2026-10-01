@@ -15,9 +15,10 @@ import ChatHeader from './components/ChatHeader'
 import Settings from './components/Settings'
 import WindowControls from './components/WindowControls'
 import TabBar from './components/TabBar'
+import { Sparkles } from './components/ui/icons'
 import OpenWith from './components/OpenWith'
 import GitPanel from './components/GitPanel'
-import { applyTheme, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
+import { applyAccent, applyTheme, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
 import DebugPanel from './debug-panel/DebugPanel'
@@ -58,6 +59,7 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     applyTheme(preferences.theme)
+    applyAccent(preferences.accent)
     savePreferences(preferences)
     const query = window.matchMedia('(prefers-color-scheme: dark)')
     const onChange = (): void => {
@@ -551,7 +553,7 @@ export default function App(): JSX.Element {
       <main className="main-panel surface-grain relative flex min-w-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <div
-          className="drag-region relative flex h-9 shrink-0 items-center gap-2 overflow-visible px-2 pr-[140px]"
+          className="drag-region relative flex h-10 shrink-0 items-center gap-2 overflow-visible border-b border-border/60 px-3 pr-[140px]"
           onDoubleClick={(e) => {
             // Tabs, buttons and inputs own their double-clicks — only empty
             // titlebar area toggles maximize, like a native caption.
@@ -559,8 +561,9 @@ export default function App(): JSX.Element {
             window.myagent.toggleMaximizeWindow().catch(() => {})
           }}
         >
-          <span className="shrink-0 select-none truncate pl-2 text-[12.5px] font-semibold tracking-tight text-foreground">
-            {normalizeAppName(preferences.appName)}
+          <span className="app-wordmark no-drag shrink-0 select-none truncate">
+            <span className="app-wordmark-mark"><Sparkles size={13} strokeWidth={1.8} /></span>
+            <span>{normalizeAppName(preferences.appName)}</span>
           </span>
           <TabBar
             tabOrder={state.tabOrder}
@@ -568,9 +571,9 @@ export default function App(): JSX.Element {
             sessions={state.sessions}
             activeId={state.activeId}
             runningIds={runningIds}
-            appName={normalizeAppName(preferences.appName)}
             onSelect={(id) => dispatch({ type: 'focusChat', sessionId: id })}
             onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
+            onNewSession={goHome}
           />
           {chat && (
             <div className="no-drag ml-auto flex shrink-0 items-center gap-2">

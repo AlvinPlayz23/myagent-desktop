@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { cn } from '../util'
 import { BLOOM_FAST, bloomDown } from '../motion'
+import { Add01, Cancel01 } from './ui/icons'
 import type { SessionMeta } from '../../../shared/protocol'
 import type { ChatState } from '../state'
 
@@ -15,37 +16,28 @@ interface TabProps {
 
 function Tab({ label, active, running, onSelect, onClose }: TabProps): JSX.Element {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      title={label}
-      className={cn(
-        'group relative flex h-7 min-w-0 max-w-[180px] shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-left text-[12px] font-medium transition-[background-color,color,box-shadow] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] select-none',
-        active
-          ? 'bg-card text-foreground shadow-sm'
-          : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-      )}
-    >
-      {running && (
-        <span className="size-1.5 shrink-0 rounded-full bg-success" />
-      )}
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span
-        role="button"
-        aria-label="Close tab"
-        onClick={onClose}
-        className={cn(
-          'grid size-4 shrink-0 place-items-center rounded-sm transition-[background-color,color,opacity] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]',
-          active
-            ? 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            : 'opacity-0 group-hover:opacity-100 text-muted-foreground hover:bg-muted hover:text-foreground'
-        )}
+    <div className="session-tab" data-active={active} data-running={running}>
+      <button
+        type="button"
+        onClick={onSelect}
+        title={label}
+        aria-current={active ? 'page' : undefined}
+        aria-pressed={active}
+        className="session-tab-trigger"
       >
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
-          <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      </span>
-    </button>
+        <span className="session-tab-status" aria-hidden="true" />
+        <span className="session-tab-label">{label}</span>
+      </button>
+      <button
+        type="button"
+        aria-label={`Close ${label}`}
+        title={`Close ${label}`}
+        onClick={(event) => { event.stopPropagation(); onClose(event) }}
+        className="session-tab-close no-drag"
+      >
+        <Cancel01 size={12} strokeWidth={1.8} />
+      </button>
+    </div>
   )
 }
 
@@ -55,9 +47,9 @@ interface Props {
   sessions: SessionMeta[]
   activeId: string | null
   runningIds: Set<string>
-  appName: string
   onSelect(id: string): void
   onClose(id: string): void
+  onNewSession(): void
 }
 
 // Fixed cap for the visible tab strip. Anything beyond this is hidden
@@ -214,9 +206,9 @@ function TabBar({
   sessions,
   activeId,
   runningIds,
-  appName,
   onSelect,
   onClose,
+  onNewSession,
 }: Props): JSX.Element {
   function labelFor(id: string): string {
     const s = sessions.find((s) => s.id === id)
@@ -244,8 +236,8 @@ function TabBar({
   const hiddenCount = hiddenIds.length
 
   return (
-    <div className="drag-region flex h-9 min-w-0 flex-1 items-center gap-1 px-2">
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+    <div className="drag-region flex h-10 min-w-0 flex-1 items-center gap-2 px-3">
+      <div className="session-tab-strip no-drag flex min-w-0 flex-1 items-center gap-1 overflow-hidden" role="group" aria-label="Session tabs">
         {visibleIds.map((id) => (
           <Tab
             key={id}
@@ -266,6 +258,16 @@ function TabBar({
           onClose={onClose}
         />
       )}
+      <button
+        type="button"
+        aria-label="New session"
+        title="New session"
+        onClick={onNewSession}
+        className="session-tab-new no-drag"
+      >
+        <Add01 size={14} strokeWidth={1.8} />
+        <span>New session</span>
+      </button>
     </div>
   )
 }
@@ -278,7 +280,6 @@ export default memo(
   TabBar,
   (prev, next) =>
     prev.activeId === next.activeId &&
-    prev.appName === next.appName &&
     prev.runningIds === next.runningIds &&
     prev.sessions === next.sessions &&
     prev.tabOrder.length === next.tabOrder.length &&

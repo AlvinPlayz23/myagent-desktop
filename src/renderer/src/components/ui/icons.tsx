@@ -10,6 +10,7 @@ import {
   ArrowShrink01Icon,
   ArrowUp02Icon,
   BrainCircuitIcon,
+  Cancel01Icon,
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -59,6 +60,7 @@ export const ArrowDown02 = makeIcon(ArrowDown02Icon)
 export const ArrowShrink01 = makeIcon(ArrowShrink01Icon)
 export const ArrowUp02 = makeIcon(ArrowUp02Icon)
 export const BrainCircuit = makeIcon(BrainCircuitIcon)
+export const Cancel01 = makeIcon(Cancel01Icon)
 export const Check = makeIcon(CheckIcon)
 export const ChevronDown = makeIcon(ChevronDownIcon)
 export const ChevronRight = makeIcon(ChevronRightIcon)

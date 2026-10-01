@@ -1,4 +1,5 @@
 export type ThemePreference = 'system' | 'dark' | 'light'
+export type AccentPreference = 'cobalt' | 'violet' | 'jade' | 'amber'
 export type MessageSize = 'compact' | 'default' | 'large'
 export type ToolActivityDisplay = 'expanded' | 'compact' | 'hidden'
 export type ModelSelectorVariant = 'compact' | 'gallery'
@@ -7,6 +8,7 @@ export type SidebarVariant = 'inbox' | 'grouped'
 
 export interface Preferences {
   theme: ThemePreference
+  accent: AccentPreference
   messageSize: MessageSize
   reducedMotion: boolean
   autoScroll: boolean
@@ -35,8 +37,13 @@ const KEY = 'myagent.desktop.preferences'
 const DEFAULT_APP_NAME = 'myagent'
 const APP_NAME_MAX = 32
 
+function normalizeAccent(value: unknown): AccentPreference {
+  return value === 'violet' || value === 'jade' || value === 'amber' ? value : 'cobalt'
+}
+
 export const defaults: Preferences = {
   theme: 'system',
+  accent: 'cobalt',
   messageSize: 'default',
   reducedMotion: false,
   autoScroll: true,
@@ -67,6 +74,7 @@ export function loadPreferences(): Preferences {
     return {
       ...defaults,
       ...stored,
+      accent: normalizeAccent(stored.accent),
       toolActivityDisplay: stored.toolActivityDisplay === 'expanded' || stored.toolActivityDisplay === 'hidden' ? stored.toolActivityDisplay : 'compact',
       modelSelectorVariant: stored.modelSelectorVariant === 'gallery' ? 'gallery' : 'compact',
       effortSelectorVariant: stored.effortSelectorVariant === 'chips' ? 'chips' : 'slider',
@@ -92,4 +100,8 @@ export function applyTheme(theme: ThemePreference): void {
   const dark = theme === 'dark' || (theme === 'system' && systemDark)
   document.documentElement.classList.toggle('dark', dark)
   void window.myagent.setTheme(dark ? 'dark' : 'light')
+}
+
+export function applyAccent(accent: AccentPreference): void {
+  document.documentElement.dataset.accent = normalizeAccent(accent)
 }
