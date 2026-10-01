@@ -32,6 +32,12 @@ import {
   Globe02Icon,
   HelpCircleIcon,
   InformationCircleIcon,
+  PaintBoardIcon,
+  AiBrain01Icon,
+  ArrowLeft01Icon,
+  ViewIcon,
+  ViewOffIcon,
+  Delete02Icon,
   KeyboardIcon,
   MinusSignIcon,
   RefreshIcon,
@@ -127,5 +133,11 @@ export const MinusSign = makeIcon(MinusSignIcon)
 export const SidebarLeft = makeIcon(SidebarLeftIcon)
 export const Tick02 = makeIcon(Tick02Icon)
 export const InformationCircle = makeIcon(InformationCircleIcon)
+export const PaintBoard = makeIcon(PaintBoardIcon)
+export const AiBrain01 = makeIcon(AiBrain01Icon)
+export const ArrowLeft01 = makeIcon(ArrowLeft01Icon)
+export const View = makeIcon(ViewIcon)
+export const ViewOff = makeIcon(ViewOffIcon)
+export const Delete02 = makeIcon(Delete02Icon)
 export const AlertCircle = makeIcon(AlertCircleIcon)
 export const CheckmarkCircle02 = makeIcon(CheckmarkCircle02Icon)

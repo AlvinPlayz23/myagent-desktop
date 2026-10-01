@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Message01Icon, SparklesIcon } from '@hugeicons/core-free-icons'
+import { Message01Icon } from '@hugeicons/core-free-icons'
 import { ChevronDown, Folder01, FolderAdd, Rotate01 } from './ui/icons'
 import type { ContentBlock, ProvidersInfo, ReasoningEffort, SessionMeta } from '../../../shared/protocol'
 import Composer from './Composer'
@@ -111,11 +111,10 @@ export default function Home(props: Props): JSX.Element {
             <motion.div
               variants={rise}
               className={cn(
-                'flex flex-col items-center gap-3 px-5 pb-2',
+                'flex flex-col items-center gap-3 px-5 pb-3',
                 open ? 'relative z-30' : 'relative z-10'
               )}
             >
-              <HugeiconsIcon icon={SparklesIcon} size={22} strokeWidth={1.5} className="text-foreground" aria-hidden />
               <h1 className="m-0 min-w-0 max-w-full text-balance text-center text-ui-xl font-medium text-foreground">
                 Where should we begin?
               </h1>

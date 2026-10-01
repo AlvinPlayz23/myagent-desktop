@@ -63,7 +63,7 @@ fills. Their `-foreground` tokens are the readable *text* hue of that state
 | `--popover`       | Dialog / popover / floating panel               |
 | `--menu`          | Dropdown / context menu surface                 |
 | `--menu-hover`    | Hover for a menu item                           |
-| `--input`         | Editable field background                       |
+| `--input`         | Form-control stroke and off-state fill (`border-input`) |
 | `--input-focused` | Focused editable field background               |
 
 Do not reuse `--header`/`--panel`/`--sidebar` as generic card colors. Never mix
@@ -178,6 +178,15 @@ is the session status (message icon, spinner in `--busy` while running) and
 swaps with the close button on hover/focus. Tabs shrink from 200px to 116px,
 then move into the `+N` overflow menu; capacity is measured from the strip's
 width. The active pill slides between tabs with a shared `layoutId`.
+
+## Settings
+
+`Settings.tsx` is a dialog on `--shell` with an inset `--background` page.
+Every page uses `SettingsHeader` and the shared `SETTINGS_PAGE_CLASS` column
+from `SettingsKit.tsx`; groups are one bordered `divide-y` container under a
+sentence-case caption. Toggles use the `Switch` primitive. Providers is a
+list of rows (one button each) that opens a labelled form; destructive
+actions confirm inline, with focus on the safe choice.
 
 ## Components
 

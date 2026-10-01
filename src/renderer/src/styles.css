@@ -292,6 +292,7 @@
   --s4: 13%;
   --line: 9%;
   --line-strong: 18%;
+  --control-line: 26%;
   --rail-tone: var(--ink);
   --rail-s: 3.5%;
   --card-lift: 0%;
@@ -329,6 +330,7 @@
   --s4: 17%;
   --line: 10%;
   --line-strong: 22%;
+  --control-line: 30%;
   --rail-tone: #000000;
   --rail-s: 32%;
   --card-lift: 4.5%;
@@ -447,9 +449,11 @@
   --menu: var(--popover);
   --menu-hover: color-mix(in srgb, var(--ink) var(--s2), transparent);
 
-  --input: var(--card);
-  --input-border: var(--border);
-  --input-border-hover: color-mix(in srgb, var(--ink) var(--line-strong), transparent);
+  /* --input is the stroke/off-fill of form controls (the Base UI primitives read
+     it as `border-input`); fields keep a visible edge at ~3:1 against the page. */
+  --input: color-mix(in srgb, var(--ink) var(--control-line), transparent);
+  --input-border: var(--input);
+  --input-border-hover: color-mix(in srgb, var(--ink) calc(var(--control-line) + 14%), transparent);
   --input-border-focused: var(--brand);
   --input-focused: var(--card);
   --border: color-mix(in srgb, var(--ink) var(--line), transparent);
