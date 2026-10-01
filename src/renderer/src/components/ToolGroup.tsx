@@ -1,6 +1,7 @@
 import { memo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronRight } from './ui/icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { ArrowDown01Icon, SparklesIcon } from '@hugeicons/core-free-icons'
 import type { Message } from '../../../shared/protocol'
 import type { ToolRun } from '../state'
 import type { ToolActivityDisplay } from '../preferences'
@@ -55,7 +56,7 @@ function ToolGroup({
 
   if (display === 'expanded') {
     return (
-      <div className="mt-5 flex flex-col gap-0.5">
+      <div className="mt-5 flex flex-col">
         {entries.map((entry) => (
           <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
         ))}
@@ -67,7 +68,7 @@ function ToolGroup({
     // Failures are never silently swallowed, even in the quietest mode.
     if (errors.length === 0) return null
     return (
-      <div className="mt-5 flex flex-col gap-0.5">
+      <div className="mt-5 flex flex-col">
         {errors.map((run) => (
           <ToolCard key={run.id} run={run} />
         ))}
@@ -83,7 +84,7 @@ function ToolGroup({
   if (running || toolCount === 0) {
     return (
       <section className="mt-5 transcript-rise">
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col">
           {entries.map((entry) => (
             <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
           ))}
@@ -94,16 +95,44 @@ function ToolGroup({
 
   const startedAt = Math.min(...runs.map((r) => r.createdAt))
   const endedAt = Math.max(...runs.map((r) => r.updatedAt))
+  const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`
+  const edited = runs.filter((r) => r.name === 'edit' || r.name === 'write').length
+  const commands = runs.filter((r) => r.name === 'bash').length
+  const summary = [
+    plural(toolCount, 'tool'),
+    edited > 0 ? `edited ${plural(edited, 'file')}` : null,
+    commands > 0 ? `ran ${plural(commands, 'command')}` : null
+  ]
+    .filter(Boolean)
+    .join(', ')
   return (
     <section className="mt-5 transcript-rise">
+      <button
+        type="button"
+        className="group flex min-h-8 w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <HugeiconsIcon icon={SparklesIcon} size={16} strokeWidth={1.5} className="shrink-0" aria-hidden />
+        <span className="min-w-0 truncate">{summary}</span>
+        {errors.length > 0 && <span className="shrink-0 text-destructive-foreground">{errors.length} failed</span>}
+        <HugeiconsIcon
+          icon={ArrowDown01Icon}
+          size={14}
+          strokeWidth={1.75}
+          className={cn('shrink-0 text-foreground-subtlest transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]', open && 'rotate-180')}
+          aria-hidden
+        />
+        <span className="ml-auto shrink-0 text-ui-caption tabular-nums text-foreground-subtlest">{duration(endedAt - startedAt)}</span>
+      </button>
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
+            exit={{ opacity: 0, y: -2 }}
             transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-            className="flex flex-col gap-0.5"
+            className="mt-0.5 flex flex-col"
           >
             {entries.map((entry) => (
               <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
@@ -111,26 +140,6 @@ function ToolGroup({
           </motion.div>
         )}
       </AnimatePresence>
-      <button
-        type="button"
-        className="group mt-2 flex w-full items-center gap-2 text-left text-muted-foreground transition-colors"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-      >
-        <span className="h-px flex-1 bg-border transition-colors group-hover:bg-muted-foreground/25" />
-        <span className="flex shrink-0 items-center gap-1.5 text-ui-sm font-medium transition-colors group-hover:text-muted-foreground">
-          <ChevronRight
-            size={13}
-            strokeWidth={1.8}
-            className={cn('transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]', open && '-rotate-90')}
-          />
-          {`Worked for ${duration(endedAt - startedAt)} · ${toolCount} tool${toolCount === 1 ? '' : 's'}`}
-          {errors.length > 0 && (
-            <span className="text-destructive-foreground">· {errors.length} failed</span>
-          )}
-        </span>
-        <span className="h-px flex-1 bg-border transition-colors group-hover:bg-muted-foreground/25" />
-      </button>
     </section>
   )
 }

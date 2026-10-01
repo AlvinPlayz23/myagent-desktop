@@ -1,7 +1,7 @@
 "use client";
 
 import { Autocomplete as AutocompletePrimitive } from "@base-ui/react/autocomplete";
-import { ChevronsUpDownIcon, XIcon } from "lucide-react";
+import { Cancel01, UnfoldMore } from "@/components/ui/icons";
 import type React from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -66,7 +66,7 @@ export function AutocompleteInput({
           {...triggerProps}
         >
           <AutocompletePrimitive.Icon data-slot="autocomplete-icon">
-            <ChevronsUpDownIcon />
+            <UnfoldMore />
           </AutocompletePrimitive.Icon>
         </AutocompleteTrigger>
       )}
@@ -78,7 +78,7 @@ export function AutocompleteInput({
           )}
           {...clearProps}
         >
-          <XIcon />
+          <Cancel01 />
         </AutocompleteClear>
       )}
     </AutocompletePrimitive.InputGroup>
@@ -257,7 +257,7 @@ export function AutocompleteClear({
       data-slot="autocomplete-clear"
       {...props}
     >
-      <XIcon />
+      <Cancel01 />
     </AutocompletePrimitive.Clear>
   );
 }

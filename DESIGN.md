@@ -28,6 +28,27 @@ Enforced by `npm run lint:design`.
 
 ## Color tokens
 
+### Anchors and themes
+
+Every surface, line and text tier is derived from three anchors per theme and
+mode: `--canvas` (page), `--ink` (text) and `--brand` (accent). Surfaces mix
+`--ink` into `--canvas` (`color-mix(in srgb, …)` on hex anchors; never oklch +
+`none` inside a mix on Electron 33). The step scale `--s1…--s4`, `--line`,
+`--rail-s`, `--card-lift` and `--menu-lift` set how strong each mix is and
+differ between light and dark.
+
+Named themes (`THEMES` in `preferences.ts`) swap the anchors only, through
+`<html data-theme="…">`; light/dark remains the `.dark` class, so each theme
+ships both modes: Neutral (default), Nord, Catppuccin, Gruvbox, Solarized,
+Dracula. To add one, add a `:root[data-theme='x']` / `:root.dark[data-theme='x']`
+pair in `styles.css` and an entry in `THEMES`. Theme switches suppress
+transitions for one frame (`applyTheme`) so the swap snaps instead of smearing.
+
+`--success`, `--warning`, `--destructive` and the diff pair are the state
+fills. Their `-foreground` tokens are the readable *text* hue of that state
+(for text on its tinted wash), not an on-fill colour; solid fills use
+`text-white`.
+
 ### Surfaces (layered)
 
 | Token             | Role                                            |
@@ -134,6 +155,29 @@ Use the shared tokens in `styles.css` (durations `--duration-*`, easings
 inside ~120ms, whole surfaces inside ~220ms. Favor opacity/transform. No
 animated `filter`/blur and no static `will-change` in a class rule outside
 `components/ui/`. Enforced by `npm run lint:motion`.
+
+## Elevation
+
+Declare elevation once. Floating surfaces (menus, popovers, the tab overflow
+list) use `--shadow-pop` (a 1px ring plus layered soft shadows); cards that
+need lift use `--shadow-card`. Do not stack a border under a wide blur. Flat
+content cards use `.surface-card` (hairline border, no lift).
+
+## Icons
+
+Hugeicons only (`@hugeicons/react` + `@hugeicons/core-free-icons`), outline
+variant, `currentColor`, stroke 1.5 beside regular text and 1.75–2 on small or
+filled controls. Shared glyphs live in `components/ui/icons.tsx`. No inline
+icon SVGs and no other icon library.
+
+## Session tabs
+
+`TabBar.tsx` is a real `tablist`: roving tabindex, ←/→/Home/End move focus,
+Enter/Space select, Delete/Backspace and middle-click close. The leading glyph
+is the session status (message icon, spinner in `--busy` while running) and
+swaps with the close button on hover/focus. Tabs shrink from 200px to 116px,
+then move into the `+N` overflow menu; capacity is measured from the strip's
+width. The active pill slides between tabs with a shared `layoutId`.
 
 ## Components
 

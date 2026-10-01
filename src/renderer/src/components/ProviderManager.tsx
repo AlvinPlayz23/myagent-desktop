@@ -132,7 +132,7 @@ export default function ProviderManager({
               className="space-y-3"
             >
               <div className="flex items-center justify-between px-1">
-                <h2 className="flex items-center gap-2 text-ui-sm font-semibold uppercase tracking-[0.08em] text-foreground-subtlest">
+                <h2 className="flex items-center gap-2 text-ui-sm font-semibold text-foreground-subtlest">
                   <span className="inline-block h-px w-3 bg-border" aria-hidden />
                   Configured Providers ({providers.providers.length})
                 </h2>
@@ -187,7 +187,7 @@ export default function ProviderManager({
                             </span>
                           )}
                           {provider.origin && (
-                            <span className="rounded-full border border-border/80 px-1.5 py-px font-mono text-ui-xs uppercase tracking-wider text-muted-foreground">
+                            <span className="rounded-full border border-border/80 px-1.5 py-px font-mono text-ui-xs text-muted-foreground">
                               {provider.origin === 'builtin_override' ? 'override' : provider.origin}
                             </span>
                           )}
@@ -230,12 +230,12 @@ export default function ProviderManager({
                     ← Back
                   </button>
                   <span className="text-border">·</span>
-                  <h2 className="text-ui-sm font-semibold uppercase tracking-[0.08em] text-foreground-subtlest">
+                  <h2 className="text-ui-sm font-semibold text-foreground-subtlest">
                     {selected ? `Configure: ${selected}` : form.builtin ? 'Add Catalog Provider' : 'Add Custom Endpoint'}
                   </h2>
                 </div>
                 {current && isDefault(current) && (
-                  <span className="rounded-full border border-border px-2 py-0.5 text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <span className="rounded-full border border-border px-2 py-0.5 text-ui-sm font-medium text-muted-foreground">
                     Current Default
                   </span>
                 )}

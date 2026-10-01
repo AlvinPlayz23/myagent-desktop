@@ -1,13 +1,7 @@
 import { useEffect, useState } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Cancel01Icon, MinusSignIcon } from '@hugeicons/core-free-icons'
 import { Copy01, Square } from './ui/icons'
-
-function MinimizeGlyph(): JSX.Element {
-  return <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5.5h8" /></svg>
-}
-
-function CloseGlyph(): JSX.Element {
-  return <svg viewBox="0 0 10 10" aria-hidden="true"><path d="m1.5 1.5 7 7m0-7-7 7" /></svg>
-}
 
 export default function WindowControls(): JSX.Element {
   const [maximized, setMaximized] = useState(false)
@@ -37,7 +31,7 @@ export default function WindowControls(): JSX.Element {
         title="Minimize"
         onClick={() => window.myagent.minimizeWindow().catch(() => {})}
       >
-        <MinimizeGlyph />
+        <HugeiconsIcon icon={MinusSignIcon} size={14} strokeWidth={1.5} className="window-control-hugeicon" aria-hidden="true" />
       </button>
       <button
         className="window-control"
@@ -59,7 +53,7 @@ export default function WindowControls(): JSX.Element {
         title="Close"
         onClick={() => window.myagent.closeWindow().catch(() => {})}
       >
-        <CloseGlyph />
+        <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.5} className="window-control-hugeicon" aria-hidden="true" />
       </button>
     </div>
   )

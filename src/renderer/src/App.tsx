@@ -59,12 +59,12 @@ export default function App(): JSX.Element {
   noticeRef.current = chat?.notice ?? null
 
   useEffect(() => {
-    applyTheme(preferences.theme)
+    applyTheme(preferences.theme, preferences.themeId)
     applyFontSize(preferences.interfaceFontSize)
     savePreferences(preferences)
     const query = window.matchMedia('(prefers-color-scheme: dark)')
     const onChange = (): void => {
-      if (preferences.theme === 'system') applyTheme('system')
+      if (preferences.theme === 'system') applyTheme('system', preferences.themeId)
     }
     query.addEventListener('change', onChange)
     return () => query.removeEventListener('change', onChange)
@@ -588,6 +588,7 @@ export default function App(): JSX.Element {
             appName={normalizeAppName(preferences.appName)}
             onSelect={(id) => dispatch({ type: 'focusChat', sessionId: id })}
             onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
+            onNew={goHome}
           />
           {chat && (
             <div className="no-drag ml-auto flex shrink-0 items-center gap-2">

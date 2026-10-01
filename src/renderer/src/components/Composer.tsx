@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, KeyboardEvent, ClipboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Add01Icon, ArrowDown01Icon, ArrowUp02Icon, AudioWave01Icon, Cancel01Icon, Mic01Icon, StopIcon as StopIconGlyph } from '@hugeicons/core-free-icons'
 import { AddToList, ChevronRight, HelpCircle, MouseLeftClick05, MouseRightClick05, Search01, Tick01 } from './ui/icons'
 import JellyRadio from './ui/JellyRadio'
 import HoverTooltip from './ui/HoverTooltip'
@@ -52,60 +54,31 @@ function MorphingText({ text }: { text: string }): JSX.Element {
 }
 
 function ArrowUpIcon(): JSX.Element {
-  return (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M7 12V2M7 2L2.5 6.5M7 2L11.5 6.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={ArrowUp02Icon} size={14} strokeWidth={2} aria-hidden />
 }
 
 function MicIcon(): JSX.Element {
-  return (
-    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <rect x="5" y="1" width="4" height="7" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M2.75 6.5V7a4.25 4.25 0 0 0 8.5 0v-.5M7 11.25V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={Mic01Icon} size={15} strokeWidth={1.75} aria-hidden />
 }
 
 function StopIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" fill="currentColor" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={StopIconGlyph} size={14} strokeWidth={1.75} className="fill-current" aria-hidden />
 }
 
 function WaveformIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M2.5 5.5v3M5 3.5v7M7.5 5v4M10 2.5v9M12 6v2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={AudioWave01Icon} size={15} strokeWidth={1.75} aria-hidden />
 }
 
 function ChevronDownIcon(): JSX.Element {
-  return (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={1.75} aria-hidden />
 }
 
 function PlusIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M7 2.5V11.5M2.5 7H11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={Add01Icon} size={15} strokeWidth={1.75} aria-hidden />
 }
 
 function CloseIcon(): JSX.Element {
-  return (
-    <svg width="9" height="9" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M2.5 2.5L11.5 11.5M11.5 2.5L2.5 11.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={Cancel01Icon} size={11} strokeWidth={2} aria-hidden />
 }
 
 // Four arc segments of a ring, filled clockwise from 12 o'clock as effort rises.
