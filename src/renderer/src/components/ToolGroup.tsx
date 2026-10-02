@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowDown01Icon, SparklesIcon } from '@hugeicons/core-free-icons'
+import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
 import type { Message } from '../../../shared/protocol'
 import type { ToolRun } from '../state'
 import type { ToolActivityDisplay } from '../preferences'
@@ -95,35 +95,24 @@ function ToolGroup({
 
   const startedAt = Math.min(...runs.map((r) => r.createdAt))
   const endedAt = Math.max(...runs.map((r) => r.updatedAt))
-  const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`
-  const edited = runs.filter((r) => r.name === 'edit' || r.name === 'write').length
-  const commands = runs.filter((r) => r.name === 'bash').length
-  const summary = [
-    plural(toolCount, 'tool'),
-    edited > 0 ? `edited ${plural(edited, 'file')}` : null,
-    commands > 0 ? `ran ${plural(commands, 'command')}` : null
-  ]
-    .filter(Boolean)
-    .join(', ')
+  const summary = `Worked for ${duration(endedAt - startedAt)} and made ${toolCount} tool ${toolCount === 1 ? 'call' : 'calls'}`
   return (
     <section className="mt-5 transcript-rise">
       <button
         type="button"
-        className="group flex min-h-8 w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="group flex min-h-8 max-w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-ui-base text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
       >
-        <HugeiconsIcon icon={SparklesIcon} size={16} strokeWidth={1.5} className="shrink-0" aria-hidden />
-        <span className="min-w-0 truncate">{summary}</span>
-        {errors.length > 0 && <span className="shrink-0 text-destructive-foreground">{errors.length} failed</span>}
+        <span className="min-w-0 truncate tabular-nums">{summary}</span>
+        {errors.length > 0 && <span className="shrink-0 text-destructive-foreground">, {errors.length} failed</span>}
         <HugeiconsIcon
-          icon={ArrowDown01Icon}
+          icon={ArrowRight01Icon}
           size={14}
           strokeWidth={1.75}
-          className={cn('shrink-0 text-foreground-subtlest transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]', open && 'rotate-180')}
+          className={cn('shrink-0 text-foreground-subtlest transition-[transform,color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] group-hover:text-foreground', open && 'rotate-90')}
           aria-hidden
         />
-        <span className="ml-auto shrink-0 text-ui-caption tabular-nums text-foreground-subtlest">{duration(endedAt - startedAt)}</span>
       </button>
       <AnimatePresence initial={false}>
         {open && (

@@ -188,6 +188,20 @@ sentence-case caption. Toggles use the `Switch` primitive. Providers is a
 list of rows (one button each) that opens a labelled form; destructive
 actions confirm inline, with focus on the safe choice.
 
+## Effort slider
+
+`EffortSlider.tsx` (+ `.module.css`) is the reasoning-effort control in the
+Composer's popover. The shell outline grows a label shoulder while dragging;
+geometry is ported unchanged from the supplied component. Stops and value are
+props, the level is committed on release (immediately for keys), and colours
+come from `--ink` and `--brand` so every theme works. The popover stops
+mouse-down propagation so the Composer does not steal focus from the slider.
+
+## Tool timeline
+
+A settled run folds to one row: `Worked for 38s and made 3 tool calls`, with a
+right chevron that turns down when open. No leading icon.
+
 ## Components
 
 Reuse the primitives in `src/renderer/src/components/ui/` before inventing
