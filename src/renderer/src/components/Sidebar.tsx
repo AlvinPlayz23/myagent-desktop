@@ -1019,17 +1019,17 @@ function Sidebar({
           <div className="mb-1 h-px bg-border/50" />
           <button
             className={cn(
-              'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-ui-sm font-semibold outline-none',
+              'flex h-9 w-full items-center gap-2 rounded-lg text-left text-ui-sm font-medium outline-none',
               'focus-visible:ring-2 focus-visible:ring-ring',
               settingsOpen ? 'bg-selected text-foreground' : 'text-muted-foreground',
               !settingsOpen && !settling && 'transition-colors hover:bg-hover hover:text-foreground',
-              collapsed && 'justify-center px-0'
+              collapsed && 'justify-center'
             )}
             title="Settings"
             aria-label="Settings"
             onClick={onSettings}
           >
-            <Settings01 size={16} strokeWidth={1.8} />
+            <Settings01 size={15} strokeWidth={1.8} />
             <CollapseLabel show={!collapsed}>Settings</CollapseLabel>
           </button>
         </div>
