@@ -345,9 +345,6 @@ interface Props {
   running: boolean
   onSend(content: ContentBlock[], queue: boolean): Promise<void>
   onStop(): void
-  onPromptFocus?(): void
-  onPromptBlur?(value: string): void
-  onPromptChange?(value: string): void
   placeholder?: string
   model?: string
   providers?: ProvidersInfo
@@ -376,9 +373,6 @@ export default function Composer({
   running,
   onSend,
   onStop,
-  onPromptFocus,
-  onPromptBlur,
-  onPromptChange,
   placeholder,
   model,
   providers,
@@ -1042,15 +1036,12 @@ export default function Composer({
           <div className="min-w-0 flex-1">
             <textarea
               ref={area}
-              onFocus={onPromptFocus}
-              onBlur={() => onPromptBlur?.(text)}
               value={text}
               rows={1}
               disabled={isRecording || submitting}
               placeholder={placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything')}
               onChange={(e) => {
                 setText(e.target.value)
-                onPromptChange?.(e.target.value)
                 setCommandIndex(0)
                 grow()
               }}
@@ -1302,15 +1293,12 @@ export default function Composer({
           <div className="px-4 pb-[54px] pt-4">
             <textarea
               ref={area}
-              onFocus={onPromptFocus}
-              onBlur={() => onPromptBlur?.(text)}
               value={text}
               rows={1}
               disabled={isRecording || submitting}
               placeholder={placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything')}
               onChange={(e) => {
                 setText(e.target.value)
-                onPromptChange?.(e.target.value)
                 setCommandIndex(0)
                 grow()
               }}

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Message01Icon } from '@hugeicons/core-free-icons'
-import { ChevronDown, ChevronRight, Folder01, FolderAdd, Rotate01 } from './ui/icons'
+import { ChevronDown, Folder01, FolderAdd, Rotate01 } from './ui/icons'
 import type { ContentBlock, ProvidersInfo, ReasoningEffort, SessionMeta } from '../../../shared/protocol'
 import Composer from './Composer'
 import { Button } from './ui/button'
@@ -45,12 +45,6 @@ const rise = {
   initial: { opacity: 0, y: 6 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.24, ease: EASE_OUT } }
 }
-const recentListMotion = {
-  initial: { opacity: 0, y: 4, height: 0, filter: 'blur(4px)' }, // motion:allow-blur
-  visible: { opacity: 1, y: 0, height: 'auto', filter: 'blur(0px)' }, // motion:allow-blur
-  leaving: { opacity: 0, y: -6, height: 0, filter: 'blur(4px)' } // motion:allow-blur
-}
-
 export default function Home(props: Props): JSX.Element {
   const {
     loading, fatal, projects, selected, appName,
@@ -60,13 +54,10 @@ export default function Home(props: Props): JSX.Element {
     recentSessions = [], onOpenSession
   } = props
   const [open, setOpen] = useState(false)
-  const [showRecents, setShowRecents] = useState(true)
+  const [recentsOpen, setRecentsOpen] = useState(false)
   const [model, setModel] = useState(providers.defaultModel ?? '')
   const [effort, setEffort] = useState<ReasoningEffort>('medium')
   const pop = useRef<HTMLDivElement>(null)
-  const recentsTimer = useRef<number | null>(null)
-  const promptValue = useRef('')
-  const pointerOverComposer = useRef(false)
 
   useEffect(() => {
     const close = (e: MouseEvent): void => {
@@ -75,45 +66,6 @@ export default function Home(props: Props): JSX.Element {
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [])
-
-  useEffect(
-    () => () => {
-      if (recentsTimer.current !== null) window.clearTimeout(recentsTimer.current)
-    },
-    []
-  )
-
-  const focusPrompt = (): void => {
-    if (recentsTimer.current !== null) window.clearTimeout(recentsTimer.current)
-    recentsTimer.current = null
-    setShowRecents(false)
-  }
-
-  const scheduleRecents = (value: string): void => {
-    if (recentsTimer.current !== null) window.clearTimeout(recentsTimer.current)
-    recentsTimer.current = null
-    if (value.trim()) return
-    recentsTimer.current = window.setTimeout(() => {
-      setShowRecents(true)
-      recentsTimer.current = null
-    }, 2000)
-  }
-
-  const blurPrompt = (value: string): void => {
-    promptValue.current = value
-    if (!pointerOverComposer.current) scheduleRecents(value)
-  }
-
-  const changePrompt = (value: string): void => {
-    promptValue.current = value
-    if (value.trim()) {
-      if (recentsTimer.current !== null) window.clearTimeout(recentsTimer.current)
-      recentsTimer.current = null
-      setShowRecents(false)
-    } else if (!pointerOverComposer.current) {
-      scheduleRecents(value)
-    }
-  }
 
   const current = projects.find((p) => p.cwd === selected) ?? projects[0] ?? null
   const recents = recentSessions.slice(0, 6)
@@ -230,23 +182,9 @@ export default function Home(props: Props): JSX.Element {
               </div>
             </motion.div>
 
-            <motion.div
-              variants={rise}
-              className="relative z-20"
-              onPointerEnter={() => {
-                pointerOverComposer.current = true
-                focusPrompt()
-              }}
-              onPointerLeave={() => {
-                pointerOverComposer.current = false
-                scheduleRecents(promptValue.current)
-              }}
-            >
+            <motion.div variants={rise} className="relative z-20">
               <Composer
                 running={false}
-                onPromptFocus={focusPrompt}
-                onPromptBlur={blurPrompt}
-                onPromptChange={changePrompt}
                 onSend={(content) => {
                   const modelRef = model || providers.defaultModel
                   const divider = modelRef.indexOf('/')
@@ -282,61 +220,60 @@ export default function Home(props: Props): JSX.Element {
             </motion.div>
 
 
-            <AnimatePresence initial={false}>
-              {recents.length > 0 && onOpenSession && showRecents && (
-                <motion.section
-                  key="recent-sessions"
-                  variants={recentListMotion}
-                  initial="initial"
-                  animate="visible"
-                  exit="leaving"
-                  transition={{ duration: 0.18, ease: EASE_OUT }}
-                  className="w-full max-w-xl self-center overflow-hidden pt-1"
-                  aria-label="Recent sessions"
+            {recents.length > 0 && onOpenSession && (
+              <motion.section variants={rise} aria-label="Recent sessions" className="w-full max-w-xl self-center">
+                <button
+                  type="button"
+                  onClick={() => setRecentsOpen((value) => !value)}
+                  aria-expanded={recentsOpen}
+                  className="flex min-h-10 w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <h2 className="mb-2 px-1 text-ui-sm font-medium text-muted-foreground">
-                    Recent sessions
-                  </h2>
-                  <ul className="m-0 list-none overflow-hidden rounded-xl border border-border/70 bg-card/50 p-0">
-                    {recents.map((session, index) => (
-                      <li key={session.id}>
-                        <button
-                          type="button"
-                          onClick={() => onOpenSession(session.id)}
-                          title={session.cwd}
-                          className={cn(
-                            'group flex min-h-10 w-full min-w-0 items-center gap-3 px-3 py-2 text-left outline-none transition-colors hover:bg-hover focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring',
-                            index > 0 && 'border-t border-border/50'
-                          )}
-                        >
-                          <HugeiconsIcon
-                            icon={Message01Icon}
-                            size={15}
-                            strokeWidth={1.5}
-                            className="shrink-0 text-foreground-subtlest"
-                            aria-hidden
-                          />
-                          <span className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground">
-                            {session.title || session.preview || `${session.messageCount} messages`}
-                          </span>
-                          <span className="hidden max-w-36 shrink-0 truncate text-ui-xs text-foreground-subtlest sm:block">
-                            {session.cwd.split(/[\\/]/).pop()}
-                          </span>
-                          <span className="w-12 shrink-0 text-right text-ui-xs text-foreground-subtlest">
-                            {relTime(session.modified)}
-                          </span>
-                          <ChevronRight
-                            size={13}
-                            className="shrink-0 text-foreground-subtlest transition-transform group-hover:translate-x-0.5"
-                            aria-hidden
-                          />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </motion.section>
-              )}
-            </AnimatePresence>
+                  <HugeiconsIcon icon={Message01Icon} size={15} strokeWidth={1.5} className="shrink-0 text-foreground-subtlest" aria-hidden />
+                  <span className="shrink-0 text-ui-sm text-foreground-subtlest">Recent</span>
+                  <span className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground">
+                    {recents[0].title || recents[0].preview || `${recents[0].messageCount} messages`}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={cn('shrink-0 text-foreground-subtlest transition-transform duration-[var(--duration-fast)]', recentsOpen && 'rotate-180')}
+                    aria-hidden
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {recentsOpen && (
+                    <motion.ul
+                      key="recent-list"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: EASE_OUT }}
+                      className="m-0 list-none overflow-hidden p-0"
+                    >
+                      {recents.map((session) => (
+                        <li key={session.id}>
+                          <button
+                            type="button"
+                            onClick={() => onOpenSession(session.id)}
+                            title={session.cwd}
+                            className="group flex min-h-9 w-full min-w-0 items-center gap-3 rounded-lg px-3 py-1.5 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <span className="min-w-0 flex-1 truncate pl-[27px] text-ui-sm text-foreground-subtle group-hover:text-foreground">
+                              {session.title || session.preview || `${session.messageCount} messages`}
+                            </span>
+                            <span className="hidden max-w-36 shrink-0 truncate text-ui-xs text-foreground-subtlest sm:block">
+                              {session.cwd.split(/[\\/]/).pop()}
+                            </span>
+                            <span className="w-12 shrink-0 text-right text-ui-xs text-foreground-subtlest">
+                              {relTime(session.modified)}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
+              </motion.section>
+            )}
           </motion.div>
         )}
       </div>
