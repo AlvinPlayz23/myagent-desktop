@@ -15,6 +15,7 @@ import type { ToolRun } from '../state'
 import { buildToolDiff } from '../diff'
 import DiffView from './DiffView'
 import { cn } from '../util'
+import { disclosure } from '../motion'
 
 const LABELS: Record<string, string> = {
   bash: 'Ran command',
@@ -79,7 +80,7 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
   return (
     <div className="tool-row my-0 flex flex-col text-ui-base transcript-rise">
       <button
-        className="group flex min-h-8 w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+        className="group -mx-1.5 flex min-h-8 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
@@ -132,11 +133,11 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
       <AnimatePresence initial={false}>
         {(open || (run.status === 'running' && run.partial)) && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="ml-8 overflow-hidden"
+            variants={disclosure}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="ml-6 overflow-hidden"
           >
             <div className="py-1 font-mono text-ui-sm">
               {run.name === 'bash' && typeof run.args.command === 'string' && (

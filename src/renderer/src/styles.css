@@ -1246,7 +1246,7 @@
 .tool-row::after {
   content: '';
   position: absolute;
-  left: 13.5px;
+  left: 7.5px;
   width: 1px;
   background: var(--border);
   pointer-events: none;

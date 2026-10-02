@@ -9,6 +9,7 @@ import ToolCard from './ToolCard'
 import Thinking from './Thinking'
 import MessageView from './MessageView'
 import { cn, duration } from '../util'
+import { disclosure } from '../motion'
 
 // A single unit of agent work: reasoning or a tool call. Consecutive entries
 // are rendered together so presentation stays decoupled from history.
@@ -100,7 +101,7 @@ function ToolGroup({
     <section className="mt-5 transcript-rise">
       <button
         type="button"
-        className="group flex min-h-8 max-w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-ui-base text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="group -mx-1.5 flex min-h-7 max-w-full items-center gap-1.5 rounded-lg px-1.5 text-left text-ui-base text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
       >
@@ -117,15 +118,17 @@ function ToolGroup({
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -2 }}
-            transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-            className="mt-0.5 flex flex-col"
+            variants={disclosure}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="overflow-hidden"
           >
-            {entries.map((entry) => (
-              <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
-            ))}
+            <div className="flex flex-col pt-1">
+              {entries.map((entry) => (
+                <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

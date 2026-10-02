@@ -200,7 +200,11 @@ mouse-down propagation so the Composer does not steal focus from the slider.
 ## Tool timeline
 
 A settled run folds to one row: `Worked for 38s and made 3 tool calls`, with a
-right chevron that turns down when open. No leading icon.
+right chevron that turns down when open. No leading icon. The row text,
+reasoning rows, tool icons and message text all share one left edge (rows pull
+themselves left by their own padding). Folded sections open with the shared
+`disclosure` variants in `motion.ts`: height drives layout so content below
+glides, opacity trails height in and leads it out.
 
 ## Components
 
