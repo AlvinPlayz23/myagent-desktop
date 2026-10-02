@@ -770,7 +770,14 @@ function Sidebar({
                             title={project.cwd}
                             onPointerEnter={() => setHoveredProjectAction(project.cwd)}
                             onPointerLeave={() => setHoveredProjectAction(null)}
-                            onFocusCapture={() => setFocusedProjectAction(project.cwd)}
+                            onFocusCapture={(event) => {
+                              if (
+                                event.target instanceof HTMLElement &&
+                                event.target.matches(':focus-visible')
+                              ) {
+                                setFocusedProjectAction(project.cwd)
+                              }
+                            }}
                             onBlurCapture={(event) => {
                               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                                 setFocusedProjectAction(null)
@@ -791,7 +798,21 @@ function Sidebar({
                                   open && 'rotate-90'
                                 )}
                               />
-                              <span className="size-[13px] shrink-0" aria-hidden />
+                              {open ? (
+                                <Folder02
+                                  size={13}
+                                  strokeWidth={1.8}
+                                  className="shrink-0 text-foreground transition-opacity duration-[var(--duration-instant)]"
+                                  style={{ opacity: showProjectAction ? 0 : 1 }}
+                                />
+                              ) : (
+                                <Folder01
+                                  size={13}
+                                  strokeWidth={1.8}
+                                  className="shrink-0 text-muted-foreground transition-opacity duration-[var(--duration-instant)]"
+                                  style={{ opacity: showProjectAction ? 0 : 1 }}
+                                />
+                              )}
                               <span className="min-w-0 flex-1 truncate text-ui-caption font-medium">
                                 {project.name}
                               </span>
@@ -815,21 +836,6 @@ function Sidebar({
                                 strokeWidth={2}
                                 className="absolute"
                               />
-                              {open ? (
-                                <Folder02
-                                  size={13}
-                                  strokeWidth={1.8}
-                                  className="absolute text-foreground transition-opacity"
-                                  style={{ opacity: showProjectAction ? 0 : 1 }}
-                                />
-                              ) : (
-                                <Folder01
-                                  size={13}
-                                  strokeWidth={1.8}
-                                  className="absolute text-muted-foreground transition-opacity"
-                                  style={{ opacity: showProjectAction ? 0 : 1 }}
-                                />
-                              )}
                             </button>
                           </div>
 
