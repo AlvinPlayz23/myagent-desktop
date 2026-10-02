@@ -12,6 +12,11 @@ export default defineConfig({
   },
   renderer: {
     plugins: [react(), tailwindcss()],
+    server: {
+      host: '0.0.0.0',
+      port: 3000,
+      strictPort: true
+    },
     resolve: {
       alias: {
         '@': resolve('src/renderer/src')

@@ -18,7 +18,7 @@ import WindowControls from './components/WindowControls'
 import TabBar from './components/TabBar'
 import OpenWith from './components/OpenWith'
 import GitPanel from './components/GitPanel'
-import { applyTheme, applyFontSize, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
+import { applyAccent, applyTheme, applyFontSize, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
 import DebugPanel from './debug-panel/DebugPanel'
@@ -59,6 +59,7 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     applyTheme(preferences.theme, preferences.themeId)
+    applyAccent(preferences.accent)
     applyFontSize(preferences.interfaceFontSize)
     savePreferences(preferences)
     const query = window.matchMedia('(prefers-color-scheme: dark)')

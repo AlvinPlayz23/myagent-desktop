@@ -1,4 +1,5 @@
 export type ThemePreference = 'system' | 'dark' | 'light'
+export type AccentPreference = 'cobalt' | 'violet' | 'jade' | 'amber'
 
 /** Named palettes. Each ships a light and a dark variant (see styles.css). */
 export type ThemeId = 'default' | 'nord' | 'catppuccin' | 'gruvbox' | 'solarized' | 'dracula'
@@ -28,6 +29,7 @@ export type SidebarVariant = 'inbox' | 'grouped'
 
 export interface Preferences {
   theme: ThemePreference
+  accent: AccentPreference
   /** Named palette; light/dark is chosen separately by `theme`. */
   themeId: ThemeId
   messageSize: MessageSize
@@ -65,8 +67,13 @@ const APP_NAME_MAX = 32
 const FONT_SIZE_MIN = 12
 const FONT_SIZE_MAX = 18
 
+function normalizeAccent(value: unknown): AccentPreference {
+  return value === 'violet' || value === 'jade' || value === 'amber' ? value : 'cobalt'
+}
+
 export const defaults: Preferences = {
   theme: 'system',
+  accent: 'cobalt',
   themeId: 'default',
   messageSize: 'default',
   reducedMotion: false,
@@ -106,6 +113,7 @@ export function loadPreferences(): Preferences {
     return {
       ...defaults,
       ...stored,
+      accent: normalizeAccent(stored.accent),
       themeId: THEMES.some((t) => t.id === stored.themeId) ? (stored.themeId as ThemeId) : 'default',
       toolActivityDisplay: stored.toolActivityDisplay === 'expanded' || stored.toolActivityDisplay === 'hidden' ? stored.toolActivityDisplay : 'compact',
       modelSelectorVariant: stored.modelSelectorVariant === 'gallery' ? 'gallery' : 'compact',
@@ -144,6 +152,10 @@ export function applyTheme(theme: ThemePreference, themeId: ThemeId = 'default')
     requestAnimationFrame(() => freeze.remove())
   }
   void window.myagent.setTheme(dark ? 'dark' : 'light')
+}
+
+export function applyAccent(accent: AccentPreference): void {
+  document.documentElement.dataset.accent = normalizeAccent(accent)
 }
 
 /**

@@ -11,7 +11,7 @@ import type { ChatState } from '../state'
 const TAB_MIN_WIDTH = 116
 const TAB_GAP = 2
 /** Room reserved for the overflow trigger and the new-session button. */
-const STRIP_CHROME = 44 + 32
+const STRIP_CHROME = 44 + 88
 
 interface TabProps {
   id: string
@@ -46,7 +46,11 @@ function Tab({ id, label, active, running, focusable, onSelect, onClose, onKeyDo
         'transition-colors duration-[var(--duration-instant)] ease-[var(--ease-smooth-out)]',
         active ? 'text-foreground' : 'text-foreground-subtle hover:bg-hover hover:text-foreground'
       )}
-      style={{ ['--tab-min' as string]: `${TAB_MIN_WIDTH}px` }}
+      data-active={active}
+      style={{
+        ['--tab-min' as string]: `${TAB_MIN_WIDTH}px`,
+        ...(active ? { backgroundColor: 'var(--brand-soft)', boxShadow: 'inset 0 0 0 1px var(--brand-border)' } : {})
+      }}
     >
       {active && (
         <motion.span
@@ -342,9 +346,10 @@ function TabBar({ tabOrder, chats, sessions, activeId, runningIds, onSelect, onC
           aria-label="New session"
           title="New session"
           onClick={onNew}
-          className="no-drag grid size-7 shrink-0 place-items-center rounded-lg text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="no-drag flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-ui-caption font-medium text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <HugeiconsIcon icon={Add01Icon} size={15} strokeWidth={1.75} aria-hidden />
+          <span>New session</span>
         </button>
       </div>
     </div>

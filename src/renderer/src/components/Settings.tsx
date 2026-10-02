@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
-import { AiBrain01, Archive01, ArchiveRestore, InformationCircle, Keyboard01, Message01, PaintBoard, Search01, Tick01 } from './ui/icons'
+import { AiBrain01, Archive01, ArchiveRestore, Check, InformationCircle, Keyboard01, Message01, PaintBoard, Search01, Tick01 } from './ui/icons'
 import type { ConnState } from '../state'
-import { THEMES, normalizeAppName, normalizeFontSize, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant } from '../preferences'
+import { THEMES, normalizeAppName, normalizeFontSize, type AccentPreference, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
 import { cn } from '../util'
 import { Switch } from './ui/switch'
@@ -38,6 +38,13 @@ const themes: Array<{ value: ThemePreference; title: string; detail: string }> =
   { value: 'system', title: 'System', detail: 'Follow your operating system theme' },
   { value: 'dark', title: 'Dark', detail: 'Dark surfaces, easier on the eyes at night' },
   { value: 'light', title: 'Light', detail: 'Clean neutral light mode' }
+]
+
+const accentThemes: Array<{ value: AccentPreference; title: string; color: string }> = [
+  { value: 'cobalt', title: 'Cobalt', color: '#4169d8' },
+  { value: 'violet', title: 'Violet', color: '#7757d7' },
+  { value: 'jade', title: 'Jade', color: '#17866e' },
+  { value: 'amber', title: 'Amber', color: '#b66c25' }
 ]
 
 const sizes: Array<{ value: MessageSize; title: string; detail: string }> = [
@@ -472,6 +479,30 @@ export default function Settings({
                     dark={preferences.theme === 'dark' || (preferences.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)}
                     onSelect={(themeId) => onChange({ themeId })}
                   />
+                </SettingsSection>
+
+                <SettingsSection title="Accent theme">
+                  <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
+                    {accentThemes.map((item) => {
+                      const selected = preferences.accent === item.value
+                      return (
+                        <button
+                          key={item.value}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => onChange({ accent: item.value })}
+                          className={cn(
+                            'flex min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            selected ? 'border-brand/40 bg-brand/5' : 'border-border/80 bg-background/50 hover:bg-muted/40'
+                          )}
+                        >
+                          <span className="size-4 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]" style={{ backgroundColor: item.color }} />
+                          <span className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground">{item.title}</span>
+                          {selected && <Check size={13} strokeWidth={2.4} className="shrink-0 text-brand" />}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </SettingsSection>
 
                 <SettingsSection title="Window & Interface">
