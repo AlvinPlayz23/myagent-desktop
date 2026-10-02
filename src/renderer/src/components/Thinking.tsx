@@ -68,7 +68,7 @@ export default function Thinking({
         type="button"
         className={cn(
           '-ml-1.5 flex min-h-7 items-center gap-1.5 self-start rounded-lg px-1.5 py-0.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
-          live ? 'cursor-default' : 'hover:bg-hover/60'
+          live && 'cursor-default'
         )}
         aria-expanded={expanded}
         aria-label={live ? 'Model is reasoning' : 'Toggle reasoning'}

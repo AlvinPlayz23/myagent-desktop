@@ -80,7 +80,7 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
   return (
     <div className="tool-row my-0 flex flex-col text-ui-base transcript-rise">
       <button
-        className="group -mx-1.5 flex min-h-8 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+        className="-mx-1.5 flex min-h-8 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
@@ -94,7 +94,7 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
         <span
           className={cn(
             'shrink-0',
-            run.status === 'running' ? 'font-medium text-foreground' : 'text-foreground-subtle group-hover:text-foreground'
+            run.status === 'running' ? 'font-medium text-foreground' : 'text-foreground-subtle'
           )}
         >
           {(run.status === 'running' ? RUNNING_LABELS[run.name] : LABELS[run.name]) ?? run.name}
@@ -122,8 +122,8 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
             size={13}
             strokeWidth={1.75}
             className={cn(
-              'shrink-0 text-foreground-subtlest transition-[transform,opacity] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]',
-              open ? 'rotate-90 opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'
+              'shrink-0 text-foreground-subtlest transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]',
+              open && 'rotate-90'
             )}
             aria-hidden
           />
