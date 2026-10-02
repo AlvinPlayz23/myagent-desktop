@@ -3,15 +3,15 @@ import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import {
-  ArrowDownTray,
-  ArrowUpTray,
+  ArrowDown02,
+  ArrowUp02,
   Check,
   ChevronDown,
   ChevronRight,
   GitBranch01,
   GitCommit01,
   Loading03,
-  Refresh01,
+  Rotate01,
   Undo01
 } from './ui/icons'
 import type { GitBranch, GitCommit, GitFileChange, GitStatus } from '../../../shared/protocol'
@@ -62,8 +62,8 @@ function DiffFor({ path, staged }: { path: string; staged: boolean }): JSX.Eleme
     return <div className="px-2 py-2 text-ui-sm text-muted-foreground">No textual changes.</div>
   }
   return (
-    <div className="mx-2 my-1 max-h-[320px] overflow-y-auto">
-      <DiffView diff={diff} />
+    <div className="mx-2 my-1">
+      <DiffView diff={diff} compact />
     </div>
   )
 }
@@ -127,20 +127,23 @@ function FileRow({
           <span className={cn('w-3 shrink-0 text-center font-mono text-ui-xs font-bold', meta.tone)}>
             {meta.badge}
           </span>
-          <span className="min-w-0 flex-1 truncate text-ui-sm text-foreground">{name}</span>
-          {dir && (
-            <span className="hidden shrink-0 truncate text-ui-xs text-muted-foreground sm:inline">{dir}</span>
-          )}
+          <span className={cn('truncate text-ui-sm text-foreground', dir ? 'max-w-[65%] shrink-0' : 'min-w-0 flex-1')}>
+            {name}
+          </span>
+          {dir && <span className="min-w-0 flex-1 truncate text-ui-xs text-muted-foreground">{dir}</span>}
         </button>
 
-        {(file.insertions > 0 || file.deletions > 0) && (
-          <span className="shrink-0 font-mono text-ui-xs tabular-nums">
-            <span className="text-success">+{file.insertions}</span>{' '}
-            <span className="text-destructive">-{file.deletions}</span>
-          </span>
-        )}
+        {/* Stats and row actions share one slot, so the hidden actions never
+            cost filename width: hover swaps one for the other. */}
+        <div className="relative flex min-w-[44px] shrink-0 items-center justify-end">
+          {(file.insertions > 0 || file.deletions > 0) && (
+            <span className="font-mono text-ui-xs tabular-nums transition-opacity group-focus-within:opacity-0 group-hover:opacity-0">
+              <span className="text-success">+{file.insertions}</span>{' '}
+              <span className="text-destructive">-{file.deletions}</span>
+            </span>
+          )}
 
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute right-0 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
           <button
             type="button"
             title="Discard changes"
@@ -157,6 +160,7 @@ function FileRow({
           >
             {file.staged ? '-' : '+'}
           </button>
+        </div>
         </div>
       </div>
 
@@ -413,35 +417,35 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
           title="Fetch"
           disabled={!!busy}
           onClick={() => act('fetch', () => window.myagent.git.fetch(cwd))}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
         >
-          {busy === 'fetch' ? <Loading03 size={12} className="animate-spin" /> : <Refresh01 size={12} />}
+          {busy === 'fetch' ? <Loading03 size={14} className="animate-spin" /> : <Rotate01 size={14} strokeWidth={1.8} />}
         </button>
         <button
           type="button"
           title="Pull"
           disabled={!!busy}
           onClick={() => act('pull', () => window.myagent.git.pull(cwd))}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
         >
-          <ArrowDownTray size={12} />
+          <ArrowDown02 size={14} strokeWidth={1.8} />
         </button>
         <button
           type="button"
           title="Push"
           disabled={!!busy}
           onClick={() => act('push', () => window.myagent.git.push(cwd))}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
         >
-          <ArrowUpTray size={12} />
+          <ArrowUp02 size={14} strokeWidth={1.8} />
         </button>
         <button
           type="button"
           title="Close git panel"
           onClick={onClose}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
         >
-          <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={2} aria-hidden />
+          <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.8} aria-hidden />
         </button>
       </div>
 
