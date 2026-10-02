@@ -347,6 +347,7 @@ interface Props {
   onStop(): void
   onPromptFocus?(): void
   onPromptBlur?(value: string): void
+  onPromptChange?(value: string): void
   placeholder?: string
   model?: string
   providers?: ProvidersInfo
@@ -377,6 +378,7 @@ export default function Composer({
   onStop,
   onPromptFocus,
   onPromptBlur,
+  onPromptChange,
   placeholder,
   model,
   providers,
@@ -1048,6 +1050,7 @@ export default function Composer({
               placeholder={placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything')}
               onChange={(e) => {
                 setText(e.target.value)
+                onPromptChange?.(e.target.value)
                 setCommandIndex(0)
                 grow()
               }}
@@ -1307,6 +1310,7 @@ export default function Composer({
               placeholder={placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything')}
               onChange={(e) => {
                 setText(e.target.value)
+                onPromptChange?.(e.target.value)
                 setCommandIndex(0)
                 grow()
               }}

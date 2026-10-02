@@ -65,6 +65,8 @@ export default function Home(props: Props): JSX.Element {
   const [effort, setEffort] = useState<ReasoningEffort>('medium')
   const pop = useRef<HTMLDivElement>(null)
   const recentsTimer = useRef<number | null>(null)
+  const promptValue = useRef('')
+  const pointerOverComposer = useRef(false)
 
   useEffect(() => {
     const close = (e: MouseEvent): void => {
@@ -87,7 +89,7 @@ export default function Home(props: Props): JSX.Element {
     setShowRecents(false)
   }
 
-  const blurPrompt = (value: string): void => {
+  const scheduleRecents = (value: string): void => {
     if (recentsTimer.current !== null) window.clearTimeout(recentsTimer.current)
     recentsTimer.current = null
     if (value.trim()) return
@@ -95,6 +97,22 @@ export default function Home(props: Props): JSX.Element {
       setShowRecents(true)
       recentsTimer.current = null
     }, 2000)
+  }
+
+  const blurPrompt = (value: string): void => {
+    promptValue.current = value
+    if (!pointerOverComposer.current) scheduleRecents(value)
+  }
+
+  const changePrompt = (value: string): void => {
+    promptValue.current = value
+    if (value.trim()) {
+      if (recentsTimer.current !== null) window.clearTimeout(recentsTimer.current)
+      recentsTimer.current = null
+      setShowRecents(false)
+    } else if (!pointerOverComposer.current) {
+      scheduleRecents(value)
+    }
   }
 
   const current = projects.find((p) => p.cwd === selected) ?? projects[0] ?? null
@@ -212,11 +230,23 @@ export default function Home(props: Props): JSX.Element {
               </div>
             </motion.div>
 
-            <motion.div variants={rise} className="relative z-20">
+            <motion.div
+              variants={rise}
+              className="relative z-20"
+              onPointerEnter={() => {
+                pointerOverComposer.current = true
+                focusPrompt()
+              }}
+              onPointerLeave={() => {
+                pointerOverComposer.current = false
+                scheduleRecents(promptValue.current)
+              }}
+            >
               <Composer
                 running={false}
                 onPromptFocus={focusPrompt}
                 onPromptBlur={blurPrompt}
+                onPromptChange={changePrompt}
                 onSend={(content) => {
                   const modelRef = model || providers.defaultModel
                   const divider = modelRef.indexOf('/')
