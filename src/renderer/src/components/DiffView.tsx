@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import type { DiffBlock, DiffLine, ToolDiff } from '../diff'
 import { cn } from '../util'
 
@@ -135,9 +137,7 @@ export default function DiffView({ diff }: { diff: ToolDiff }): JSX.Element {
           <span className="inline-flex items-center gap-1.5">
             show {total - MAX_LINES} more lines
             <span className="t-acc-chevron" aria-hidden>
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                <path d="M4 6.5L8 10.5L12 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={1.75} aria-hidden />
             </span>
           </span>
         </button>

@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import {
   ArrowDownTray,
   ArrowUpTray,
@@ -439,9 +441,7 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
           onClick={onClose}
           className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
         >
-          <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden>
-            <path d="M1 1l7 7M8 1L1 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
+          <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={2} aria-hidden />
         </button>
       </div>
 
@@ -461,7 +461,7 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
         {staged.length > 0 && (
           <div className="mb-2">
             <div className="flex items-center justify-between px-2 pb-0.5">
-              <span className="text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-ui-sm font-medium text-muted-foreground">
                 Staged ({staged.length})
               </span>
               <button
@@ -479,7 +479,7 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
         {unstaged.length > 0 && (
           <div>
             <div className="flex items-center justify-between px-2 pb-0.5">
-              <span className="text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-ui-sm font-medium text-muted-foreground">
                 Changes ({unstaged.length})
               </span>
               <button
@@ -506,7 +506,7 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
             ) : (
               <ChevronRight size={11} className="shrink-0 text-muted-foreground" />
             )}
-            <span className="text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <span className="text-ui-sm font-medium text-muted-foreground">
               Recent commits
             </span>
           </button>

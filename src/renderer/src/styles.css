@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@font-face {
+  font-family: "Geist Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+}
+
 @custom-variant dark (&:is(.dark, .dark *));
 
 /* ── design tokens ─────────────────────────────────────────────────────────
@@ -17,7 +25,7 @@
 
 @theme inline {
   --font-sans:
-    "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    "Geist Variable", "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono:
     "Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Consolas,
     "Liberation Mono", "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", monospace;
@@ -253,187 +261,243 @@
   --color-sky-600: #0284c7;
 }
 
+/* ── Theme anchors ───────────────────────────────────────────────────────
+   Every surface, line and text tier below is derived from three anchors per
+   theme and mode — --canvas (page), --ink (text) and --brand (accent) — by
+   mixing ink into the canvas. Changing an anchor moves the whole palette
+   coherently, which is how the named themes further down work.
+
+   The mixes use srgb on hex anchors on purpose: Electron 33 mis-renders
+   oklch + `none` inside color-mix() (see the neutral note above).
+
+   Step scale (--s1…--s4) is the ink strength of a fill; dark mode needs more
+   of it for the same perceived step. */
 :root {
   color-scheme: light;
   --radius: 0.625rem;
   --window-radius: 0px;
   /* Interface font size. The Appearance control mutates this one variable;
      never touch the root html font-size (that would scale padding, radii and
-     icons too). Default matches the previous hard-coded body size. */
+     icons too). */
   --ui-font-size: 13.5px;
-  /* ── ZCode palette (light) ──────────────────────────────────────────────
-     Values mirrored from ZCode packages/ui/src/styles.css @theme. The shell
-     trio (--shell*) stays ours: this window is frameless and acrylic/mica
-     blended, which ZCode is not. */
-  --background: var(--color-neutral-50);
-  --shell: #f5f5f5;
-  --shell-rgb: 245 245 245;
-  --shell-opacity: 0.88;
-  --shell-translucent: rgb(var(--shell-rgb) / var(--shell-opacity));
-  --shell-clear: rgb(var(--shell-rgb) / var(--shell-opacity));
-  --sidebar: var(--color-neutral-100);
-  --elevated: #ffffff;
-  --subtle: rgba(0, 0, 0, 0.030);
-  --hover: var(--color-neutral-200);
-  --selected: color-mix(in srgb, var(--color-neutral-950) 10%, transparent);
-  --code: var(--color-white);
-  /* ZCode reads body text at neutral-700, not -800: softer, and the reason
-     its dense transcript stays comfortable over a long session. */
-  --foreground: var(--color-neutral-700);
-  --background-alt: color-mix(in srgb, var(--color-neutral-100) 60%, transparent);
-  --header: var(--color-neutral-100);
-  --panel: var(--color-neutral-100);
-  --surface: color-mix(in srgb, var(--color-neutral-950) 3%, transparent);
-  --surface-hover: color-mix(in srgb, var(--color-neutral-950) 5%, transparent);
-  --card-selected: var(--color-neutral-200);
-  --menu: var(--color-white);
-  --menu-hover: var(--color-neutral-100);
-  --popover-border: var(--border);
-  --input-border: var(--border);
-  --input-border-hover: color-mix(in srgb, var(--color-neutral-950) 20%, transparent);
-  --input-border-focused: var(--brand);
-  --input-focused: var(--color-neutral-50);
-  /* Text roles, as alpha ramps off the body color (ZCode's exact formula). */
-  --foreground-subtle: color-mix(in srgb, var(--color-neutral-700) 60%, transparent);
-  --foreground-subtlest: color-mix(in srgb, var(--color-neutral-700) 40%, transparent);
-  --foreground-inverse: var(--color-white);
-  --brand: var(--color-sky-400);
-  /* Diff is a solid semantic pair in ZCode, not a translucent success wash —
-     an added/removed line has to read as a decision, not a state tint. */
-  --diff-added: var(--color-green-600);
-  --diff-added-foreground: var(--foreground-inverse);
-  --diff-removed: var(--color-red-600);
-  --diff-removed-foreground: var(--foreground-inverse);
-  --overlay: rgb(0 0 0 / 0.35);
-  --card: var(--color-white);
-  --card-foreground: var(--color-neutral-700);
-  --popover: var(--color-white);
-  --popover-foreground: var(--color-neutral-700);
-  --primary: var(--color-neutral-950);
-  --primary-foreground: var(--color-neutral-50);
-  --secondary: var(--color-neutral-300);
-  --secondary-foreground: var(--color-neutral-700);
-  --muted: color-mix(in srgb, var(--color-neutral-950) 4%, transparent);
-  --muted-foreground: var(--foreground-subtle);
-  --accent: color-mix(in srgb, var(--color-neutral-950) 4%, transparent);
-  --accent-foreground: var(--color-neutral-700);
-  --destructive: var(--color-red-600);
-  --border: color-mix(in srgb, var(--color-neutral-950) 10%, transparent);
-  --input: var(--color-white);
-  --ring: var(--color-neutral-400);
-  --destructive-foreground: var(--foreground-inverse);
-  --info: var(--color-blue-500);
-  --info-foreground: var(--color-blue-700);
-  --success: var(--color-green-600);
-  --success-foreground: var(--foreground-inverse);
-  --warning: var(--color-yellow-600);
-  --warning-foreground: var(--foreground-inverse);
-  /* "A run is live." ZCode signals running with the warning family, so this
-     tracks it instead of the old pink — pink was the only hue in the palette
-     that belonged to no other role. */
-  --busy: var(--color-yellow-600);
-  --chart-1: var(--color-orange-600);
-  --chart-2: var(--color-teal-600);
-  --chart-3: var(--color-cyan-900);
-  --chart-4: var(--color-amber-400);
-  --chart-5: var(--color-amber-500);
-  --code-foreground: var(--foreground);
-  --code-highlight: --alpha(var(--color-black) / 4%);
-  --sidebar-accent: --alpha(var(--color-black) / 4%);
-  --sidebar-accent-foreground: var(--color-neutral-800);
-  --sidebar-border: --alpha(var(--color-black) / 6%);
-  --sidebar-foreground: color-mix(in srgb, var(--color-neutral-800) 64%, var(--sidebar));
-  --sidebar-primary: var(--color-neutral-800);
-  --sidebar-primary-foreground: var(--color-neutral-50);
-  --sidebar-ring: var(--color-neutral-400);
+
+  --canvas: #ffffff;
+  --ink: #232323;
+  --brand: #2563eb;
+  --brand-foreground: #ffffff;
+
+  --s1: 3%;
+  --s2: 5%;
+  --s3: 8%;
+  --s4: 13%;
+  --line: 9%;
+  --line-strong: 18%;
+  --control-line: 26%;
+  --rail-tone: var(--ink);
+  --rail-s: 3.5%;
+  --card-lift: 0%;
+  --menu-lift: 0%;
+  --fg-subtle-a: 68%;
+  --fg-subtlest-a: 56%;
+
+  --success: #16a34a;
+  --warning: #ca8a04;
+  --destructive: #dc2626;
+  --diff-added: #16a34a;
+  --diff-removed: #dc2626;
+  /* -foreground is the readable text hue for each state (used on that state's
+     tinted wash). Solid fills use text-white directly. */
+  --success-foreground: #15803d;
+  --warning-foreground: #a16207;
+  --destructive-foreground: #b91c1c;
+  --diff-added-foreground: #15803d;
+  --diff-removed-foreground: #b91c1c;
+  --overlay: rgb(10 10 10 / 0.32);
+  --shadow-ink: 20 20 20;
+  --shadow-strength: 1;
 }
 
-/* ── ZCode palette (dark) ────────────────────────────────────────────────
-   This is the single biggest visual change from the old near-black theme.
-   ZCode sits on neutral-900 with a real neutral-800 card/popover step, so
-   elevation reads as a surface difference instead of a hairline. The previous
-   theme had card ~= background, which made every card look like a flat hole. */
 .dark {
   color-scheme: dark;
-  --background: var(--color-neutral-900);
-  --shell: #0e0e0e;
-  --shell-rgb: 14 14 14;
-  --shell-opacity: 0.72;
-  --shell-translucent: rgb(var(--shell-rgb) / var(--shell-opacity));
-  --shell-clear: rgb(var(--shell-rgb) / var(--shell-opacity));
-  /* Sidebar is the deepest surface in ZCode's dark theme — the shell, not the
-     content, is what recedes. */
-  --sidebar: var(--color-neutral-950);
-  --elevated: var(--color-neutral-800);
-  --subtle: rgba(255, 255, 255, 0.030);
-  --hover: var(--surface-hover);
-  --selected: color-mix(in srgb, var(--color-white) 10%, transparent);
-  --code: var(--color-neutral-950);
-  /* neutral-200 body text, not -100: keeps bright UI text off the top of the
-     range and closer to ZCode's reading contrast. */
-  --foreground: var(--color-neutral-200);
-  --background-alt: color-mix(in srgb, var(--color-neutral-800) 60%, transparent);
-  --header: var(--color-neutral-900);
-  --panel: var(--color-neutral-900);
-  --surface: color-mix(in srgb, var(--color-white) 5%, transparent);
-  --surface-hover: color-mix(in srgb, var(--color-white) 10%, transparent);
-  --card-selected: var(--color-neutral-700);
-  /* Menus go DARKER than the card they open over. That inversion is what stops
-     a dropdown from reading as another card. */
-  --menu: var(--color-neutral-950);
-  --menu-hover: var(--color-neutral-900);
-  --popover-border: var(--border);
-  --input-border: var(--border);
-  --input-border-hover: color-mix(in srgb, var(--color-neutral-50) 30%, transparent);
-  --input-border-focused: var(--brand);
-  --input-focused: var(--color-neutral-950);
-  --foreground-subtle: color-mix(in srgb, var(--color-neutral-200) 60%, transparent);
-  --foreground-subtlest: color-mix(in srgb, var(--color-neutral-200) 30%, transparent);
-  --foreground-inverse: var(--color-white);
-  --brand: var(--color-sky-500);
-  --diff-added: var(--color-green-500);
-  --diff-added-foreground: var(--foreground-inverse);
-  --diff-removed: var(--color-red-500);
-  --diff-removed-foreground: var(--foreground-inverse);
+  --canvas: #1b1b1b;
+  --ink: #ececec;
+  --brand: #6aa3ff;
+  --brand-foreground: #0b1220;
+
+  --s1: 4%;
+  --s2: 7%;
+  --s3: 11%;
+  --s4: 17%;
+  --line: 10%;
+  --line-strong: 22%;
+  --control-line: 30%;
+  --rail-tone: #000000;
+  --rail-s: 32%;
+  --card-lift: 4.5%;
+  --menu-lift: 7%;
+  --fg-subtle-a: 64%;
+  --fg-subtlest-a: 50%;
+
+  --success: #34d27b;
+  --warning: #eab308;
+  --destructive: #f26b6b;
+  --diff-added: #34d27b;
+  --diff-removed: #f26b6b;
+  --success-foreground: #5ee79b;
+  --warning-foreground: #facc15;
+  --destructive-foreground: #ff8a8a;
+  --diff-added-foreground: #5ee79b;
+  --diff-removed-foreground: #ff8a8a;
   --overlay: rgb(0 0 0 / 0.6);
-  --card: var(--color-neutral-800);
-  --card-foreground: var(--color-neutral-200);
-  --popover: var(--color-neutral-800);
-  --popover-foreground: var(--color-neutral-200);
-  --primary: var(--color-neutral-50);
-  --primary-foreground: var(--color-neutral-950);
-  --secondary: var(--color-neutral-700);
-  --secondary-foreground: var(--color-neutral-200);
-  --muted: color-mix(in srgb, var(--color-white) 5%, transparent);
-  --muted-foreground: var(--foreground-subtle);
-  --accent: color-mix(in srgb, var(--color-neutral-950) 50%, transparent);
-  --accent-foreground: var(--color-neutral-200);
-  --destructive: var(--color-red-500);
-  --border: color-mix(in srgb, var(--color-neutral-50) 10%, transparent);
-  --input: var(--color-neutral-800);
-  --ring: var(--color-neutral-500);
-  --destructive-foreground: var(--foreground-inverse);
-  --info: var(--color-blue-500);
-  --info-foreground: var(--color-blue-400);
-  --success: var(--color-green-500);
-  --success-foreground: var(--foreground-inverse);
-  --warning: var(--color-yellow-500);
-  --warning-foreground: var(--foreground-inverse);
-  --busy: var(--color-yellow-500);
-  --chart-1: var(--color-blue-700);
-  --chart-2: var(--color-emerald-500);
-  --chart-3: var(--color-amber-500);
-  --chart-4: var(--color-purple-500);
-  --chart-5: var(--color-rose-500);
+  --shadow-ink: 0 0 0;
+  --shadow-strength: 2.2;
+}
+
+/* ── Named themes ────────────────────────────────────────────────────────
+   <html data-theme="…"> swaps the anchors only. Light/dark stays the .dark
+   class, so every theme ships both modes. `ThemeId` in preferences.ts lists
+   the ids; Settings → Appearance renders the swatches from THEMES there. */
+:root[data-theme='nord'] {
+  --canvas: #eceff4;
+  --ink: #2e3440;
+  --brand: #4c6f9b;
+  --brand-foreground: #ffffff;
+}
+:root.dark[data-theme='nord'] {
+  --canvas: #2e3440;
+  --ink: #e5e9f0;
+  --brand: #88c0d0;
+  --brand-foreground: #1c2430;
+}
+:root[data-theme='catppuccin'] {
+  --canvas: #eff1f5;
+  --ink: #4c4f69;
+  --brand: #1e66f5;
+  --brand-foreground: #ffffff;
+}
+:root.dark[data-theme='catppuccin'] {
+  --canvas: #1e1e2e;
+  --ink: #cdd6f4;
+  --brand: #89b4fa;
+  --brand-foreground: #11111b;
+}
+:root[data-theme='gruvbox'] {
+  --canvas: #fbf1c7;
+  --ink: #3c3836;
+  --brand: #9d5f0b;
+  --brand-foreground: #fbf1c7;
+}
+:root.dark[data-theme='gruvbox'] {
+  --canvas: #282828;
+  --ink: #ebdbb2;
+  --brand: #fabd2f;
+  --brand-foreground: #282828;
+}
+:root[data-theme='solarized'] {
+  --canvas: #fdf6e3;
+  --ink: #3d535b;
+  --brand: #1f78b4;
+  --brand-foreground: #fdf6e3;
+}
+:root.dark[data-theme='solarized'] {
+  --canvas: #002b36;
+  --ink: #a4b1b1;
+  --brand: #3aa0e0;
+  --brand-foreground: #002b36;
+}
+:root[data-theme='dracula'] {
+  --canvas: #fbfaf7;
+  --ink: #2b2a33;
+  --brand: #6f4fd0;
+  --brand-foreground: #ffffff;
+}
+:root.dark[data-theme='dracula'] {
+  --canvas: #282a36;
+  --ink: #f2f2ee;
+  --brand: #bd93f9;
+  --brand-foreground: #1d1e28;
+}
+
+/* ── Derived palette (shared by every theme) ───────────────────────────── */
+:root {
+  --foreground: var(--ink);
+  --background: var(--canvas);
+  --background-alt: color-mix(in srgb, var(--ink) var(--s1), transparent);
+  --shell: color-mix(in srgb, var(--rail-tone) var(--rail-s), var(--canvas));
+  --shell-translucent: color-mix(in srgb, var(--shell) calc(var(--shell-opacity) * 100%), transparent);
+  --shell-clear: var(--shell-translucent);
+  --shell-opacity: 0.88;
+  --sidebar: var(--shell);
+  --header: var(--canvas);
+  --panel: color-mix(in srgb, var(--ink) 1.5%, var(--canvas));
+  --elevated: color-mix(in srgb, var(--ink) var(--card-lift), var(--canvas));
+  --subtle: color-mix(in srgb, var(--ink) var(--s1), transparent);
+  --hover: color-mix(in srgb, var(--ink) var(--s2), transparent);
+  --selected: color-mix(in srgb, var(--ink) var(--s3), transparent);
+  --code: color-mix(in srgb, var(--ink) 2.5%, var(--canvas));
   --code-foreground: var(--foreground);
-  --code-highlight: --alpha(var(--color-white) / 4%);
-  --sidebar-accent: --alpha(var(--color-white) / 4%);
-  --sidebar-accent-foreground: var(--color-neutral-100);
-  --sidebar-border: --alpha(var(--color-white) / 5%);
-  --sidebar-foreground: color-mix(in srgb, var(--color-neutral-100) 64%, var(--sidebar));
-  --sidebar-primary: var(--color-neutral-100);
-  --sidebar-primary-foreground: var(--color-neutral-800);
-  --sidebar-ring: var(--color-neutral-400);
+  --code-highlight: color-mix(in srgb, var(--ink) var(--s1), transparent);
+
+  --surface: color-mix(in srgb, var(--ink) var(--s1), transparent);
+  --surface-hover: color-mix(in srgb, var(--ink) var(--s2), transparent);
+  --card: color-mix(in srgb, var(--ink) var(--card-lift), var(--canvas));
+  --card-foreground: var(--ink);
+  --card-selected: color-mix(in srgb, var(--ink) var(--s3), var(--canvas));
+  --popover: color-mix(in srgb, var(--ink) var(--menu-lift), var(--canvas));
+  --popover-foreground: var(--ink);
+  --popover-border: color-mix(in srgb, var(--ink) var(--line), transparent);
+  --menu: var(--popover);
+  --menu-hover: color-mix(in srgb, var(--ink) var(--s2), transparent);
+
+  /* --input is the stroke/off-fill of form controls (the Base UI primitives read
+     it as `border-input`); fields keep a visible edge at ~3:1 against the page. */
+  --input: color-mix(in srgb, var(--ink) var(--control-line), transparent);
+  --input-border: var(--input);
+  --input-border-hover: color-mix(in srgb, var(--ink) calc(var(--control-line) + 14%), transparent);
+  --input-border-focused: var(--brand);
+  --input-focused: var(--card);
+  --border: color-mix(in srgb, var(--ink) var(--line), transparent);
+  --ring: var(--brand);
+
+  --foreground-subtle: color-mix(in srgb, var(--ink) var(--fg-subtle-a), transparent);
+  --foreground-subtlest: color-mix(in srgb, var(--ink) var(--fg-subtlest-a), transparent);
+  --foreground-inverse: var(--canvas);
+  --muted: color-mix(in srgb, var(--ink) var(--s2), transparent);
+  --muted-foreground: var(--foreground-subtle);
+  --accent: color-mix(in srgb, var(--ink) var(--s2), transparent);
+  --accent-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--canvas);
+  --secondary: color-mix(in srgb, var(--ink) var(--s4), var(--canvas));
+  --secondary-foreground: var(--ink);
+
+  --info: var(--brand);
+  --info-foreground: var(--brand);
+  --busy: var(--warning);
+
+  --chart-1: var(--brand);
+  --chart-2: var(--success);
+  --chart-3: var(--warning);
+  --chart-4: var(--destructive);
+  --chart-5: var(--foreground-subtle);
+
+  --sidebar-accent: var(--hover);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--border);
+  --sidebar-foreground: color-mix(in srgb, var(--ink) 78%, transparent);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: var(--canvas);
+  --sidebar-ring: var(--brand);
+
+  /* Elevation: one soft layered shadow per tier, never a border on top of a
+     wide blur. --shadow-strength lifts the same recipe for dark canvases. */
+  --shadow-card:
+    0 1px 2px rgb(var(--shadow-ink) / calc(0.05 * var(--shadow-strength))),
+    0 4px 12px -4px rgb(var(--shadow-ink) / calc(0.06 * var(--shadow-strength)));
+  --shadow-pop:
+    0 0 0 1px color-mix(in srgb, var(--ink) var(--line), transparent),
+    0 2px 6px rgb(var(--shadow-ink) / calc(0.05 * var(--shadow-strength))),
+    0 12px 32px -8px rgb(var(--shadow-ink) / calc(0.14 * var(--shadow-strength)));
 }
 
 @layer base {
@@ -463,6 +527,14 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
+  /* Browser surfaces carry the palette too, not just the components. */
+  html {
+    accent-color: var(--brand);
+    caret-color: var(--brand);
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--brand) 26%, transparent);
+  }
   button {
     cursor: pointer;
   }
@@ -477,10 +549,10 @@
 
 /* App-chrome grain, baked into surfaces that opt in. */
 :root {
-  --surface-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  --surface-grain: none;
 }
 .dark {
-  --surface-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+  --surface-grain: none;
 }
 
 /* ── transitions-dev (gallery model selector) ─────────────────────────
@@ -1163,6 +1235,35 @@
   contain-intrinsic-size: auto 160px;
 }
 
+/* Tool timeline: a hairline runs through the icon column of consecutive tool
+   rows (and down through an expanded body), broken a few px short of each
+   icon so the glyph sits in clear space. Only drawn between adjacent tool
+   rows — reasoning and message entries interrupt it. */
+.tool-row {
+  position: relative;
+}
+.tool-row::before,
+.tool-row::after {
+  content: '';
+  position: absolute;
+  left: 7.5px;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+.tool-row::before {
+  top: 0;
+  height: 6px;
+}
+.tool-row::after {
+  top: 26px;
+  bottom: 0;
+}
+.tool-row:not(.tool-row + .tool-row)::before,
+.tool-row:not(:has(+ .tool-row))::after {
+  display: none;
+}
+
 /* A transcript row announcing itself. Deliberately short: appended content
    should not keep the reader waiting on its own entrance, and during a run
    several rows can land within the same second. */
@@ -1549,9 +1650,7 @@
 @utility card-textured {
   background-color: var(--card);
   border: 1px solid var(--border);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
-    0 4px 20px -4px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-card);
 }
 
 /* Lightweight content card: hairline border, soft lift, and a hover raise.
@@ -1561,32 +1660,17 @@
   background-color: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  box-shadow:
-    0 1px 2px 0 rgb(0 0 0 / 0.04),
-    inset 0 1px 0 0 rgb(255 255 255 / 0.04);
   transition:
-    border-color var(--duration-quick, 150ms) var(--ease-smooth-out, ease),
-    box-shadow var(--duration-quick, 150ms) var(--ease-smooth-out, ease),
-    transform var(--duration-quick, 150ms) var(--ease-smooth-out, ease),
-    background-color var(--duration-quick, 150ms) var(--ease-smooth-out, ease);
+    border-color var(--duration-quick) var(--ease-smooth-out),
+    background-color var(--duration-quick) var(--ease-smooth-out);
 }
 .surface-card:hover {
-  border-color: var(--input);
-  box-shadow:
-    0 4px 16px -6px rgb(0 0 0 / 0.12),
-    inset 0 1px 0 0 rgb(255 255 255 / 0.05);
-  transform: translateY(-1px);
-}
-.dark .surface-card:hover {
-  box-shadow:
-    0 4px 16px -6px rgb(0 0 0 / 0.5),
-    inset 0 1px 0 0 rgb(255 255 255 / 0.06);
+  border-color: var(--input-border-hover);
+  background-color: color-mix(in srgb, var(--ink) var(--s1), var(--card));
 }
 @media (prefers-reduced-motion: reduce) {
-  .surface-card,
-  .surface-card:hover {
+  .surface-card {
     transition: none;
-    transform: none;
   }
 }
 
@@ -1603,7 +1687,7 @@
    (see resolveBackdrop in src/main/index.ts). The default below is the opaque
    case, so a slow IPC round-trip flashes a solid fill rather than a void. */
 .app-shell {
-  background: rgb(var(--shell-rgb) / var(--shell-opacity));
+  background: var(--shell-translucent);
   border-radius: var(--window-radius);
 }
 
@@ -1644,13 +1728,13 @@
    when the window has a compositor blur. Otherwise the 5% hover wash is
    invisible over a sharp wallpaper. */
 [data-backdrop]:not([data-backdrop='none']) aside {
-  background: rgb(var(--shell-rgb) / 0.58);
+  background: color-mix(in srgb, var(--shell) 58%, transparent);
   backdrop-filter: blur(20px) saturate(1.2);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
   border-right: 1px solid var(--border);
 }
 [data-backdrop]:not([data-backdrop='none']):not(.dark) aside {
-  background: rgb(var(--shell-rgb) / 0.72);
+  background: color-mix(in srgb, var(--shell) 72%, transparent);
 }
 
 /* Drops the two effects that dominate a repaint pass — the sidebar's
@@ -1711,8 +1795,8 @@
   background: var(--background);
   border-top: 1px solid var(--border);
   border-left: 1px solid var(--border);
-  border-top-left-radius: 0.75rem;
-  border-top-right-radius: 0.75rem;
+  border-top-left-radius: 0.875rem;
+  border-top-right-radius: 0.875rem;
 }
 .window-maximized .main-panel {
   border-top-left-radius: 0;
@@ -1787,23 +1871,9 @@
   outline: 2px solid var(--ring);
   outline-offset: -2px;
 }
-.window-control svg {
-  width: 10px;
-  height: 10px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: square;
-  stroke-linejoin: miter;
-  stroke-width: 1;
-  shape-rendering: crispEdges;
-}
 .window-control svg.window-control-hugeicon {
-  width: 12px;
-  height: 12px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-  shape-rendering: auto;
+  width: 14px;
+  height: 14px;
 }
 .window-control-close:hover {
   background: #c42b1c;
@@ -1994,21 +2064,20 @@
   height: 2rem;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  padding: 0 0.45rem 0 0.8rem;
+  padding: 0.25rem 0.45rem 0 0.9rem;
   color: var(--muted-foreground);
 }
 .codeblock-lang {
-  font-family: var(--font-mono);
-  font-size: var(--text-ui-xs);
-  text-transform: lowercase;
+  font-size: var(--text-ui-sm);
+  font-weight: 500;
 }
 .codeblock-copy {
   display: grid;
-  width: 1.7rem;
-  height: 1.7rem;
+  position: relative;
+  width: 1.75rem;
+  height: 1.75rem;
   place-items: center;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   color: var(--muted-foreground);
   transition:
     color var(--duration-quick) var(--ease-smooth-out),
@@ -2053,9 +2122,7 @@
 .settings-heading {
   margin: 0 0 0.65rem;
   font-size: var(--text-ui-sm);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 500;
   color: var(--muted-foreground);
 }
 .settings-card {

@@ -1,6 +1,7 @@
 import { memo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronRight } from './ui/icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
 import type { Message } from '../../../shared/protocol'
 import type { ToolRun } from '../state'
 import type { ToolActivityDisplay } from '../preferences'
@@ -8,6 +9,7 @@ import ToolCard from './ToolCard'
 import Thinking from './Thinking'
 import MessageView from './MessageView'
 import { cn, duration } from '../util'
+import { disclosure } from '../motion'
 
 // A single unit of agent work: reasoning or a tool call. Consecutive entries
 // are rendered together so presentation stays decoupled from history.
@@ -55,7 +57,7 @@ function ToolGroup({
 
   if (display === 'expanded') {
     return (
-      <div className="mt-5 flex flex-col gap-0.5">
+      <div className="mt-5 flex flex-col">
         {entries.map((entry) => (
           <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
         ))}
@@ -67,7 +69,7 @@ function ToolGroup({
     // Failures are never silently swallowed, even in the quietest mode.
     if (errors.length === 0) return null
     return (
-      <div className="mt-5 flex flex-col gap-0.5">
+      <div className="mt-5 flex flex-col">
         {errors.map((run) => (
           <ToolCard key={run.id} run={run} />
         ))}
@@ -83,7 +85,7 @@ function ToolGroup({
   if (running || toolCount === 0) {
     return (
       <section className="mt-5 transcript-rise">
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col">
           {entries.map((entry) => (
             <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
           ))}
@@ -94,43 +96,42 @@ function ToolGroup({
 
   const startedAt = Math.min(...runs.map((r) => r.createdAt))
   const endedAt = Math.max(...runs.map((r) => r.updatedAt))
+  const summary = `Worked for ${duration(endedAt - startedAt)} and made ${toolCount} tool ${toolCount === 1 ? 'call' : 'calls'}`
   return (
     <section className="mt-5 transcript-rise">
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
-            transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-            className="flex flex-col gap-0.5"
-          >
-            {entries.map((entry) => (
-              <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
       <button
         type="button"
-        className="group mt-2 flex w-full items-center gap-2 text-left text-muted-foreground transition-colors"
+        className="group -mx-1.5 flex min-h-7 max-w-full items-center gap-1.5 rounded-lg px-1.5 text-left text-ui-base text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
       >
-        <span className="h-px flex-1 bg-border transition-colors group-hover:bg-muted-foreground/25" />
-        <span className="flex shrink-0 items-center gap-1.5 text-ui-sm font-medium transition-colors group-hover:text-muted-foreground">
-          <ChevronRight
-            size={13}
-            strokeWidth={1.8}
-            className={cn('transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]', open && '-rotate-90')}
-          />
-          {`Worked for ${duration(endedAt - startedAt)} · ${toolCount} tool${toolCount === 1 ? '' : 's'}`}
-          {errors.length > 0 && (
-            <span className="text-destructive-foreground">· {errors.length} failed</span>
-          )}
-        </span>
-        <span className="h-px flex-1 bg-border transition-colors group-hover:bg-muted-foreground/25" />
+        <span className="min-w-0 truncate tabular-nums">{summary}</span>
+        {errors.length > 0 && <span className="shrink-0 text-destructive-foreground">, {errors.length} failed</span>}
+        <HugeiconsIcon
+          icon={ArrowRight01Icon}
+          size={14}
+          strokeWidth={1.75}
+          className={cn('shrink-0 text-foreground-subtlest transition-[transform,color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] group-hover:text-foreground', open && 'rotate-90')}
+          aria-hidden
+        />
       </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            variants={disclosure}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="overflow-hidden"
+          >
+            <div className="flex flex-col pt-1">
+              {entries.map((entry) => (
+                <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   )
 }

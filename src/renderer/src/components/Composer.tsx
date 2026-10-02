@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, KeyboardEvent, ClipboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { AddToList, ChevronRight, HelpCircle, MouseLeftClick05, MouseRightClick05, Search01, Tick01 } from './ui/icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Add01Icon, ArrowDown01Icon, ArrowUp02Icon, AudioWave01Icon, Cancel01Icon, Mic01Icon, StopIcon as StopIconGlyph } from '@hugeicons/core-free-icons'
+import { AddToList, ChevronRight, MouseLeftClick05, MouseRightClick05, Search01, Tick01 } from './ui/icons'
 import JellyRadio from './ui/JellyRadio'
+import EffortSlider from './EffortSlider'
 import HoverTooltip from './ui/HoverTooltip'
 import type { ContentBlock, ProvidersInfo, ReasoningEffort } from '../../../shared/protocol'
 import type { EffortSelectorVariant, ModelSelectorVariant } from '../preferences'
@@ -52,60 +55,31 @@ function MorphingText({ text }: { text: string }): JSX.Element {
 }
 
 function ArrowUpIcon(): JSX.Element {
-  return (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M7 12V2M7 2L2.5 6.5M7 2L11.5 6.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={ArrowUp02Icon} size={14} strokeWidth={2} aria-hidden />
 }
 
 function MicIcon(): JSX.Element {
-  return (
-    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <rect x="5" y="1" width="4" height="7" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M2.75 6.5V7a4.25 4.25 0 0 0 8.5 0v-.5M7 11.25V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={Mic01Icon} size={15} strokeWidth={1.75} aria-hidden />
 }
 
 function StopIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" fill="currentColor" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={StopIconGlyph} size={14} strokeWidth={1.75} className="fill-current" aria-hidden />
 }
 
 function WaveformIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M2.5 5.5v3M5 3.5v7M7.5 5v4M10 2.5v9M12 6v2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={AudioWave01Icon} size={15} strokeWidth={1.75} aria-hidden />
 }
 
 function ChevronDownIcon(): JSX.Element {
-  return (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={1.75} aria-hidden />
 }
 
 function PlusIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M7 2.5V11.5M2.5 7H11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={Add01Icon} size={15} strokeWidth={1.75} aria-hidden />
 }
 
 function CloseIcon(): JSX.Element {
-  return (
-    <svg width="9" height="9" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M2.5 2.5L11.5 11.5M11.5 2.5L2.5 11.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={Cancel01Icon} size={11} strokeWidth={2} aria-hidden />
 }
 
 // Four arc segments of a ring, filled clockwise from 12 o'clock as effort rises.
@@ -367,10 +341,6 @@ const EFFORTS: { label: string; value: ReasoningEffort }[] = [
   { label: 'Max', value: 'max' }
 ]
 
-// Half the slider thumb (14px wide), inset from each end of the effort track so
-// the thumb never overhangs the rounded rail at the first or last step.
-const EFFORT_EDGE = 11
-
 interface Props {
   running: boolean
   onSend(content: ContentBlock[], queue: boolean): Promise<void>
@@ -430,6 +400,7 @@ export default function Composer({
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
 
   const [effortMenuOpen, setEffortMenuOpen] = useState(false)
+  const [effortPreview, setEffortPreview] = useState<number | null>(null)
   const effortMenuRef = useRef<HTMLDivElement>(null)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [activeAttachment, setActiveAttachment] = useState<{ attachment: Attachment; rect: DOMRect } | null>(null)
@@ -627,58 +598,12 @@ export default function Composer({
   const currentEffort = effortUnsupported ? '' : effort
   const currentEffortLabel = EFFORTS.find((item) => item.value === currentEffort)?.label ?? 'Default'
 
-  // ── effort slider (ported from the PromptBar effort selector) ──────────────
-  // Every level the backend accepts stays reachable from this one control, and
-  // step positions are computed from the track width so the dots, fill and thumb
-  // all land on the same rail geometry at any panel size.
+  // Every level the backend accepts stays reachable from the EffortSlider.
   const effortIndex = Math.max(0, EFFORTS.findIndex((item) => item.value === currentEffort))
-  const maxedEffort = EFFORTS.length > 1 && effortIndex === EFFORTS.length - 1
-  const effortStepAt = (index: number): string =>
-    `calc(${EFFORT_EDGE}px + (100% - ${EFFORT_EDGE * 2}px) * ${index / Math.max(1, EFFORTS.length - 1)})`
-  // The fill runs to the far edge at the last step; anywhere else it stops half
-  // a thumb past the active dot so the thumb sits flush on its end.
-  const effortFillAt = (index: number): string =>
-    index === EFFORTS.length - 1 ? '100%' : `calc(${effortStepAt(index)} + 7px)`
-
   const setEffortAt = (index: number): void => {
     const next = EFFORTS[Math.max(0, Math.min(EFFORTS.length - 1, index))]
     if (!next || next.value === currentEffort) return
     onSetEffort?.(next.value)
-  }
-
-  // Drag anywhere on the rail: the nearest step to the pointer wins, so a plain
-  // click is just a zero-length drag.
-  const effortFromPointer = (event: React.PointerEvent<HTMLDivElement>): void => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    const ratio = (event.clientX - rect.left - EFFORT_EDGE) / Math.max(1, rect.width - EFFORT_EDGE * 2)
-    setEffortAt(Math.round(ratio * (EFFORTS.length - 1)))
-  }
-
-  const onEffortKey = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
-      event.preventDefault()
-      setEffortAt(effortIndex + 1)
-      return
-    }
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
-      event.preventDefault()
-      setEffortAt(effortIndex - 1)
-      return
-    }
-    if (event.key === 'Home') {
-      event.preventDefault()
-      setEffortAt(0)
-      return
-    }
-    if (event.key === 'End') {
-      event.preventDefault()
-      setEffortAt(EFFORTS.length - 1)
-      return
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      setEffortMenuOpen(false)
-    }
   }
 
   const cycleProvider = (step: number): void => {
@@ -1624,7 +1549,7 @@ export default function Composer({
                       className={cn(
                         'absolute bottom-full left-0 z-50 mb-2.5 rounded-lg border border-border bg-menu shadow-md',
                         effortSlider
-                          ? 'w-[248px] px-3.5 pb-3.5 pt-3'
+                          ? 'w-[248px] px-3 pb-3 pt-3'
                           // JellyRadio measures its own padding; the panel just
                           // frames it. No scrolling: every level is visible.
                           : 'p-1'
@@ -1636,75 +1561,26 @@ export default function Composer({
                       transition={BLOOM_FAST}
                       role={effortSlider ? 'dialog' : 'menu'}
                       aria-label="Reasoning effort"
+                      onMouseDown={(e) => e.stopPropagation()}
                     >
                       {effortSlider ? (
                       <>
                       <div className="flex items-center gap-2 text-ui-caption leading-[18px]">
-                        <span className="text-muted-foreground">Effort</span>
-                        <span className="font-medium text-foreground">{currentEffortLabel}</span>
-                        <span
-                          className="ml-auto inline-flex text-muted-foreground"
-                          title="Higher effort thinks longer before answering"
-                        >
-                          <HelpCircle size={14} strokeWidth={1.8} />
-                        </span>
+                        <span className="text-foreground-subtle">Reasoning effort</span>
+                        <span className="ml-auto font-medium text-foreground">{EFFORTS[effortPreview ?? effortIndex]?.label ?? currentEffortLabel}</span>
                       </div>
-
-                      <div className="mt-3 flex justify-between text-ui-sm leading-4 text-foreground-subtlest">
+                      <div className="mt-1">
+                        <EffortSlider
+                          stops={EFFORTS.map((item) => item.label)}
+                          value={effortIndex}
+                          onChange={setEffortAt}
+                          onEscape={() => setEffortMenuOpen(false)}
+                          onPreview={setEffortPreview}
+                        />
+                      </div>
+                      <div className="mt-1 flex justify-between text-ui-sm leading-4 text-foreground-subtlest">
                         <span>Faster</span>
                         <span>Smarter</span>
-                      </div>
-
-                      {/* Rail: a click or drag snaps to the nearest level, and the
-                          focused rail steps with arrows / Home / End. */}
-                      <div
-                        role="slider"
-                        tabIndex={0}
-                        aria-label="Effort"
-                        aria-valuemin={0}
-                        aria-valuemax={EFFORTS.length - 1}
-                        aria-valuenow={effortIndex}
-                        aria-valuetext={currentEffortLabel}
-                        className="relative mt-2 h-[22px] cursor-pointer touch-none select-none rounded-full bg-hover outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onPointerDown={(event) => {
-                          if (event.button !== 0) return
-                          try {
-                            event.currentTarget.setPointerCapture(event.pointerId)
-                          } catch {
-                            // Pointer capture is best-effort — dragging still works without it.
-                          }
-                          event.currentTarget.focus({ preventScroll: true })
-                          effortFromPointer(event)
-                        }}
-                        onPointerMove={(event) => {
-                          if (event.buttons & 1) effortFromPointer(event)
-                        }}
-                        onKeyDown={onEffortKey}
-                      >
-                        <span
-                          aria-hidden="true"
-                          style={{ width: effortFillAt(effortIndex) }}
-                          className={cn(
-                            'absolute inset-y-0 left-0 rounded-full transition-[width,background-color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none',
-                            maxedEffort ? 'bg-info/35' : 'bg-foreground/18'
-                          )}
-                        />
-                        {EFFORTS.map((item, index) => (
-                          <i
-                            key={item.value || 'default'}
-                            aria-hidden="true"
-                            style={{ left: effortStepAt(index) }}
-                            className="absolute top-1/2 -ml-0.5 -mt-0.5 size-1 rounded-full bg-foreground/30"
-                          />
-                        ))}
-                        <span
-                          aria-hidden="true"
-                          style={{ left: effortStepAt(effortIndex) }}
-                          className={cn(
-                            'absolute -top-[3px] -ml-[7px] h-7 w-3.5 rounded-[7px] shadow-[0_2px_6px_rgba(0,0,0,0.25)] transition-[left,background-color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none',
-                            maxedEffort ? 'bg-info' : 'bg-foreground'
-                          )}
-                        />
                       </div>
                       </>
                       ) : (

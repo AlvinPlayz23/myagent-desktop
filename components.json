@@ -16,7 +16,7 @@
     "ui": "@/components/ui",
     "lib": "@/lib"
   },
-  "iconLibrary": "lucide",
+  "iconLibrary": "hugeicons",
   "registries": {
     "@coss": "https://coss.com/ui/r/{name}.json"
   }

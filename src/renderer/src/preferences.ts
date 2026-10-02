@@ -1,5 +1,26 @@
 export type ThemePreference = 'system' | 'dark' | 'light'
 export type AccentPreference = 'cobalt' | 'violet' | 'jade' | 'amber'
+
+/** Named palettes. Each ships a light and a dark variant (see styles.css). */
+export type ThemeId = 'default' | 'nord' | 'catppuccin' | 'gruvbox' | 'solarized' | 'dracula'
+
+export interface ThemeMeta {
+  id: ThemeId
+  name: string
+  detail: string
+  /** Swatch preview only — the real tokens live in styles.css. [canvas, ink, brand] per mode. */
+  light: [string, string, string]
+  dark: [string, string, string]
+}
+
+export const THEMES: readonly ThemeMeta[] = [
+  { id: 'default', name: 'Neutral', detail: 'Quiet greys with a blue accent', light: ['#ffffff', '#232323', '#2563eb'], dark: ['#1b1b1b', '#ececec', '#6aa3ff'] },
+  { id: 'nord', name: 'Nord', detail: 'Cool, muted arctic blues', light: ['#eceff4', '#2e3440', '#4c6f9b'], dark: ['#2e3440', '#e5e9f0', '#88c0d0'] },
+  { id: 'catppuccin', name: 'Catppuccin', detail: 'Soft pastel — Latte and Mocha', light: ['#eff1f5', '#4c4f69', '#1e66f5'], dark: ['#1e1e2e', '#cdd6f4', '#89b4fa'] },
+  { id: 'gruvbox', name: 'Gruvbox', detail: 'Warm retro earth tones', light: ['#fbf1c7', '#3c3836', '#9d5f0b'], dark: ['#282828', '#ebdbb2', '#fabd2f'] },
+  { id: 'solarized', name: 'Solarized', detail: 'Balanced low-glare contrast', light: ['#fdf6e3', '#3d535b', '#1f78b4'], dark: ['#002b36', '#a4b1b1', '#3aa0e0'] },
+  { id: 'dracula', name: 'Dracula', detail: 'High-contrast purple on charcoal', light: ['#fbfaf7', '#2b2a33', '#6f4fd0'], dark: ['#282a36', '#f2f2ee', '#bd93f9'] }
+]
 export type MessageSize = 'compact' | 'default' | 'large'
 export type ToolActivityDisplay = 'expanded' | 'compact' | 'hidden'
 export type ModelSelectorVariant = 'compact' | 'gallery'
@@ -9,6 +30,8 @@ export type SidebarVariant = 'inbox' | 'grouped'
 export interface Preferences {
   theme: ThemePreference
   accent: AccentPreference
+  /** Named palette; light/dark is chosen separately by `theme`. */
+  themeId: ThemeId
   messageSize: MessageSize
   reducedMotion: boolean
   autoScroll: boolean
@@ -51,6 +74,7 @@ function normalizeAccent(value: unknown): AccentPreference {
 export const defaults: Preferences = {
   theme: 'system',
   accent: 'cobalt',
+  themeId: 'default',
   messageSize: 'default',
   reducedMotion: false,
   autoScroll: true,
@@ -90,6 +114,7 @@ export function loadPreferences(): Preferences {
       ...defaults,
       ...stored,
       accent: normalizeAccent(stored.accent),
+      themeId: THEMES.some((t) => t.id === stored.themeId) ? (stored.themeId as ThemeId) : 'default',
       toolActivityDisplay: stored.toolActivityDisplay === 'expanded' || stored.toolActivityDisplay === 'hidden' ? stored.toolActivityDisplay : 'compact',
       modelSelectorVariant: stored.modelSelectorVariant === 'gallery' ? 'gallery' : 'compact',
       effortSelectorVariant: stored.effortSelectorVariant === 'chips' ? 'chips' : 'slider',
@@ -111,10 +136,21 @@ export function savePreferences(preferences: Preferences): void {
   )
 }
 
-export function applyTheme(theme: ThemePreference): void {
+export function applyTheme(theme: ThemePreference, themeId: ThemeId = 'default'): void {
+  const root = document.documentElement
   const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
   const dark = theme === 'dark' || (theme === 'system' && systemDark)
-  document.documentElement.classList.toggle('dark', dark)
+  if (root.classList.contains('dark') !== dark || root.dataset.theme !== themeId) {
+    // A theme flip repaints colour, background, border and shadow on nearly
+    // every element; without this the per-element transitions smear the swap.
+    const freeze = document.createElement('style')
+    freeze.textContent = '*,*::before,*::after{transition:none !important}'
+    document.head.appendChild(freeze)
+    root.classList.toggle('dark', dark)
+    root.dataset.theme = themeId
+    void root.offsetHeight
+    requestAnimationFrame(() => freeze.remove())
+  }
   void window.myagent.setTheme(dark ? 'dark' : 'light')
 }
 

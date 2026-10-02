@@ -40,7 +40,7 @@ interface Props {
 
 function iconButton(active: boolean): string {
   return cn(
-    'grid size-8 shrink-0 place-items-center rounded-full outline-none transition-colors',
+    'grid size-8 shrink-0 place-items-center rounded-lg outline-none transition-colors duration-[var(--duration-instant)]',
     'focus-visible:ring-2 focus-visible:ring-ring',
     active ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
   )
@@ -50,7 +50,7 @@ function iconButton(active: boolean): string {
 function Avatar({ size }: { size: number }): JSX.Element {
   return (
     <span
-      className="grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-neutral-400 to-neutral-700 font-semibold text-white dark:from-neutral-500 dark:to-neutral-800"
+      className="grid shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--brand)_16%,transparent)] font-semibold text-brand"
       style={{ width: size, height: size, fontSize: size * 0.42 }}
     >
       M
@@ -73,7 +73,8 @@ function MenuItem({
 }): JSX.Element {
   return (
     <button
-      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-ui-caption text-foreground transition-colors hover:bg-hover disabled:pointer-events-none disabled:opacity-40"
+      role="menuitem"
+      className="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-ui-caption text-foreground outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover focus-visible:bg-hover focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
       onClick={onClick}
       disabled={disabled}
       title={title}
@@ -102,7 +103,8 @@ function Popover({
       animate="animate"
       exit="exit"
       transition={BLOOM_FAST}
-      className="absolute right-0 top-9 z-50 origin-top-right overflow-hidden rounded-lg border border-popover-border bg-menu py-1 shadow-md"
+      role="menu"
+      className="absolute right-0 top-9 z-50 origin-top-right overflow-hidden rounded-xl bg-menu p-1 shadow-[var(--shadow-pop)]"
       style={{ width }}
     >
       {children}
@@ -180,26 +182,26 @@ function TopBar(props: Props): JSX.Element {
             <AnimatePresence>
               {menuOpen && (
                 <Popover anchorRef={menuRef} width={224}>
-                  <div className="border-b border-border/60 px-3 py-2">
+                  <div className="mb-1 border-b border-border px-2.5 pb-2 pt-1.5">
                     <div className="truncate text-ui-caption font-semibold text-foreground">{sessionLabel}</div>
                     {title && project && (
                       <div className="mt-0.5 truncate text-ui-sm text-muted-foreground">{project}</div>
                     )}
                   </div>
                   <MenuItem
-                    icon={<Edit01 size={12} className="shrink-0 text-muted-foreground" />}
+                    icon={<Edit01 size={15} strokeWidth={1.5} className="shrink-0 text-muted-foreground" />}
                     label="Rename"
                     onClick={() => { onRename(); setMenuOpen(false) }}
                   />
                   <MenuItem
-                    icon={<ArrowShrink01 size={12} className="shrink-0 text-muted-foreground" />}
+                    icon={<ArrowShrink01 size={15} strokeWidth={1.5} className="shrink-0 text-muted-foreground" />}
                     label="Compact context"
                     disabled={chat.running}
                     title={chat.running ? 'Stop the active run before compacting' : undefined}
                     onClick={() => { onCompact(); setMenuOpen(false) }}
                   />
                   <MenuItem
-                    icon={<Archive01 size={12} className="shrink-0 text-muted-foreground" />}
+                    icon={<Archive01 size={15} strokeWidth={1.5} className="shrink-0 text-muted-foreground" />}
                     label="Archive"
                     onClick={() => { onArchive(); setMenuOpen(false) }}
                   />
@@ -208,7 +210,7 @@ function TopBar(props: Props): JSX.Element {
             </AnimatePresence>
           </div>
 
-          <div className="mx-1 h-5 w-px shrink-0 bg-border/60" aria-hidden />
+          <div className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
         </>
       )}
       {/* Profile / app menu. Always present, so Home and a session share the
@@ -216,7 +218,7 @@ function TopBar(props: Props): JSX.Element {
       <div className="relative">
         <button
           className={cn(
-            'grid size-8 shrink-0 place-items-center rounded-full outline-none transition-shadow',
+            'grid size-8 shrink-0 place-items-center rounded-full outline-none transition-shadow duration-[var(--duration-quick)]',
             'focus-visible:ring-2 focus-visible:ring-ring',
             profileOpen ? 'ring-2 ring-ring/40' : 'hover:ring-2 hover:ring-ring/25'
           )}
@@ -230,7 +232,7 @@ function TopBar(props: Props): JSX.Element {
         <AnimatePresence>
           {profileOpen && (
             <Popover anchorRef={profileRef} width={224}>
-              <div className="flex items-center gap-2.5 border-b border-border/60 px-3 py-2.5">
+              <div className="mb-1 flex items-center gap-2.5 border-b border-border px-2.5 pb-2.5 pt-1.5">
                 <Avatar size={30} />
                 <div className="min-w-0">
                   <div className="truncate text-ui-caption font-semibold text-foreground">Local workspace</div>
@@ -238,12 +240,12 @@ function TopBar(props: Props): JSX.Element {
                 </div>
               </div>
               <MenuItem
-                icon={<Settings01 size={13} className="shrink-0 text-muted-foreground" />}
+                icon={<Settings01 size={15} strokeWidth={1.5} className="shrink-0 text-muted-foreground" />}
                 label="Settings"
                 onClick={() => { onSettings(); setProfileOpen(false) }}
               />
               <MenuItem
-                icon={<HelpCircle size={13} className="shrink-0 text-muted-foreground" />}
+                icon={<HelpCircle size={15} strokeWidth={1.5} className="shrink-0 text-muted-foreground" />}
                 label="Shortcuts & commands"
                 onClick={() => { onHelp(); setProfileOpen(false) }}
               />

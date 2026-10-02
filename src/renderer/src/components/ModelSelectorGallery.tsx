@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Search01Icon } from '@hugeicons/core-free-icons'
 import type { ProvidersInfo } from '../../../shared/protocol'
 import { cn } from '../util'
 import { BLOOM_FAST, bloomUp } from '../motion'
@@ -34,12 +36,7 @@ export function ModelIcon({ model, className }: { model: string; className?: str
 }
 
 function QuickSearchIcon({ size = 20 }: { size?: number }): JSX.Element {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M14 14L18 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={Search01Icon} size={size} strokeWidth={1.75} aria-hidden />
 }
 
 export interface GalleryMenuProps {

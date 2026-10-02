@@ -1,4 +1,4 @@
-import { Loader2Icon } from "lucide-react";
+import { Loading03 } from "@/components/ui/icons";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 export function Spinner({
   className,
   ...props
-}: React.ComponentProps<typeof Loader2Icon>): React.ReactElement {
+}: React.ComponentProps<typeof Loading03>): React.ReactElement {
   return (
-    <Loader2Icon
+    <Loading03
       aria-label="Loading"
       className={cn("size-4 animate-spin", className)}
       role="status"
