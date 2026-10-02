@@ -42,11 +42,11 @@ function marker(kind: DiffLine['kind']): string {
   return ' '
 }
 
-function Row({ line }: { line: DiffLine }): JSX.Element {
+function Row({ line, compact }: { line: DiffLine; compact?: boolean }): JSX.Element {
   if (line.kind === 'skip') {
     return (
       <div className="flex bg-info/8 text-ui-xs text-foreground-subtlest">
-        <span className="w-[68px] shrink-0 select-none border-r border-border/40 bg-muted/40" />
+        <span className={cn('shrink-0 select-none border-r border-border/40 bg-muted/40', compact ? 'w-[44px]' : 'w-[68px]')} />
         <span className="px-2 py-0.5 italic">⋯ {line.text}</span>
       </div>
     )
@@ -55,7 +55,8 @@ function Row({ line }: { line: DiffLine }): JSX.Element {
     <div className={cn('flex', lineClasses(line.kind))}>
       <span
         className={cn(
-          'flex w-[68px] shrink-0 select-none border-r border-border/40 text-ui-xs leading-[1.7]',
+          'flex shrink-0 select-none border-r border-border/40 text-ui-xs leading-[1.7]',
+          compact ? 'w-[44px]' : 'w-[68px]',
           gutterClasses(line.kind)
         )}
       >
@@ -63,17 +64,19 @@ function Row({ line }: { line: DiffLine }): JSX.Element {
         <span className="w-1/2 pr-1 text-right">{line.newNo ?? ''}</span>
       </span>
       <span className="select-none pl-1.5 pr-1 opacity-70">{marker(line.kind)}</span>
-      <span className="min-w-0 flex-1 whitespace-pre-wrap break-all pr-2">{line.text || ' '}</span>
+      <span className={cn('min-w-0 flex-1 pr-2', compact ? 'whitespace-pre' : 'whitespace-pre-wrap break-all')}>{line.text || ' '}</span>
     </div>
   )
 }
 
 function Block({
   block,
-  budget
+  budget,
+  compact
 }: {
   block: DiffBlock
   budget: number
+  compact?: boolean
 }): JSX.Element {
   const lines = budget >= block.lines.length ? block.lines : block.lines.slice(0, budget)
   return (
@@ -84,13 +87,14 @@ function Block({
         </div>
       )}
       {lines.map((line, i) => (
-        <Row key={i} line={line} />
+        <Row key={i} line={line} compact={compact} />
       ))}
     </div>
   )
 }
 
-export default function DiffView({ diff }: { diff: ToolDiff }): JSX.Element {
+/** `compact` is for narrow hosts (the git panel): slim gutter, no wrapping, horizontal scroll. */
+export default function DiffView({ diff, compact }: { diff: ToolDiff; compact?: boolean }): JSX.Element {
   const [full, setFull] = useState(false)
   const total = diff.blocks.reduce((n, b) => n + b.lines.length, 0)
   const truncated = !full && total > MAX_LINES
@@ -101,7 +105,7 @@ export default function DiffView({ diff }: { diff: ToolDiff }): JSX.Element {
   let budget = MAX_LINES
   const rendered = diff.blocks.map((block, i) => {
     if (budget <= 0) return null
-    const el = <Block key={i} block={block} budget={budget} />
+    const el = <Block key={i} block={block} budget={budget} compact={compact} />
     budget -= block.lines.length
     return el
   })
@@ -111,20 +115,20 @@ export default function DiffView({ diff }: { diff: ToolDiff }): JSX.Element {
       skip -= block.lines.length
       return []
     }
-    const el = <Block key={i} block={{ ...block, lines: block.lines.slice(skip) }} budget={Infinity} />
+    const el = <Block key={i} block={{ ...block, lines: block.lines.slice(skip) }} budget={Infinity} compact={compact} />
     skip = 0
     return [el]
   })
 
   return (
     <div className="t-acc overflow-hidden rounded-md border border-border/60" data-open={String(full)}>
-      <div className="max-h-[420px] overflow-auto font-mono text-ui-sm leading-[1.7]">
-        {rendered}
+      <div className={cn('overflow-auto font-mono leading-[1.7]', compact ? 'max-h-[360px] text-ui-xs' : 'max-h-[420px] text-ui-sm')}>
+        <div className={cn(compact && 'w-max min-w-full')}>{rendered}</div>
       </div>
       <div className="t-acc-panel">
         <div className="t-acc-panel-inner">
-          <div className="max-h-[420px] overflow-auto font-mono text-ui-sm leading-[1.7]">
-            {rest}
+          <div className={cn('overflow-auto font-mono leading-[1.7]', compact ? 'max-h-[360px] text-ui-xs' : 'max-h-[420px] text-ui-sm')}>
+            <div className={cn(compact && 'w-max min-w-full')}>{rest}</div>
           </div>
         </div>
       </div>

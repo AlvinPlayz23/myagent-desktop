@@ -192,8 +192,8 @@ export default function DebugPanel({ sessionId, open, onClose }: Props): JSX.Ele
       className={cn(
         // no-drag: the frameless-titlebar drag overlay (see App.tsx) overlaps
         // this panel's top strip; without this its buttons aren't clickable.
-        'no-drag absolute right-0 top-0 z-10 flex h-full w-[380px] flex-col border-l border-border bg-background shadow-2xl transition-[transform] ease-[var(--panel-ease)]',
-        open ? 'translate-x-0' : 'translate-x-full'
+        'no-drag absolute right-0 top-0 z-10 flex h-full w-[380px] flex-col border-l border-border bg-background transition-[transform,box-shadow] ease-[var(--panel-ease)]',
+        open ? 'translate-x-0 shadow-2xl' : 'translate-x-full'
       )}
       style={{ transitionDuration: open ? 'var(--panel-open-dur)' : 'var(--panel-close-dur)' }}
       aria-hidden={!open}

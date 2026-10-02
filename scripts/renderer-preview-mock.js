@@ -47,6 +47,39 @@
     pickFolder: async () => null, setTheme: async () => {}, setTransparency: async () => {}, backdrop: async () => 'none',
     minimizeWindow: async () => {}, toggleMaximizeWindow: async () => false, closeWindow: async () => {}, windowMaximized: async () => false,
     openWith: async () => true, onWindowMaximized: () => () => {}, onPush: (cb) => { listeners.add(cb); setTimeout(() => cb({ kind: 'hello', name: 'myagent', version: '0.4.2', protocol: 1 }), 50); setTimeout(() => cb({ kind: 'status', state: 'connected' }), 60); return () => listeners.delete(cb) },
-    git: new Proxy({}, { get: () => async () => ({ ok: false, error: { code: 1, message: 'mock' } }) }),
+    git: (() => {
+      const patch = [
+        'diff --git a/src/renderer/src/components/TabBar.tsx b/src/renderer/src/components/TabBar.tsx',
+        'index 3f2a1b0..9c4d7e2 100644',
+        '--- a/src/renderer/src/components/TabBar.tsx',
+        '+++ b/src/renderer/src/components/TabBar.tsx',
+        '@@ -12,7 +12,9 @@ export function TabBar({ tabs, activeId }: Props) {',
+        '   const visible = useVisibleTabs(tabs, width)',
+        '-  const overflow = tabs.length - visible.length',
+        '+  const overflow = Math.max(0, tabs.length - visible.length)',
+        '+  const hasOverflow = overflow > 0 // keep the menu out of the tab order when empty',
+        '   return (',
+        '     <div role="tablist" className="flex items-center gap-0.5">',
+        '-      {visible.map((tab) => <Tab key={tab.id} {...tab} />)}',
+        '+      {visible.map((tab) => <Tab key={tab.id} {...tab} active={tab.id === activeId} />)}',
+        '     </div>',
+        ''
+      ].join('\n')
+      const files = [
+        { path: 'src/renderer/src/components/TabBar.tsx', status: 'modified', staged: true, insertions: 12, deletions: 3 },
+        { path: 'src/renderer/src/components/Sidebar.tsx', status: 'modified', staged: true, partial: true, insertions: 48, deletions: 31 },
+        { path: 'src/renderer/src/components/a-very-long-component-file-name-that-keeps-going.tsx', status: 'added', staged: false, insertions: 220, deletions: 0 },
+        { path: 'scripts/old-build.mjs', status: 'deleted', staged: false, insertions: 0, deletions: 64 },
+        { path: 'notes.md', status: 'untracked', staged: false, insertions: 0, deletions: 0 }
+      ]
+      const res = (result) => async () => ({ ok: true, result })
+      return {
+        status: res({ isRepo: true, branch: 'feature/redesign-the-session-tabs-and-sidebar', upstream: 'origin/main', ahead: 2, behind: 1, files, insertions: 280, deletions: 98 }),
+        diff: res(patch),
+        branches: res([{ name: 'main', upstream: null, current: false, modified: '' }, { name: 'feature/redesign-the-session-tabs-and-sidebar', upstream: null, current: true, modified: '' }]),
+        log: res([{ hash: 'a'.repeat(40), shortHash: 'aaaaaaa', author: 'dev', date: new Date().toISOString(), subject: 'Rework tabs' }]),
+        stage: res(undefined), unstage: res(undefined), discard: res(undefined), commit: res('ok'), push: res('ok'), pull: res('ok'), fetch: res('ok'), checkout: res(undefined), createBranch: res(undefined), init: res(undefined)
+      }
+    })(),
   }
 })()

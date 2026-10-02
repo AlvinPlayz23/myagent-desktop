@@ -4,7 +4,7 @@ import { bloomPanel } from './motion'
 import { api, ApiError } from './api'
 import { activeChat, contentMatches, contentText, initialState, loadHistory, newChat, reducer } from './state'
 import { createStreamCoalescer, type StreamCoalescer } from './streamCoalescer'
-import { baseName } from './util'
+import { baseName, cn } from './util'
 import { startChromeAnimation } from './chromeAnimation'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
@@ -564,7 +564,12 @@ export default function App(): JSX.Element {
       <main className="main-panel surface-grain relative flex min-w-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <div
-          className="drag-region relative flex h-9 shrink-0 items-center gap-2 overflow-visible px-2 pr-[140px]"
+          className={cn(
+            'drag-region relative flex h-9 shrink-0 items-center gap-2 overflow-visible pl-2 transition-[padding] duration-[160ms] ease-[var(--ease-smooth-out)]',
+            // With the git panel open the window controls sit over the panel's
+            // title strip, so the top bar no longer has to clear them.
+            gitOpen ? 'pr-2' : 'pr-[140px]'
+          )}
           onDoubleClick={(e) => {
             // Tabs, buttons and inputs own their double-clicks — only empty
             // titlebar area toggles maximize, like a native caption.
@@ -695,15 +700,21 @@ export default function App(): JSX.Element {
               transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
               className="shrink-0 overflow-hidden border-l border-border/60 bg-card/40"
             >
-              <div className="h-full w-[320px]">
-                {/* Keyed on cwd so switching to a different project remounts
-                    the panel: fresh status, fresh poll timer, and no chance of
-                    the previous repo's in-flight reply landing here. */}
-                <GitPanel
-                  key={chat?.cwd ?? 'none'}
-                  cwd={chat?.cwd ?? null}
-                  onClose={() => setGitOpen(false)}
-                />
+              <div className="flex h-full w-[320px] flex-col">
+                {/* The window controls are fixed over the top-right corner, so
+                    the panel starts below the title-bar strip or its header
+                    buttons would sit under them and swallow the clicks. */}
+                <div className="drag-region h-9 shrink-0" />
+                <div className="min-h-0 flex-1">
+                  {/* Keyed on cwd so switching to a different project remounts
+                      the panel: fresh status, fresh poll timer, and no chance of
+                      the previous repo's in-flight reply landing here. */}
+                  <GitPanel
+                    key={chat?.cwd ?? 'none'}
+                    cwd={chat?.cwd ?? null}
+                    onClose={() => setGitOpen(false)}
+                  />
+                </div>
               </div>
             </motion.aside>
           )}
