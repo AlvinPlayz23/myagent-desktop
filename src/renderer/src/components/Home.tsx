@@ -60,10 +60,11 @@ export default function Home(props: Props): JSX.Element {
     recentSessions = [], onOpenSession
   } = props
   const [open, setOpen] = useState(false)
-  const [promptFocused, setPromptFocused] = useState(false)
+  const [showRecents, setShowRecents] = useState(true)
   const [model, setModel] = useState(providers.defaultModel ?? '')
   const [effort, setEffort] = useState<ReasoningEffort>('medium')
   const pop = useRef<HTMLDivElement>(null)
+  const recentsTimer = useRef<number | null>(null)
 
   useEffect(() => {
     const close = (e: MouseEvent): void => {
@@ -72,6 +73,29 @@ export default function Home(props: Props): JSX.Element {
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [])
+
+  useEffect(
+    () => () => {
+      if (recentsTimer.current !== null) window.clearTimeout(recentsTimer.current)
+    },
+    []
+  )
+
+  const focusPrompt = (): void => {
+    if (recentsTimer.current !== null) window.clearTimeout(recentsTimer.current)
+    recentsTimer.current = null
+    setShowRecents(false)
+  }
+
+  const blurPrompt = (value: string): void => {
+    if (recentsTimer.current !== null) window.clearTimeout(recentsTimer.current)
+    recentsTimer.current = null
+    if (value.trim()) return
+    recentsTimer.current = window.setTimeout(() => {
+      setShowRecents(true)
+      recentsTimer.current = null
+    }, 2000)
+  }
 
   const current = projects.find((p) => p.cwd === selected) ?? projects[0] ?? null
   const recents = recentSessions.slice(0, 6)
@@ -191,7 +215,8 @@ export default function Home(props: Props): JSX.Element {
             <motion.div variants={rise} className="relative z-20">
               <Composer
                 running={false}
-                onPromptFocus={() => setPromptFocused(true)}
+                onPromptFocus={focusPrompt}
+                onPromptBlur={blurPrompt}
                 onSend={(content) => {
                   const modelRef = model || providers.defaultModel
                   const divider = modelRef.indexOf('/')
@@ -228,7 +253,7 @@ export default function Home(props: Props): JSX.Element {
 
 
             <AnimatePresence initial={false}>
-              {recents.length > 0 && onOpenSession && !promptFocused && (
+              {recents.length > 0 && onOpenSession && showRecents && (
                 <motion.section
                   key="recent-sessions"
                   variants={recentListMotion}
@@ -236,7 +261,7 @@ export default function Home(props: Props): JSX.Element {
                   animate="visible"
                   exit="leaving"
                   transition={{ duration: 0.18, ease: EASE_OUT }}
-                  className="w-full max-w-xl overflow-hidden pt-1"
+                  className="w-full max-w-xl self-center overflow-hidden pt-1"
                   aria-label="Recent sessions"
                 >
                   <h2 className="mb-2 px-1 text-ui-sm font-medium text-muted-foreground">
