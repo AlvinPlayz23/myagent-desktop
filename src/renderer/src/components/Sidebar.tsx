@@ -760,7 +760,7 @@ function Sidebar({
                         >
                           <div
                             className={cn(
-                              'group/proj flex items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-hover',
+                              'group/proj relative flex items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-hover',
                               open && 'bg-hover'
                             )}
                             title={project.cwd}
@@ -779,11 +779,7 @@ function Sidebar({
                                   open && 'rotate-90'
                                 )}
                               />
-                              {open ? (
-                                <Folder02 size={13} strokeWidth={1.8} className="shrink-0 text-foreground" />
-                              ) : (
-                                <Folder01 size={13} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
-                              )}
+                              <span className="size-[13px] shrink-0" aria-hidden />
                               <span className="min-w-0 flex-1 truncate text-ui-caption font-medium">
                                 {project.name}
                               </span>
@@ -793,12 +789,29 @@ function Sidebar({
                             </button>
                             <button
                               type="button"
-                              className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-hover/proj:opacity-100"
+                              className="absolute left-[27px] top-1 z-10 grid size-5 place-items-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                               title={`New session in ${project.name}`}
                               aria-label={`New session in ${project.name}`}
                               onClick={() => onCompose(project.cwd)}
                             >
-                              <Plus size={13} strokeWidth={2} />
+                              <Plus
+                                size={13}
+                                strokeWidth={2}
+                                className="absolute opacity-0 transition-opacity group-hover/proj:opacity-100 group-focus-within/proj:opacity-100"
+                              />
+                              {open ? (
+                                <Folder02
+                                  size={13}
+                                  strokeWidth={1.8}
+                                  className="absolute text-foreground transition-opacity group-hover/proj:opacity-0 group-focus-within/proj:opacity-0"
+                                />
+                              ) : (
+                                <Folder01
+                                  size={13}
+                                  strokeWidth={1.8}
+                                  className="absolute text-muted-foreground transition-opacity group-hover/proj:opacity-0 group-focus-within/proj:opacity-0"
+                                />
+                              )}
                             </button>
                           </div>
 
