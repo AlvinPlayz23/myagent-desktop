@@ -1,5 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { GitBranchIcon, Message01Icon } from '@hugeicons/core-free-icons'
 import {
   Archive01,
   ArchiveRestore,
@@ -106,6 +108,8 @@ function Sidebar({
   // Grouped variant: per-project section open state, overriding the
   // follow-the-active-project default once the user toggles a section.
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
+  const [hoveredProjectAction, setHoveredProjectAction] = useState<string | null>(null)
+  const [focusedProjectAction, setFocusedProjectAction] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
@@ -372,7 +376,8 @@ function Sidebar({
     }
   }, [visibleSessions, archived, collapsed, runningSessions])
 
-  /** Three-line session row: context · title · branch, status pinned right. */
+  /** Two-line session row: title with age, then project and branch. A live
+      run swaps the leading glyph for a pulsing dot, so status never costs a line. */
   const sessionRow = (session: SessionMeta, muted = false): JSX.Element => {
     const running = runningIds.has(session.id)
     const project = knownProjects.find((item) => item.cwd === session.cwd)
@@ -387,64 +392,55 @@ function Sidebar({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.18, ease: EASE_OUT }}
         className={cn(
-          'group relative flex w-full min-h-[61px] flex-col justify-center gap-0 rounded-lg px-2.5 py-2 text-left outline-none',
-          'transition-[background-color,box-shadow] duration-150',
+          'group relative flex w-full min-h-[46px] items-start gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none',
+          'transition-[background-color] duration-[var(--duration-instant)]',
           'focus-visible:ring-2 focus-visible:ring-ring',
-          active
-            ? 'bg-selected shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--foreground)_12%,transparent)]'
-            : 'hover:bg-hover',
+          active ? 'bg-selected' : 'hover:bg-hover',
           held && !active && 'bg-hover',
           muted && 'opacity-70 hover:opacity-100'
         )}
         onClick={() => onOpen(session.id)}
         onContextMenu={(event) => openMenu(event, session)}
         title={label(session)}
+        aria-current={active ? 'true' : undefined}
       >
-        {/* Line 1 — where: project @ device, with the timestamp pinned right. */}
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate text-ui-xs leading-[13px] tracking-[0.01em] text-muted-foreground">
-            {project?.name ?? 'project'} <span className="text-foreground-subtlest">@ local</span>
-          </span>
-          <span className="ml-auto shrink-0 font-mono text-ui-xs tabular-nums text-foreground-subtlest">
-            {relTime(session.modified)}
-          </span>
-        </div>
-
-        {/* Line 2 — what: the loudest thing in the row. */}
-        <div
-          className={cn(
-            'mt-[3px] truncate text-ui-caption leading-[17px] tracking-[-0.006em]',
-            active ? 'font-medium text-foreground' : 'font-[450] text-muted-foreground'
+        <span className="mt-[3px] grid size-4 shrink-0 place-items-center" aria-hidden>
+          {running ? (
+            <span className="size-[7px] rounded-full bg-[color:var(--busy)] [animation:work-pulse_1.2s_ease-in-out_infinite]" />
+          ) : (
+            <HugeiconsIcon
+              icon={Message01Icon}
+              size={15}
+              strokeWidth={1.5}
+              className={active ? 'text-foreground' : 'text-foreground-subtlest'}
+            />
           )}
-        >
-          {label(session)}
-        </div>
-
-        {/* Line 3 — on what code, plus the live-run indicator. */}
-        <div className="mt-[3px] flex min-w-0 items-center gap-1.5">
-          <GitBranch01
-            size={10}
-            strokeWidth={1.8}
-            className="shrink-0 text-foreground-subtlest"
-          />
-          <span className="min-w-0 truncate font-mono text-ui-xs leading-[13px] text-foreground-subtlest">
-            {branch ?? '—'}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span
+              className={cn(
+                'min-w-0 flex-1 truncate text-ui-base leading-[18px]',
+                active ? 'font-medium text-foreground' : 'text-foreground/85'
+              )}
+            >
+              {label(session)}
+            </span>
+            <span className="shrink-0 text-ui-xs tabular-nums text-foreground-subtlest">
+              {relTime(session.modified)}
+            </span>
           </span>
-          <AnimatePresence initial={false}>
-            {running && (
-              <motion.span
-                className="ml-auto flex shrink-0 items-center gap-1.5 text-ui-xs font-medium text-[color:var(--busy)]"
-                initial={{ opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.92 }}
-                transition={{ duration: 0.14, ease: EASE_OUT }}
-              >
-                <span className="size-[5px] rounded-full bg-[color:var(--busy)]" />
-                Working
-              </motion.span>
+          <span className="flex min-w-0 items-center gap-1.5 text-ui-sm leading-[15px] text-foreground-subtle">
+            <span className="min-w-0 shrink truncate">{project?.name ?? 'project'}</span>
+            {branch && (
+              <>
+                <HugeiconsIcon icon={GitBranchIcon} size={11} strokeWidth={1.5} className="shrink-0 text-foreground-subtlest" aria-hidden />
+                <span className="min-w-0 shrink-[2] truncate font-mono text-ui-xs text-foreground-subtlest">{branch}</span>
+              </>
             )}
-          </AnimatePresence>
-        </div>
+            {running && <span className="ml-auto shrink-0 text-ui-xs font-medium text-[color:var(--busy)]">Working</span>}
+          </span>
+        </span>
       </motion.button>
     )
   }
@@ -744,7 +740,7 @@ function Sidebar({
                 {isGrouped ? (
                   <>
                     <div className="flex items-center justify-between px-2 py-2">
-                      <span className="text-ui-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                      <span className="text-ui-sm font-medium text-muted-foreground">
                         Projects
                       </span>
                       <button
@@ -759,6 +755,8 @@ function Sidebar({
 
                     {grouped.map((project, index) => {
                       const open = isGroupOpen(project.cwd, index)
+                      const showProjectAction =
+                        hoveredProjectAction === project.cwd || focusedProjectAction === project.cwd
                       return (
                         <motion.div
                           key={project.cwd}
@@ -766,10 +764,25 @@ function Sidebar({
                         >
                           <div
                             className={cn(
-                              'group/proj flex items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-hover',
+                              'group/proj relative flex items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-hover',
                               open && 'bg-hover'
                             )}
                             title={project.cwd}
+                            onPointerEnter={() => setHoveredProjectAction(project.cwd)}
+                            onPointerLeave={() => setHoveredProjectAction(null)}
+                            onFocusCapture={(event) => {
+                              if (
+                                event.target instanceof HTMLElement &&
+                                event.target.matches(':focus-visible')
+                              ) {
+                                setFocusedProjectAction(project.cwd)
+                              }
+                            }}
+                            onBlurCapture={(event) => {
+                              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                                setFocusedProjectAction(null)
+                              }
+                            }}
                           >
                             <button
                               type="button"
@@ -786,9 +799,19 @@ function Sidebar({
                                 )}
                               />
                               {open ? (
-                                <Folder02 size={13} strokeWidth={1.8} className="shrink-0 text-foreground" />
+                                <Folder02
+                                  size={13}
+                                  strokeWidth={1.8}
+                                  className="shrink-0 text-foreground transition-opacity duration-[var(--duration-instant)]"
+                                  style={{ opacity: showProjectAction ? 0 : 1 }}
+                                />
                               ) : (
-                                <Folder01 size={13} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
+                                <Folder01
+                                  size={13}
+                                  strokeWidth={1.8}
+                                  className="shrink-0 text-muted-foreground transition-opacity duration-[var(--duration-instant)]"
+                                  style={{ opacity: showProjectAction ? 0 : 1 }}
+                                />
                               )}
                               <span className="min-w-0 flex-1 truncate text-ui-caption font-medium">
                                 {project.name}
@@ -799,12 +822,20 @@ function Sidebar({
                             </button>
                             <button
                               type="button"
-                              className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-hover/proj:opacity-100"
+                              className={cn(
+                                'absolute left-[25.5px] top-1 z-10 grid size-5 place-items-center rounded-md text-muted-foreground transition-opacity duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+                                !showProjectAction && 'pointer-events-none'
+                              )}
+                              style={{ opacity: showProjectAction ? 1 : 0 }}
                               title={`New session in ${project.name}`}
                               aria-label={`New session in ${project.name}`}
                               onClick={() => onCompose(project.cwd)}
                             >
-                              <Plus size={13} strokeWidth={2} />
+                              <Plus
+                                size={13}
+                                strokeWidth={2}
+                                className="absolute"
+                              />
                             </button>
                           </div>
 
@@ -857,7 +888,6 @@ function Sidebar({
                 {visibleSessions.length > 0 && (
                   <div className="flex items-center gap-2 px-2.5 pb-0.5 pt-1.5">
                     <span className="text-ui-sm font-medium text-muted-foreground">Sessions</span>
-                    <span className="h-px min-w-0 flex-1 bg-border/50" />
                   </div>
                 )}
 
@@ -1106,7 +1136,7 @@ function Sidebar({
             style={{ left: menu.x, top: menu.y }}
             onContextMenu={(event) => event.preventDefault()}
           >
-            <div className="px-3 pb-1 pt-1.5 font-mono text-ui-xs uppercase tracking-wider text-foreground-subtlest">
+            <div className="px-3 pb-1 pt-1.5 text-ui-xs font-medium text-foreground-subtlest">
               session · {menu.session.id.slice(0, 8)}
             </div>
             <button

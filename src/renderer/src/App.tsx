@@ -19,7 +19,6 @@ import TabBar from './components/TabBar'
 import OpenWith from './components/OpenWith'
 import GitPanel from './components/GitPanel'
 import { applyTheme, applyFontSize, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
-import { Sparkles } from './components/ui/icons'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
 import DebugPanel from './debug-panel/DebugPanel'
@@ -59,12 +58,12 @@ export default function App(): JSX.Element {
   noticeRef.current = chat?.notice ?? null
 
   useEffect(() => {
-    applyTheme(preferences.theme)
+    applyTheme(preferences.theme, preferences.themeId)
     applyFontSize(preferences.interfaceFontSize)
     savePreferences(preferences)
     const query = window.matchMedia('(prefers-color-scheme: dark)')
     const onChange = (): void => {
-      if (preferences.theme === 'system') applyTheme('system')
+      if (preferences.theme === 'system') applyTheme('system', preferences.themeId)
     }
     query.addEventListener('change', onChange)
     return () => query.removeEventListener('change', onChange)
@@ -573,8 +572,7 @@ export default function App(): JSX.Element {
             window.myagent.toggleMaximizeWindow().catch(() => {})
           }}
         >
-          <span className="flex shrink-0 select-none items-center gap-1.5 pl-2">
-            <Sparkles size={13} strokeWidth={1.8} className="text-muted-foreground" />
+          <span className="flex shrink-0 select-none items-center pl-2">
             <span className="truncate text-ui-caption font-semibold tracking-tight text-foreground">
               {normalizeAppName(preferences.appName)}
             </span>
@@ -588,6 +586,7 @@ export default function App(): JSX.Element {
             appName={normalizeAppName(preferences.appName)}
             onSelect={(id) => dispatch({ type: 'focusChat', sessionId: id })}
             onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
+            onNew={goHome}
           />
           {chat && (
             <div className="no-drag ml-auto flex shrink-0 items-center gap-2">

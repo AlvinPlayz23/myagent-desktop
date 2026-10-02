@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronDown, Folder01, FolderAdd, Message01, Rotate01 } from './ui/icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Message01Icon } from '@hugeicons/core-free-icons'
+import { ChevronDown, Folder01, FolderAdd, Rotate01 } from './ui/icons'
 import type { ContentBlock, ProvidersInfo, ReasoningEffort, SessionMeta } from '../../../shared/protocol'
 import Composer from './Composer'
 import { Button } from './ui/button'
@@ -43,7 +45,6 @@ const rise = {
   initial: { opacity: 0, y: 6 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.24, ease: EASE_OUT } }
 }
-
 export default function Home(props: Props): JSX.Element {
   const {
     loading, fatal, projects, selected, appName,
@@ -53,6 +54,7 @@ export default function Home(props: Props): JSX.Element {
     recentSessions = [], onOpenSession
   } = props
   const [open, setOpen] = useState(false)
+  const [recentsOpen, setRecentsOpen] = useState(false)
   const [model, setModel] = useState(providers.defaultModel ?? '')
   const [effort, setEffort] = useState<ReasoningEffort>('medium')
   const pop = useRef<HTMLDivElement>(null)
@@ -109,16 +111,16 @@ export default function Home(props: Props): JSX.Element {
             <motion.div
               variants={rise}
               className={cn(
-                'flex items-center justify-between gap-4 px-5',
+                'flex flex-col items-center gap-3 px-5 pb-3',
                 open ? 'relative z-30' : 'relative z-10'
               )}
             >
-              <div className="min-w-0 truncate text-ui-xl font-semibold tracking-[-0.025em] text-foreground">
-                {appName}
-              </div>
-              <div className="relative shrink-0" ref={pop}>
+              <h1 className="m-0 min-w-0 max-w-full text-balance text-center text-ui-xl font-medium text-foreground">
+                Where should we begin?
+              </h1>
+              <div className="relative shrink-0" ref={pop} aria-label={appName}>
                 <button
-                  className="flex h-8 max-w-[280px] items-center gap-2 rounded-full border border-border bg-elevated px-3.5 shadow-xs transition-colors hover:border-input hover:bg-hover"
+                  className="flex h-8 max-w-[280px] items-center gap-2 rounded-lg px-2.5 text-muted-foreground outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => setOpen(!open)}
                   title={current?.cwd}
                 >
@@ -132,7 +134,7 @@ export default function Home(props: Props): JSX.Element {
                 <AnimatePresence>
                   {open && (
                     <motion.div
-                      className="absolute right-0 top-10 z-50 max-h-[320px] w-[260px] origin-top-right overflow-y-auto rounded-xl border border-border bg-elevated p-1.5 shadow-lg"
+                      className="absolute left-1/2 top-10 z-50 max-h-[320px] w-[260px] -translate-x-1/2 origin-top overflow-y-auto rounded-xl bg-menu p-1 shadow-[var(--shadow-pop)]"
                       initial={{ opacity: 0, y: -6, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -3, scale: 0.99 }}
@@ -218,35 +220,59 @@ export default function Home(props: Props): JSX.Element {
             </motion.div>
 
 
-            {/* Recents: jump straight back into a session from the landing. */}
             {recents.length > 0 && onOpenSession && (
-              <motion.div variants={rise} className="flex flex-col gap-2 pt-2">
-                <div className="flex items-center gap-2 px-1">
-                  <span className="text-ui-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    Recent
+              <motion.section variants={rise} aria-label="Recent sessions" className="w-full max-w-xl self-center">
+                <button
+                  type="button"
+                  onClick={() => setRecentsOpen((value) => !value)}
+                  aria-expanded={recentsOpen}
+                  className="flex min-h-10 w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <HugeiconsIcon icon={Message01Icon} size={15} strokeWidth={1.5} className="shrink-0 text-foreground-subtlest" aria-hidden />
+                  <span className="shrink-0 text-ui-sm text-foreground-subtlest">Recent</span>
+                  <span className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground">
+                    {recents[0].title || recents[0].preview || `${recents[0].messageCount} messages`}
                   </span>
-                  <span className="h-px min-w-0 flex-1 bg-border/60" />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {recents.map((session) => (
-                    <button
-                      key={session.id}
-                      type="button"
-                      onClick={() => onOpenSession(session.id)}
-                      title={session.cwd}
-                      className="group flex min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                  <ChevronDown
+                    size={14}
+                    className={cn('shrink-0 text-foreground-subtlest transition-transform duration-[var(--duration-fast)]', recentsOpen && 'rotate-180')}
+                    aria-hidden
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {recentsOpen && (
+                    <motion.ul
+                      key="recent-list"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: EASE_OUT }}
+                      className="m-0 list-none overflow-hidden p-0"
                     >
-                      <Message01 size={14} strokeWidth={1.8} className="shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
-                      <span className="min-w-0 flex-1 truncate text-ui-caption font-[450] text-muted-foreground transition-colors group-hover:text-foreground">
-                        {session.title || session.preview || `${session.messageCount} messages`}
-                      </span>
-                      <span className="shrink-0 font-mono text-ui-xs tabular-nums text-foreground-subtlest">
-                        {relTime(session.modified)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
+                      {recents.map((session) => (
+                        <li key={session.id}>
+                          <button
+                            type="button"
+                            onClick={() => onOpenSession(session.id)}
+                            title={session.cwd}
+                            className="group flex min-h-9 w-full min-w-0 items-center gap-3 rounded-lg px-3 py-1.5 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <span className="min-w-0 flex-1 truncate pl-[27px] text-ui-sm text-foreground-subtle group-hover:text-foreground">
+                              {session.title || session.preview || `${session.messageCount} messages`}
+                            </span>
+                            <span className="hidden max-w-36 shrink-0 truncate text-ui-xs text-foreground-subtlest sm:block">
+                              {session.cwd.split(/[\\/]/).pop()}
+                            </span>
+                            <span className="w-12 shrink-0 text-right text-ui-xs text-foreground-subtlest">
+                              {relTime(session.modified)}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
+              </motion.section>
             )}
           </motion.div>
         )}

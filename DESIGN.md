@@ -28,6 +28,27 @@ Enforced by `npm run lint:design`.
 
 ## Color tokens
 
+### Anchors and themes
+
+Every surface, line and text tier is derived from three anchors per theme and
+mode: `--canvas` (page), `--ink` (text) and `--brand` (accent). Surfaces mix
+`--ink` into `--canvas` (`color-mix(in srgb, …)` on hex anchors; never oklch +
+`none` inside a mix on Electron 33). The step scale `--s1…--s4`, `--line`,
+`--rail-s`, `--card-lift` and `--menu-lift` set how strong each mix is and
+differ between light and dark.
+
+Named themes (`THEMES` in `preferences.ts`) swap the anchors only, through
+`<html data-theme="…">`; light/dark remains the `.dark` class, so each theme
+ships both modes: Neutral (default), Nord, Catppuccin, Gruvbox, Solarized,
+Dracula. To add one, add a `:root[data-theme='x']` / `:root.dark[data-theme='x']`
+pair in `styles.css` and an entry in `THEMES`. Theme switches suppress
+transitions for one frame (`applyTheme`) so the swap snaps instead of smearing.
+
+`--success`, `--warning`, `--destructive` and the diff pair are the state
+fills. Their `-foreground` tokens are the readable *text* hue of that state
+(for text on its tinted wash), not an on-fill colour; solid fills use
+`text-white`.
+
 ### Surfaces (layered)
 
 | Token             | Role                                            |
@@ -42,7 +63,7 @@ Enforced by `npm run lint:design`.
 | `--popover`       | Dialog / popover / floating panel               |
 | `--menu`          | Dropdown / context menu surface                 |
 | `--menu-hover`    | Hover for a menu item                           |
-| `--input`         | Editable field background                       |
+| `--input`         | Form-control stroke and off-state fill (`border-input`) |
 | `--input-focused` | Focused editable field background               |
 
 Do not reuse `--header`/`--panel`/`--sidebar` as generic card colors. Never mix
@@ -134,6 +155,56 @@ Use the shared tokens in `styles.css` (durations `--duration-*`, easings
 inside ~120ms, whole surfaces inside ~220ms. Favor opacity/transform. No
 animated `filter`/blur and no static `will-change` in a class rule outside
 `components/ui/`. Enforced by `npm run lint:motion`.
+
+## Elevation
+
+Declare elevation once. Floating surfaces (menus, popovers, the tab overflow
+list) use `--shadow-pop` (a 1px ring plus layered soft shadows); cards that
+need lift use `--shadow-card`. Do not stack a border under a wide blur. Flat
+content cards use `.surface-card` (hairline border, no lift).
+
+## Icons
+
+Hugeicons only (`@hugeicons/react` + `@hugeicons/core-free-icons`), outline
+variant, `currentColor`, stroke 1.5 beside regular text and 1.75–2 on small or
+filled controls. Shared glyphs live in `components/ui/icons.tsx`. No inline
+icon SVGs and no other icon library.
+
+## Session tabs
+
+`TabBar.tsx` is a real `tablist`: roving tabindex, ←/→/Home/End move focus,
+Enter/Space select, Delete/Backspace and middle-click close. The leading glyph
+is the session status (message icon, spinner in `--busy` while running) and
+swaps with the close button on hover/focus. Tabs shrink from 200px to 116px,
+then move into the `+N` overflow menu; capacity is measured from the strip's
+width. The active pill slides between tabs with a shared `layoutId`.
+
+## Settings
+
+`Settings.tsx` is a dialog on `--shell` with an inset `--background` page.
+Every page uses `SettingsHeader` and the shared `SETTINGS_PAGE_CLASS` column
+from `SettingsKit.tsx`; groups are one bordered `divide-y` container under a
+sentence-case caption. Toggles use the `Switch` primitive. Providers is a
+list of rows (one button each) that opens a labelled form; destructive
+actions confirm inline, with focus on the safe choice.
+
+## Effort slider
+
+`EffortSlider.tsx` (+ `.module.css`) is the reasoning-effort control in the
+Composer's popover. The shell outline grows a label shoulder while dragging;
+geometry is ported unchanged from the supplied component. Stops and value are
+props, the level is committed on release (immediately for keys), and colours
+come from `--ink` and `--brand` so every theme works. The popover stops
+mouse-down propagation so the Composer does not steal focus from the slider.
+
+## Tool timeline
+
+A settled run folds to one row: `Worked for 38s and made 3 tool calls`, with a
+right chevron that turns down when open. No leading icon. The row text,
+reasoning rows, tool icons and message text all share one left edge (rows pull
+themselves left by their own padding). Folded sections open with the shared
+`disclosure` variants in `motion.ts`: height drives layout so content below
+glides, opacity trails height in and leads it out.
 
 ## Components
 

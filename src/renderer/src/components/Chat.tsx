@@ -180,7 +180,7 @@ export default function Chat({
     }
     if (item.kind === 'compaction') {
       return (
-        <div key={key} className="mt-5 flex items-center gap-3 text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
+        <div key={key} className="mt-5 flex items-center gap-3 text-ui-sm font-medium text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
           <span>context compacted</span>
           <span className="font-mono font-normal normal-case tracking-normal">
             {Math.round(item.info.tokensBefore / 1000)}k → {Math.round(item.info.tokensAfter / 1000)}k tokens

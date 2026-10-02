@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Archive01, ArchiveRestore, ComputerTerminal, Globe02, Keyboard01, Message01, Search01, Settings01 } from './ui/icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Cancel01Icon } from '@hugeicons/core-free-icons'
+import { AiBrain01, Archive01, ArchiveRestore, InformationCircle, Keyboard01, Message01, PaintBoard, Search01, Tick01 } from './ui/icons'
 import type { ConnState } from '../state'
-import { normalizeAppName, normalizeFontSize, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant } from '../preferences'
+import { THEMES, normalizeAppName, normalizeFontSize, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
 import { cn } from '../util'
+import { Switch } from './ui/switch'
 import { shortcuts, shortcutCategories, formatCombo } from '../shortcuts'
 import ProviderManager from './ProviderManager'
+import { SettingsHeader, SETTINGS_PAGE_CLASS } from './SettingsKit'
 
 function CloseIcon(): JSX.Element {
-  return (
-    <svg width="10" height="10" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M2.5 2.5L11.5 11.5M11.5 2.5L2.5 11.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  )
+  return <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={2} aria-hidden />
 }
 
 interface Props {
@@ -36,7 +36,7 @@ interface Props {
 
 const themes: Array<{ value: ThemePreference; title: string; detail: string }> = [
   { value: 'system', title: 'System', detail: 'Follow your operating system theme' },
-  { value: 'dark', title: 'Dark', detail: 'Near-black high contrast dark mode' },
+  { value: 'dark', title: 'Dark', detail: 'Dark surfaces, easier on the eyes at night' },
   { value: 'light', title: 'Light', detail: 'Clean neutral light mode' }
 ]
 
@@ -79,15 +79,12 @@ function SettingsSection({
   className?: string
 }): JSX.Element {
   return (
-    <section className={cn('space-y-2.5', className)}>
-      <div className="flex items-center justify-between px-1">
-        <h2 className="flex items-center gap-2 text-ui-sm font-semibold uppercase tracking-[0.08em] text-foreground-subtlest">
-          <span className="inline-block h-px w-3 bg-border" aria-hidden />
-          {title}
-        </h2>
-        {headerAction && <div className="flex h-5 items-center justify-end">{headerAction}</div>}
+    <section className={cn('flex flex-col gap-2', className)}>
+      <div className="flex min-h-6 items-center justify-between px-0.5">
+        <h2 className="text-ui-caption font-medium text-foreground-subtle">{title}</h2>
+        {headerAction && <div className="flex items-center justify-end">{headerAction}</div>}
       </div>
-      <div className="relative overflow-hidden rounded-xl border border-border bg-panel text-card-foreground">
+      <div className="divide-y divide-border overflow-hidden rounded-xl border border-border text-card-foreground">
         {children}
       </div>
     </section>
@@ -110,15 +107,14 @@ function SettingsRow({
   return (
     <div
       className={cn(
-        'border-t border-border/60 px-4 py-3.5 first:border-t-0 sm:px-5',
-        children ? 'pb-4 pt-3.5' : 'py-3.5',
+        'px-4 py-3.5',
         className
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1 space-y-0.5">
-          <h3 className="text-ui-caption font-semibold tracking-[-0.01em] text-foreground">{title}</h3>
-          {description && <p className="text-ui-sm leading-relaxed text-muted-foreground">{description}</p>}
+          <h3 className="text-ui-base font-medium text-foreground">{title}</h3>
+          {description && <p className="max-w-prose text-pretty text-ui-sm leading-relaxed text-foreground-subtle">{description}</p>}
         </div>
         {control && <div className="flex shrink-0 items-center gap-2 sm:justify-end">{control}</div>}
       </div>
@@ -220,6 +216,47 @@ function ChoiceRailRow<T extends string>({
   )
 }
 
+function ThemeGallery({ current, dark, onSelect }: { current: ThemeId; dark: boolean; onSelect(id: ThemeId): void }): JSX.Element {
+  return (
+    <div role="radiogroup" aria-label="Color theme" className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-3">
+      {THEMES.map((theme) => {
+        const [canvas, ink, brand] = dark ? theme.dark : theme.light
+        const active = theme.id === current
+        return (
+          <button
+            key={theme.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onSelect(theme.id)}
+            className={cn(
+              'group flex min-w-0 flex-col gap-2 rounded-xl p-1.5 text-left outline-none transition-colors duration-[var(--duration-quick)] focus-visible:ring-2 focus-visible:ring-ring',
+              active ? 'bg-selected' : 'hover:bg-hover'
+            )}
+          >
+            <span
+              aria-hidden
+              className="relative flex h-14 overflow-hidden rounded-lg"
+              style={{ background: canvas, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${ink} 14%, transparent)` }}
+            >
+              <span className="w-1/4" style={{ background: `color-mix(in srgb, ${ink} 7%, ${canvas})` }} />
+              <span className="flex flex-1 flex-col justify-center gap-1.5 px-2.5">
+                <span className="h-1 w-3/4 rounded-full" style={{ background: `color-mix(in srgb, ${ink} 70%, transparent)` }} />
+                <span className="h-1 w-1/2 rounded-full" style={{ background: `color-mix(in srgb, ${ink} 28%, transparent)` }} />
+                <span className="h-1.5 w-6 rounded-full" style={{ background: brand }} />
+              </span>
+            </span>
+            <span className="flex min-w-0 items-center gap-1.5 px-1 pb-0.5">
+              <span className="min-w-0 flex-1 truncate text-ui-caption font-medium text-foreground">{theme.name}</span>
+              {active && <Tick01 size={13} strokeWidth={2} className="shrink-0 text-foreground" aria-hidden />}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function ToggleRow({
   checked,
   title,
@@ -235,25 +272,7 @@ function ToggleRow({
     <SettingsRow
       title={title}
       description={detail}
-      control={
-        <button
-          type="button"
-          role="switch"
-          aria-checked={checked}
-          onClick={() => onChange(!checked)}
-          className={cn(
-            'relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            checked ? 'bg-primary' : 'bg-input'
-          )}
-        >
-          <span
-            className={cn(
-              'absolute left-0 top-0.5 size-4 rounded-full shadow-sm transition-transform duration-200',
-              checked ? 'translate-x-[18px] bg-primary-foreground' : 'translate-x-0.5 bg-background'
-            )}
-          />
-        </button>
-      }
+      control={<Switch checked={checked} onCheckedChange={onChange} aria-label={title} />}
     />
   )
 }
@@ -293,24 +312,24 @@ export default function Settings({
 
   const categories = [
     {
-      group: 'PREFERENCES',
+      group: 'Preferences',
       items: [
-        { id: 'appearance' as const, label: 'Appearance', icon: Settings01 },
+        { id: 'appearance' as const, label: 'Appearance', icon: PaintBoard },
         { id: 'chat' as const, label: 'Chat', icon: Message01 }
       ]
     },
     {
-      group: 'SERVICES',
+      group: 'Services',
       items: [
-        { id: 'providers' as const, label: 'Providers', icon: Globe02 },
+        { id: 'providers' as const, label: 'Providers', icon: AiBrain01 },
         { id: 'archive' as const, label: 'Archive', icon: Archive01 }
       ]
     },
     {
-      group: 'SYSTEM',
+      group: 'System',
       items: [
         { id: 'shortcuts' as const, label: 'Shortcuts', icon: Keyboard01 },
-        { id: 'about' as const, label: 'About', icon: ComputerTerminal }
+        { id: 'about' as const, label: 'About', icon: InformationCircle }
       ]
     }
   ]
@@ -328,51 +347,52 @@ export default function Settings({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.18, ease: 'easeOut' }}
-      className="no-drag fixed inset-0 z-[100] flex items-center justify-center bg-overlay backdrop-blur-md p-4 sm:p-6"
+      transition={{ duration: 0.16, ease: 'easeOut' }}
+      className="no-drag fixed inset-0 z-[100] flex items-center justify-center bg-overlay p-4 sm:p-6"
       onClick={onClose}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.94, y: 10 }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        initial={{ opacity: 0, scale: 0.97, y: 6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 6 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-        className="no-drag relative flex h-[720px] max-h-[90vh] w-[900px] max-w-[95vw] overflow-hidden rounded-2xl border border-popover-border bg-popover text-popover-foreground shadow-lg p-1.5 gap-1.5"
+        exit={{ opacity: 0, scale: 0.98, y: 4 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        className="no-drag relative flex h-[720px] max-h-[90vh] w-[940px] max-w-[95vw] overflow-hidden rounded-2xl bg-shell shadow-[var(--shadow-pop)]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Left Sidebar inside Popup */}
-        <aside className="flex w-56 shrink-0 flex-col gap-4 p-3.5">
-          <div className="flex items-center justify-between">
+        <aside className="flex w-60 shrink-0 flex-col gap-3 p-3">
+          <div className="flex h-9 items-center justify-between pl-2">
+            <h2 className="text-ui-lg font-semibold text-foreground">Settings</h2>
             <button
               type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                onClose?.()
-              }}
-              className="flex items-center gap-2 text-ui-sm font-semibold text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer"
+              onClick={onClose}
+              aria-label="Close settings"
+              className="grid size-8 cursor-pointer place-items-center rounded-lg text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
               <CloseIcon />
-              <span>Settings</span>
             </button>
           </div>
 
           <div className="relative flex items-center">
-            <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground" />
+            <Search01 size={14} strokeWidth={1.5} className="pointer-events-none absolute left-2.5 text-foreground-subtlest" aria-hidden />
             <input
+              type="search"
+              aria-label="Search settings"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search settings…"
-              className="h-8.5 w-full rounded-xl border border-border bg-background pl-8 pr-2.5 text-ui-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-ring/30"
+              placeholder="Search settings"
+              autoComplete="off"
+              spellCheck={false}
+              className="h-8 w-full rounded-lg border border-input bg-background pl-8 pr-2.5 text-ui-sm text-foreground outline-none transition-colors duration-[var(--duration-instant)] placeholder:text-foreground-subtlest hover:border-input-border-hover focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:appearance-none"
             />
           </div>
 
-          <div className="no-scrollbar flex-1 overflow-y-auto space-y-4 pt-1">
+          <nav aria-label="Settings sections" className="no-scrollbar flex-1 space-y-4 overflow-y-auto pt-1">
             {filteredCategories.map((group) => (
-              <div key={group.group} className="space-y-1">
-                <div className="px-2 pb-1 text-ui-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                  {group.group}
-                </div>
+              <div key={group.group} className="space-y-0.5">
+                <div className="px-2.5 pb-1 text-ui-sm font-medium text-foreground-subtlest">{group.group}</div>
                 {group.items.map(({ id, label, icon: Icon }) => {
                   const active = section === id
                   return (
@@ -380,30 +400,34 @@ export default function Settings({
                       key={id}
                       type="button"
                       onClick={() => setSection(id)}
+                      aria-current={active ? 'page' : undefined}
                       className={cn(
-                        'relative flex h-8.5 w-full items-center gap-2.5 rounded-xl px-2.5 text-left text-ui-sm font-medium transition-colors outline-none cursor-pointer',
-                        active ? 'text-foreground font-semibold' : 'text-muted-foreground hover:bg-hover/70 hover:text-foreground'
+                        'relative flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-left text-ui-base outline-none transition-colors duration-[var(--duration-instant)] focus-visible:ring-2 focus-visible:ring-ring',
+                        active ? 'font-medium text-foreground' : 'text-foreground-subtle hover:bg-hover hover:text-foreground'
                       )}
                     >
                       {active && (
                         <motion.span
                           layoutId="popup-settings-nav-pill"
-                          className="absolute inset-0 rounded-xl bg-selected"
-                          transition={{ type: 'spring', stiffness: 620, damping: 48 }}
+                          className="absolute inset-0 rounded-lg bg-selected"
+                          transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                         />
                       )}
-                      <Icon size={14} strokeWidth={1.8} className={cn('relative shrink-0', active ? 'text-foreground' : 'text-muted-foreground')} />
+                      <Icon size={16} strokeWidth={1.5} className="relative shrink-0" aria-hidden />
                       <span className="relative min-w-0 truncate">{label}</span>
                     </button>
                   )
                 })}
               </div>
             ))}
-          </div>
+            {filteredCategories.length === 0 && (
+              <p className="px-2.5 text-ui-sm text-foreground-subtle">Nothing matches “{search.trim()}”.</p>
+            )}
+          </nav>
         </aside>
 
         {/* Right Curved Card Content Area matching reference image */}
-        <div className="min-w-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card text-card-foreground">
+        <main className="my-1.5 mr-1.5 min-w-0 flex-1 overflow-y-auto rounded-xl border border-border bg-background text-foreground">
           {section === 'providers' ? (
             <motion.div
               key="providers"
@@ -423,25 +447,30 @@ export default function Settings({
         ) : (
           <motion.div
             key={section}
-            className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 sm:p-8"
+            className={SETTINGS_PAGE_CLASS}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
           >
             {section === 'appearance' && (
               <>
-                <div>
-                  <h1 className="m-0 text-ui-xl font-semibold tracking-tight text-foreground sm:text-ui-xl">Appearance</h1>
-                  <p className="mt-1 text-ui-sm text-muted-foreground">Customize theme, window transparency, and desktop presentation.</p>
-                </div>
+                <SettingsHeader title="Appearance" description="Customize theme, window transparency, and desktop presentation." />
 
-                <SettingsSection title="Theme">
+                <SettingsSection title="Mode">
                   <ChoiceRailRow
                     id="theme"
-                    title="Theme"
+                    title="Light or dark"
                     options={themes}
                     current={preferences.theme}
                     onSelect={(theme) => onChange({ theme })}
+                  />
+                </SettingsSection>
+
+                <SettingsSection title="Color theme">
+                  <ThemeGallery
+                    current={preferences.themeId}
+                    dark={preferences.theme === 'dark' || (preferences.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)}
+                    onSelect={(themeId) => onChange({ themeId })}
                   />
                 </SettingsSection>
 
@@ -526,10 +555,7 @@ export default function Settings({
 
             {section === 'chat' && (
               <>
-                <div>
-                  <h1 className="m-0 text-ui-xl font-semibold tracking-tight text-foreground sm:text-ui-xl">Chat</h1>
-                  <p className="mt-1 text-ui-sm text-muted-foreground">Configure message density, tool activity visualization, and input behavior.</p>
-                </div>
+                <SettingsHeader title="Chat" description="Configure message density, tool activity visualization, and input behavior." />
 
                 <SettingsSection title="Message density">
                   <ChoiceRailRow
@@ -600,10 +626,7 @@ export default function Settings({
 
             {section === 'archive' && (
               <>
-                <div>
-                  <h1 className="m-0 text-ui-xl font-semibold tracking-tight text-foreground sm:text-ui-xl">Archive</h1>
-                  <p className="mt-1 text-ui-sm text-muted-foreground">Archived threads remain stored locally and can be restored at any time.</p>
-                </div>
+                <SettingsHeader title="Archive" description="Archived threads remain stored locally and can be restored at any time." />
 
                 <SettingsSection title="Archived Threads">
                   {archivedSessions.length === 0 ? (
@@ -636,10 +659,7 @@ export default function Settings({
 
             {section === 'shortcuts' && (
               <>
-                <div>
-                  <h1 className="m-0 text-ui-xl font-semibold tracking-tight text-foreground sm:text-ui-xl">Keyboard Shortcuts</h1>
-                  <p className="mt-1 text-ui-sm text-muted-foreground">Global hotkeys for fast keyboard navigation.</p>
-                </div>
+                <SettingsHeader title="Keyboard Shortcuts" description="Global hotkeys for fast keyboard navigation." />
 
                 {shortcutCategories.map((category) => (
                   <SettingsSection key={category} title={category}>
@@ -659,10 +679,7 @@ export default function Settings({
 
             {section === 'about' && (
               <>
-                <div>
-                  <h1 className="m-0 text-ui-xl font-semibold tracking-tight text-foreground sm:text-ui-xl">About</h1>
-                  <p className="mt-1 text-ui-sm text-muted-foreground">Desktop runtime environment and server status.</p>
-                </div>
+                <SettingsHeader title="About" description="Desktop runtime environment and server status." />
 
                 <SettingsSection title="System Information">
                   <SettingsRow
@@ -707,7 +724,7 @@ export default function Settings({
             )}
           </motion.div>
         )}
-        </div>
+        </main>
       </motion.div>
     </motion.div>
   )

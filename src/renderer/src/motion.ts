@@ -93,3 +93,28 @@ export const bloomPanel: Variants = {
   animate: { opacity: 1, y: 0, transition: { duration: 0.18, ease: EASE_OUT } },
   exit: { opacity: 0, transition: { duration: 0.12, ease: EASE_IN } }
 }
+
+/**
+ * Disclosure (a folded section opening in place). Height drives the layout so
+ * content below glides instead of jumping; opacity trails the height on the way
+ * in and leads it on the way out, so text never shows through a half-open clip.
+ */
+export const disclosure: Variants = {
+  initial: { height: 0, opacity: 0 },
+  animate: {
+    height: 'auto',
+    opacity: 1,
+    transition: {
+      height: { duration: 0.22, ease: EASE_OUT },
+      opacity: { duration: 0.16, delay: 0.04, ease: 'easeOut' }
+    }
+  },
+  exit: {
+    height: 0,
+    opacity: 0,
+    transition: {
+      height: { duration: 0.18, ease: EASE_OUT },
+      opacity: { duration: 0.1, ease: 'easeOut' }
+    }
+  }
+}

@@ -1,68 +1,104 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Add01Icon, ArrowDown01Icon, Cancel01Icon, Loading03Icon, Message01Icon } from '@hugeicons/core-free-icons'
 import { cn } from '../util'
-import { BLOOM_FAST, bloomDown } from '../motion'
+import { BLOOM_FAST, EASE_OUT, bloomDown } from '../motion'
 import type { SessionMeta } from '../../../shared/protocol'
 import type { ChatState } from '../state'
 
+/** Narrowest a tab may get before the strip starts moving tabs into the overflow menu. */
+const TAB_MIN_WIDTH = 116
+const TAB_GAP = 2
+/** Room reserved for the overflow trigger and the new-session button. */
+const STRIP_CHROME = 44 + 32
+
 interface TabProps {
+  id: string
   label: string
   active: boolean
   running: boolean
+  focusable: boolean
   onSelect(): void
-  onClose(e: React.MouseEvent): void
+  onClose(): void
+  onKeyDown(e: React.KeyboardEvent<HTMLButtonElement>): void
 }
 
-function Tab({ label, active, running, onSelect, onClose }: TabProps): JSX.Element {
+/**
+ * One session tab. The leading glyph is the session's status (idle message
+ * icon, or a spinner while a run is live) and trades places with the close
+ * button on hover/focus, so the label keeps its full width and the close
+ * target never sits next to the label's truncation edge.
+ */
+function Tab({ id, label, active, running, focusable, onSelect, onClose, onKeyDown }: TabProps): JSX.Element {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      title={label}
+    <div
+      role="presentation"
+      data-tab-id={id}
+      onAuxClick={(e) => {
+        if (e.button !== 1) return
+        e.preventDefault()
+        onClose()
+      }}
       className={cn(
-        'group relative flex h-7 min-w-0 max-w-[180px] shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-left text-ui-sm font-medium transition-[background-color,color,box-shadow] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] select-none',
-        active
-          ? 'bg-card-selected text-foreground'
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+        'group/tab no-drag relative flex h-7 min-w-0 shrink items-center rounded-lg',
+        'basis-[200px] [min-width:var(--tab-min)]',
+        'transition-colors duration-[var(--duration-instant)] ease-[var(--ease-smooth-out)]',
+        active ? 'text-foreground' : 'text-foreground-subtle hover:bg-hover hover:text-foreground'
       )}
+      style={{ ['--tab-min' as string]: `${TAB_MIN_WIDTH}px` }}
     >
-      {running && (
-        <span className="size-1.5 shrink-0 rounded-full bg-success" />
+      {active && (
+        <motion.span
+          layoutId="session-tab-active"
+          aria-hidden
+          className="absolute inset-0 rounded-lg bg-selected shadow-[inset_0_0_0_1px_var(--border)]"
+          transition={{ duration: 0.16, ease: EASE_OUT }}
+        />
       )}
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span
-        role="button"
-        aria-label="Close tab"
-        onClick={onClose}
+      <button
+        type="button"
+        role="tab"
+        id={`session-tab-${id}`}
+        aria-selected={active}
+        tabIndex={focusable ? 0 : -1}
+        title={label}
+        onClick={onSelect}
+        onKeyDown={onKeyDown}
+        className="relative flex h-full min-w-0 flex-1 select-none items-center gap-2 rounded-lg pl-2 pr-2.5 text-left text-ui-caption font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="relative grid size-4 shrink-0 place-items-center transition-[opacity,scale] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] group-hover/tab:scale-50 group-hover/tab:opacity-0 group-focus-within/tab:scale-50 group-focus-within/tab:opacity-0">
+          {running ? (
+            <>
+              <HugeiconsIcon icon={Loading03Icon} size={14} strokeWidth={1.75} className="animate-spin text-[color:var(--busy)]" aria-hidden />
+              <span className="sr-only">Running. </span>
+            </>
+          ) : (
+            <HugeiconsIcon icon={Message01Icon} size={14} strokeWidth={1.5} aria-hidden />
+          )}
+        </span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+      </button>
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={`Close ${label}`}
+        onClick={(e) => {
+          e.stopPropagation()
+          onClose()
+        }}
         className={cn(
-          'grid size-4 shrink-0 place-items-center rounded-sm transition-[background-color,color,opacity] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]',
-          active
-            ? 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            : 'opacity-0 group-hover:opacity-100 text-muted-foreground hover:bg-muted hover:text-foreground'
+          'absolute left-1.5 top-1/2 grid size-5 -translate-y-1/2 scale-50 place-items-center rounded-md text-foreground-subtle opacity-0 outline-none',
+          'transition-[opacity,scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]',
+          'hover:bg-selected hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+          'group-hover/tab:scale-100 group-hover/tab:opacity-100 group-focus-within/tab:scale-100 group-focus-within/tab:opacity-100'
         )}
       >
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
-          <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      </span>
-    </button>
+        <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={2} aria-hidden />
+      </button>
+    </div>
   )
 }
-
-interface Props {
-  tabOrder: string[]
-  chats: Record<string, ChatState>
-  sessions: SessionMeta[]
-  activeId: string | null
-  runningIds: Set<string>
-  appName: string
-  onSelect(id: string): void
-  onClose(id: string): void
-}
-
-// Fixed cap for the visible tab strip. Anything beyond this is hidden
-// behind the +N overflow menu.
-const MAX_VISIBLE_TABS = 8
 
 interface OverflowProps {
   hiddenIds: string[]
@@ -78,22 +114,10 @@ function OverflowMenu({ hiddenIds, labelFor, runningIds, onSelect, onClose }: Ov
   const rootRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
-  const closeTimer = useRef<number | null>(null)
 
-  const cancelClose = (): void => {
-    if (closeTimer.current !== null) {
-      window.clearTimeout(closeTimer.current)
-      closeTimer.current = null
-    }
-  }
-  const scheduleClose = (): void => {
-    cancelClose()
-    closeTimer.current = window.setTimeout(() => setOpen(false), 150)
-  }
   const openMenu = (): void => {
     const rect = buttonRef.current?.getBoundingClientRect()
-    if (rect) setPos({ left: Math.min(rect.left, window.innerWidth - 252), top: rect.bottom + 6 })
-    cancelClose()
+    if (rect) setPos({ left: Math.max(8, Math.min(rect.left, window.innerWidth - 268)), top: rect.bottom + 6 })
     setOpen(true)
   }
 
@@ -105,98 +129,97 @@ function OverflowMenu({ hiddenIds, labelFor, runningIds, onSelect, onClose }: Ov
       setOpen(false)
     }
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      buttonRef.current?.focus()
     }
+    const onBlur = (): void => setOpen(false)
     document.addEventListener('mousedown', onDown, true)
     document.addEventListener('keydown', onKey)
-    window.addEventListener('blur', () => setOpen(false))
+    window.addEventListener('blur', onBlur)
     return () => {
       document.removeEventListener('mousedown', onDown, true)
       document.removeEventListener('keydown', onKey)
-      cancelClose()
+      window.removeEventListener('blur', onBlur)
     }
   }, [open])
 
-  useEffect(() => () => cancelClose(), [])
+  // Closing the last hidden tab leaves nothing to show.
+  useEffect(() => {
+    if (hiddenIds.length === 0) setOpen(false)
+  }, [hiddenIds.length])
+
+  const anyRunning = hiddenIds.some((id) => runningIds.has(id))
 
   return (
     <>
-      <div
-        ref={rootRef}
-        className="no-drag flex shrink-0 items-center gap-1.5"
-        onMouseEnter={openMenu}
-        onMouseLeave={scheduleClose}
-      >
-        <div className="h-5 w-px shrink-0 bg-border/60" aria-hidden />
+      <div ref={rootRef} className="no-drag shrink-0">
         <button
           ref={buttonRef}
           type="button"
-          aria-label={`${hiddenIds.length} more tabs — show hidden sessions`}
+          aria-label={`${hiddenIds.length} more sessions`}
+          aria-haspopup="menu"
           aria-expanded={open}
-          title={`${hiddenIds.length} more tabs`}
           onClick={() => (open ? setOpen(false) : openMenu())}
           className={cn(
-            'flex h-7 cursor-pointer items-center rounded-full border px-2.5 text-ui-sm font-semibold select-none',
-            open
-              ? 'border-border bg-selected text-foreground'
-              : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+            'relative flex h-7 items-center gap-1 rounded-lg px-2 text-ui-caption font-medium tabular-nums outline-none',
+            'transition-colors duration-[var(--duration-instant)] focus-visible:ring-2 focus-visible:ring-ring',
+            open ? 'bg-selected text-foreground' : 'text-foreground-subtle hover:bg-hover hover:text-foreground'
           )}
         >
+          {anyRunning && <span className="absolute right-1 top-1 size-1.5 rounded-full bg-[color:var(--busy)]" aria-hidden />}
           +{hiddenIds.length}
+          <HugeiconsIcon icon={ArrowDown01Icon} size={12} strokeWidth={1.75} aria-hidden className={cn('transition-transform duration-[var(--duration-quick)]', open && 'rotate-180')} />
         </button>
       </div>
 
-      {/* Fixed-positioned (like the project picker) so the tab strip's
-          overflow clip and the titlebar can never cut it off. */}
+      {/* Fixed-positioned so the strip's overflow clip and the titlebar can never cut it off. */}
       <AnimatePresence>
         {open && (
           <motion.div
             ref={menuRef}
+            role="menu"
+            aria-label="Hidden sessions"
             variants={bloomDown}
             initial="initial"
             animate="animate"
             exit="exit"
             transition={BLOOM_FAST}
-            className="no-drag fixed z-[70] w-[240px] origin-top-left overflow-hidden rounded-lg border border-popover-border bg-menu py-1 shadow-md"
+            className="no-drag fixed z-[70] w-[260px] origin-top-left overflow-hidden rounded-xl bg-menu p-1 shadow-[var(--shadow-pop)]"
             style={{ left: pos.left, top: pos.top }}
-            onMouseEnter={() => { cancelClose(); setOpen(true) }}
-            onMouseLeave={scheduleClose}
           >
-            <div className="px-3 pb-1 pt-1.5 text-ui-xs font-semibold uppercase tracking-wider text-foreground-subtlest">
-              Hidden tabs · {hiddenIds.length}
-            </div>
+            <div className="px-2.5 pb-1 pt-1.5 text-ui-xs font-medium text-foreground-subtlest">Hidden sessions</div>
             <div className="no-scrollbar max-h-[280px] overflow-y-auto">
               {hiddenIds.map((id) => {
                 const label = labelFor(id)
                 const running = runningIds.has(id)
                 return (
-                  <div
-                    key={id}
-                    role="button"
-                    tabIndex={0}
-                    title={label}
-                    onClick={() => { onSelect(id); setOpen(false) }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(id); setOpen(false) } }}
-                    className="group flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-ui-caption text-foreground transition-colors hover:bg-hover"
-                  >
-                    {running ? (
-                      <span className="size-1.5 shrink-0 rounded-full bg-success" />
-                    ) : (
-                      <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/30" />
-                    )}
-                    <span className="min-w-0 flex-1 truncate">{label}</span>
-                    <span
-                      role="button"
-                      aria-label={`Close ${label}`}
-                      tabIndex={0}
-                      onClick={(e) => { e.stopPropagation(); onClose(id) }}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onClose(id) } }}
-                      className="grid size-4 shrink-0 place-items-center rounded-sm text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted hover:text-foreground"
+                  <div key={id} className="group/row flex items-center rounded-lg transition-colors duration-[var(--duration-instant)] focus-within:bg-hover hover:bg-hover">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      title={label}
+                      onClick={() => {
+                        onSelect(id)
+                        setOpen(false)
+                      }}
+                      className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 text-left text-ui-caption text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
-                        <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                    </span>
+                      {running ? (
+                        <HugeiconsIcon icon={Loading03Icon} size={13} strokeWidth={1.75} className="shrink-0 animate-spin text-[color:var(--busy)]" aria-hidden />
+                      ) : (
+                        <HugeiconsIcon icon={Message01Icon} size={13} strokeWidth={1.5} className="shrink-0 text-foreground-subtlest" aria-hidden />
+                      )}
+                      <span className="min-w-0 flex-1 truncate">{label}</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Close ${label}`}
+                      onClick={() => onClose(id)}
+                      className="mr-1 grid size-6 shrink-0 place-items-center rounded-md text-foreground-subtle opacity-0 outline-none transition-opacity duration-[var(--duration-instant)] hover:bg-selected hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover/row:opacity-100"
+                    >
+                      <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={2} aria-hidden />
+                    </button>
                   </div>
                 )
               })}
@@ -208,17 +231,39 @@ function OverflowMenu({ hiddenIds, labelFor, runningIds, onSelect, onClose }: Ov
   )
 }
 
-function TabBar({
-  tabOrder,
-  chats,
-  sessions,
-  activeId,
-  runningIds,
-  appName,
-  onSelect,
-  onClose,
-}: Props): JSX.Element {
-  function labelFor(id: string): string {
+interface Props {
+  tabOrder: string[]
+  chats: Record<string, ChatState>
+  sessions: SessionMeta[]
+  activeId: string | null
+  runningIds: Set<string>
+  appName: string
+  onSelect(id: string): void
+  onClose(id: string): void
+  onNew(): void
+}
+
+function TabBar({ tabOrder, chats, sessions, activeId, runningIds, onSelect, onClose, onNew }: Props): JSX.Element {
+  const stripRef = useRef<HTMLDivElement>(null)
+  const [capacity, setCapacity] = useState(8)
+
+  // How many tabs fit at TAB_MIN_WIDTH. Measured, not guessed: the strip is
+  // flex-1 between the app name and the window actions, so its width moves
+  // with the window and with the sidebar.
+  useLayoutEffect(() => {
+    const el = stripRef.current
+    if (!el) return
+    const measure = (): void => {
+      const fit = Math.floor((el.clientWidth - STRIP_CHROME + TAB_GAP) / (TAB_MIN_WIDTH + TAB_GAP))
+      setCapacity(Math.max(1, fit))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const labelFor = (id: string): string => {
     const s = sessions.find((s) => s.id === id)
     if (s?.title) return s.title
     if (s?.preview) return s.preview
@@ -227,45 +272,81 @@ function TabBar({
     return id.slice(0, 8)
   }
 
-  // Fixed-limit windowing: show at most MAX_VISIBLE_TABS, always keeping
-  // the active tab visible by swapping it into the last visible slot.
+  // Show what fits, always keeping the active tab visible by swapping it into
+  // the last visible slot.
   let visibleIds = tabOrder
   let hiddenIds: string[] = []
-  if (tabOrder.length > MAX_VISIBLE_TABS) {
-    const head = tabOrder.slice(0, MAX_VISIBLE_TABS)
+  if (tabOrder.length > capacity) {
+    const head = tabOrder.slice(0, capacity)
     if (activeId && tabOrder.includes(activeId) && !head.includes(activeId)) {
-      visibleIds = [...tabOrder.slice(0, MAX_VISIBLE_TABS - 1), activeId]
-      hiddenIds = tabOrder.filter((id) => !visibleIds.includes(id))
+      visibleIds = [...tabOrder.slice(0, capacity - 1), activeId]
     } else {
       visibleIds = head
-      hiddenIds = tabOrder.slice(MAX_VISIBLE_TABS)
+    }
+    hiddenIds = tabOrder.filter((id) => !visibleIds.includes(id))
+  }
+
+  // Roving tabindex: the active tab owns the tab stop; with none active
+  // (Home), the first tab does.
+  const stopId = activeId && visibleIds.includes(activeId) ? activeId : visibleIds[0]
+
+  const focusTab = useCallback((id: string | undefined) => {
+    if (!id) return
+    stripRef.current?.querySelector<HTMLButtonElement>(`#session-tab-${CSS.escape(id)}`)?.focus()
+  }, [])
+
+  const onTabKey = (id: string) => (e: React.KeyboardEvent<HTMLButtonElement>): void => {
+    const i = visibleIds.indexOf(id)
+    const move = (to: number): void => {
+      e.preventDefault()
+      focusTab(visibleIds[(to + visibleIds.length) % visibleIds.length])
+    }
+    if (e.key === 'ArrowRight') move(i + 1)
+    else if (e.key === 'ArrowLeft') move(i - 1)
+    else if (e.key === 'Home') move(0)
+    else if (e.key === 'End') move(visibleIds.length - 1)
+    else if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault()
+      // Land on a neighbour so keyboard users are not dropped at the page top.
+      focusTab(visibleIds[i + 1] ?? visibleIds[i - 1])
+      onClose(id)
     }
   }
-  const hiddenCount = hiddenIds.length
 
   return (
-    <div className="drag-region flex h-9 min-w-0 flex-1 items-center gap-1 px-2">
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+    <div className="drag-region flex h-9 min-w-0 flex-1 items-center gap-0.5 px-1">
+      <div
+        ref={stripRef}
+        role="tablist"
+        aria-label="Open sessions"
+        className="flex h-9 min-w-0 flex-1 items-center gap-0.5 overflow-hidden px-0.5"
+      >
         {visibleIds.map((id) => (
           <Tab
             key={id}
+            id={id}
             label={labelFor(id)}
             active={id === activeId}
             running={runningIds.has(id)}
+            focusable={id === stopId}
             onSelect={() => onSelect(id)}
-            onClose={(e) => { e.stopPropagation(); onClose(id) }}
+            onClose={() => onClose(id)}
+            onKeyDown={onTabKey(id)}
           />
         ))}
+        {hiddenIds.length > 0 && (
+          <OverflowMenu hiddenIds={hiddenIds} labelFor={labelFor} runningIds={runningIds} onSelect={onSelect} onClose={onClose} />
+        )}
+        <button
+          type="button"
+          aria-label="New session"
+          title="New session"
+          onClick={onNew}
+          className="no-drag grid size-7 shrink-0 place-items-center rounded-lg text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <HugeiconsIcon icon={Add01Icon} size={15} strokeWidth={1.75} aria-hidden />
+        </button>
       </div>
-      {hiddenCount > 0 && (
-        <OverflowMenu
-          hiddenIds={hiddenIds}
-          labelFor={labelFor}
-          runningIds={runningIds}
-          onSelect={onSelect}
-          onClose={onClose}
-        />
-      )}
     </div>
   )
 }
@@ -281,6 +362,7 @@ export default memo(
     prev.appName === next.appName &&
     prev.runningIds === next.runningIds &&
     prev.sessions === next.sessions &&
+    prev.onNew === next.onNew &&
     prev.tabOrder.length === next.tabOrder.length &&
     prev.tabOrder.every((id, i) => id === next.tabOrder[i]) &&
     prev.tabOrder.every((id) => prev.chats[id]?.cwd === next.chats[id]?.cwd)
