@@ -108,6 +108,8 @@ function Sidebar({
   // Grouped variant: per-project section open state, overriding the
   // follow-the-active-project default once the user toggles a section.
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
+  const [hoveredProjectAction, setHoveredProjectAction] = useState<string | null>(null)
+  const [focusedProjectAction, setFocusedProjectAction] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
@@ -753,6 +755,8 @@ function Sidebar({
 
                     {grouped.map((project, index) => {
                       const open = isGroupOpen(project.cwd, index)
+                      const showProjectAction =
+                        hoveredProjectAction === project.cwd || focusedProjectAction === project.cwd
                       return (
                         <motion.div
                           key={project.cwd}
@@ -764,6 +768,14 @@ function Sidebar({
                               open && 'bg-hover'
                             )}
                             title={project.cwd}
+                            onPointerEnter={() => setHoveredProjectAction(project.cwd)}
+                            onPointerLeave={() => setHoveredProjectAction(null)}
+                            onFocusCapture={() => setFocusedProjectAction(project.cwd)}
+                            onBlurCapture={(event) => {
+                              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                                setFocusedProjectAction(null)
+                              }
+                            }}
                           >
                             <button
                               type="button"
@@ -789,7 +801,11 @@ function Sidebar({
                             </button>
                             <button
                               type="button"
-                              className="absolute left-[27px] top-1 z-10 grid size-5 place-items-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                              className={cn(
+                                'absolute left-[25.5px] top-1 z-10 grid size-5 place-items-center rounded-md text-muted-foreground transition-opacity duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+                                !showProjectAction && 'pointer-events-none'
+                              )}
+                              style={{ opacity: showProjectAction ? 1 : 0 }}
                               title={`New session in ${project.name}`}
                               aria-label={`New session in ${project.name}`}
                               onClick={() => onCompose(project.cwd)}
@@ -797,19 +813,21 @@ function Sidebar({
                               <Plus
                                 size={13}
                                 strokeWidth={2}
-                                className="absolute opacity-0 transition-opacity group-hover/proj:opacity-100 group-focus-within/proj:opacity-100"
+                                className="absolute"
                               />
                               {open ? (
                                 <Folder02
                                   size={13}
                                   strokeWidth={1.8}
-                                  className="absolute text-foreground transition-opacity group-hover/proj:opacity-0 group-focus-within/proj:opacity-0"
+                                  className="absolute text-foreground transition-opacity"
+                                  style={{ opacity: showProjectAction ? 0 : 1 }}
                                 />
                               ) : (
                                 <Folder01
                                   size={13}
                                   strokeWidth={1.8}
-                                  className="absolute text-muted-foreground transition-opacity group-hover/proj:opacity-0 group-focus-within/proj:opacity-0"
+                                  className="absolute text-muted-foreground transition-opacity"
+                                  style={{ opacity: showProjectAction ? 0 : 1 }}
                                 />
                               )}
                             </button>

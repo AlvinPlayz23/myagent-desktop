@@ -345,6 +345,7 @@ interface Props {
   running: boolean
   onSend(content: ContentBlock[], queue: boolean): Promise<void>
   onStop(): void
+  onPromptFocus?(): void
   placeholder?: string
   model?: string
   providers?: ProvidersInfo
@@ -373,6 +374,7 @@ export default function Composer({
   running,
   onSend,
   onStop,
+  onPromptFocus,
   placeholder,
   model,
   providers,
@@ -1036,6 +1038,7 @@ export default function Composer({
           <div className="min-w-0 flex-1">
             <textarea
               ref={area}
+              onFocus={onPromptFocus}
               value={text}
               rows={1}
               disabled={isRecording || submitting}
@@ -1293,6 +1296,7 @@ export default function Composer({
           <div className="px-4 pb-[54px] pt-4">
             <textarea
               ref={area}
+              onFocus={onPromptFocus}
               value={text}
               rows={1}
               disabled={isRecording || submitting}
