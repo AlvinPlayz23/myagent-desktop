@@ -623,6 +623,7 @@ export default function App(): JSX.Element {
         onArchive={archiveSession}
         onRestore={restoreSession}
         sidebarVariant={preferences.sidebarVariant}
+        runIndicator={preferences.runIndicator}
       />
       <main className="main-panel surface-grain relative flex min-w-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">

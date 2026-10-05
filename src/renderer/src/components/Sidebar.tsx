@@ -23,7 +23,8 @@ import {
 import type { GitBranch, SessionMeta } from '../../../shared/protocol'
 import { BLOOM_FAST, EASE_IN, EASE_OUT, bloomDown } from '../motion'
 import { cn, relTime } from '../util'
-import type { SidebarVariant } from '../preferences'
+import type { RunIndicatorStyle, SidebarVariant } from '../preferences'
+import RunIndicator from './RunIndicator'
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 interface Menu { session: SessionMeta; x: number; y: number }
@@ -48,6 +49,7 @@ interface Props {
   onRestore(id: string): void
   /** Sidebar presentation: the flat inbox list, or projects grouped with expandable sections. */
   sidebarVariant?: SidebarVariant
+  runIndicator?: RunIndicatorStyle
 }
 
 const MENU_WIDTH = 240
@@ -94,7 +96,8 @@ function Sidebar({
   onRename,
   onArchive,
   onRestore,
-  sidebarVariant = 'inbox'
+  sidebarVariant = 'inbox',
+  runIndicator = 'dotmatrix'
 }: Props): JSX.Element {
   const isGrouped = sidebarVariant === 'grouped'
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null)
@@ -406,7 +409,7 @@ function Sidebar({
       >
         <span className="mt-[3px] grid size-4 shrink-0 place-items-center" aria-hidden>
           {running ? (
-            <span className="size-[7px] rounded-full bg-[color:var(--busy)] [animation:work-pulse_1.2s_ease-in-out_infinite]" />
+            <RunIndicator variant={runIndicator} />
           ) : (
             <HugeiconsIcon
               icon={Message01Icon}
