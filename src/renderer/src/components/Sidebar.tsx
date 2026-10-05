@@ -15,7 +15,7 @@ import {
   LayoutAlignLeft,
   LayoutAlignRight,
   Message01,
-  Plus,
+  CirclePlus,
   Search01,
   Settings01,
   Tick01
@@ -606,7 +606,7 @@ function Sidebar({
               <div className="flex w-full flex-col items-center gap-1">
                 {railButton(
                   'new',
-                  <Plus size={15} strokeWidth={1.9} />,
+                  <CirclePlus size={18} />,
                   knownProjects.length > 0 ? 'New session' : 'Add a project first',
                   newSessionAction
                 )}
@@ -693,7 +693,7 @@ function Sidebar({
                     else onAddProject()
                   }}
                 >
-                  <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
+                  <CirclePlus size={18} className="text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate text-foreground">New session</span>
                 </button>
               </>
@@ -709,9 +709,7 @@ function Sidebar({
                       )}
                       onClick={newSessionAction}
                     >
-                      <span className="grid size-[18px] shrink-0 place-items-center rounded-full border border-foreground-subtlest text-muted-foreground" aria-hidden>
-                        <Plus size={11} strokeWidth={2} />
-                      </span>
+                      <CirclePlus size={18} className="text-muted-foreground" />
                       <span className="min-w-0 truncate text-ui-caption font-medium text-foreground">
                         {knownProjects.length > 0 ? 'New session' : 'Add project'}
                       </span>
@@ -892,11 +890,7 @@ function Sidebar({
                               aria-label={`New session in ${project.name}`}
                               onClick={() => onCompose(project.cwd)}
                             >
-                              <Plus
-                                size={13}
-                                strokeWidth={2}
-                                className="absolute"
-                              />
+                              <CirclePlus size={16} className="absolute" />
                             </button>
                           </div>
 
@@ -919,7 +913,7 @@ function Sidebar({
                                       className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
                                       onClick={() => onCompose(project.cwd)}
                                     >
-                                      <Plus size={12} strokeWidth={1.8} className="shrink-0" />
+                                      <CirclePlus size={16} />
                                       <span className="text-ui-sm">Start first session</span>
                                     </button>
                                   </div>
@@ -975,7 +969,7 @@ function Sidebar({
                       className="mt-2.5 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-ui-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
                       onClick={newSessionAction}
                     >
-                      <Plus size={11} strokeWidth={2} />
+                      <CirclePlus size={16} />
                       {knownProjects.length > 0 ? 'New session' : 'Add project'}
                     </button>
                   </div>
