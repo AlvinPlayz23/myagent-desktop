@@ -574,29 +574,6 @@ function Sidebar({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2">
-          {/* Running sessions sit above the project picker so a run in another
-              folder stays visible. No header and no container of its own: the
-              rows are identical to every other row, they just come first, and
-              the group collapses away entirely when the last run finishes. */}
-          <AnimatePresence initial={false}>
-            {!collapsed && !isGrouped && runningSessions.length > 0 && (
-              <motion.div
-                key="running-sessions"
-                className="w-[248px] shrink-0 space-y-[3px] overflow-hidden pb-1.5"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2, ease: EASE_OUT }}
-              >
-                <div className="no-scrollbar max-h-[280px] overflow-y-auto">
-                  <AnimatePresence initial={false}>
-                    {runningSessions.map((session) => sessionRow(session))}
-                  </AnimatePresence>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {/* Header. Collapsed it is a two-icon rail (expand, new session);
               expanded it is the project picker plus the new-session action.
               Fixed-size boxes anchored to the same edges in both states, so a
@@ -751,6 +728,29 @@ function Sidebar({
               </>
             )}
           </div>
+
+          {/* Running sessions sit right under the header so a run in another
+              folder stays visible. No header and no container of its own: the
+              rows are identical to every other row, they just come first, and
+              the group collapses away entirely when the last run finishes. */}
+          <AnimatePresence initial={false}>
+            {!collapsed && !isGrouped && runningSessions.length > 0 && (
+              <motion.div
+                key="running-sessions"
+                className="w-[248px] shrink-0 space-y-[3px] overflow-hidden pt-1 pb-1.5"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: EASE_OUT }}
+              >
+                <div className="no-scrollbar max-h-[280px] overflow-y-auto">
+                  <AnimatePresence initial={false}>
+                    {runningSessions.map((session) => sessionRow(session))}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* The project picker stays fixed. Only the session/archive canvas
               below it scrolls, so changing the list never moves the picker or
