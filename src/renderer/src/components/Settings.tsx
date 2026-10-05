@@ -4,7 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { AiBrain01, Archive01, ArchiveRestore, InformationCircle, Keyboard01, Message01, PaintBoard, Search01, Tick01 } from './ui/icons'
 import type { ConnState } from '../state'
-import { THEMES, normalizeAppName, normalizeFontSize, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant } from '../preferences'
+import { THEMES, normalizeAppName, normalizeFontSize, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant, type RunIndicatorStyle } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
 import { cn } from '../util'
 import { Switch } from './ui/switch'
@@ -65,6 +65,11 @@ const effortSelectorVariants: Array<{ value: EffortSelectorVariant; title: strin
 const sidebarVariants: Array<{ value: SidebarVariant; title: string; detail: string }> = [
   { value: 'inbox', title: 'Inbox', detail: 'Flat filtered list with project picker and live-run pinning' },
   { value: 'grouped', title: 'Grouped', detail: 'All folders in one place with expandable project sections' }
+]
+
+const runIndicatorOptions: Array<{ value: RunIndicatorStyle; title: string; detail: string }> = [
+  { value: 'dotmatrix', title: 'Dot matrix', detail: 'Animated dot grid on tabs while a session is running' },
+  { value: 'color', title: 'Color', detail: 'A plain busy-coloured dot' }
 ]
 
 function SettingsSection({
@@ -604,6 +609,13 @@ export default function Settings({
                     options={sidebarVariants}
                     current={preferences.sidebarVariant}
                     onSelect={(sidebarVariant) => onChange({ sidebarVariant })}
+                  />
+                  <ChoiceRailRow
+                    id="run-indicator"
+                    title="Running tab indicator"
+                    options={runIndicatorOptions}
+                    current={preferences.runIndicator}
+                    onSelect={(runIndicator) => onChange({ runIndicator })}
                   />
                 </SettingsSection>
 

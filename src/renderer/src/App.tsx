@@ -652,6 +652,7 @@ export default function App(): JSX.Element {
             activeId={state.activeId}
             runningIds={runningIds}
             appName={normalizeAppName(preferences.appName)}
+            runIndicator={preferences.runIndicator}
             onSelect={(id) => dispatch({ type: 'focusChat', sessionId: id })}
             onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
             onNew={goHome}

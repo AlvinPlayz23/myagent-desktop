@@ -6,6 +6,8 @@ import { cn } from '../util'
 import { BLOOM_FAST, EASE_OUT, bloomDown } from '../motion'
 import type { SessionMeta } from '../../../shared/protocol'
 import type { ChatState } from '../state'
+import type { RunIndicatorStyle } from '../preferences'
+import RunIndicator from './RunIndicator'
 
 /** Narrowest a tab may get before the strip starts moving tabs into the overflow menu. */
 const TAB_MIN_WIDTH = 116
@@ -18,6 +20,7 @@ interface TabProps {
   label: string
   active: boolean
   running: boolean
+  runIndicator: RunIndicatorStyle
   focusable: boolean
   onSelect(): void
   onClose(): void
@@ -30,7 +33,7 @@ interface TabProps {
  * button on hover/focus, so the label keeps its full width and the close
  * target never sits next to the label's truncation edge.
  */
-function Tab({ id, label, active, running, focusable, onSelect, onClose, onKeyDown }: TabProps): JSX.Element {
+function Tab({ id, label, active, running, runIndicator, focusable, onSelect, onClose, onKeyDown }: TabProps): JSX.Element {
   return (
     <div
       role="presentation"
@@ -70,7 +73,7 @@ function Tab({ id, label, active, running, focusable, onSelect, onClose, onKeyDo
         <span className="relative grid size-4 shrink-0 place-items-center transition-[opacity,scale] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] group-hover/tab:scale-50 group-hover/tab:opacity-0 group-focus-within/tab:scale-50 group-focus-within/tab:opacity-0">
           {running ? (
             <>
-              <HugeiconsIcon icon={Loading03Icon} size={14} strokeWidth={1.75} className="animate-spin text-[color:var(--busy)]" aria-hidden />
+              <RunIndicator variant={runIndicator} />
               <span className="sr-only">Running. </span>
             </>
           ) : (
@@ -238,12 +241,13 @@ interface Props {
   activeId: string | null
   runningIds: Set<string>
   appName: string
+  runIndicator?: RunIndicatorStyle
   onSelect(id: string): void
   onClose(id: string): void
   onNew(): void
 }
 
-function TabBar({ tabOrder, chats, sessions, activeId, runningIds, onSelect, onClose, onNew }: Props): JSX.Element {
+function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator = 'dotmatrix', onSelect, onClose, onNew }: Props): JSX.Element {
   const stripRef = useRef<HTMLDivElement>(null)
   const [capacity, setCapacity] = useState(8)
 
@@ -328,6 +332,7 @@ function TabBar({ tabOrder, chats, sessions, activeId, runningIds, onSelect, onC
             label={labelFor(id)}
             active={id === activeId}
             running={runningIds.has(id)}
+            runIndicator={runIndicator}
             focusable={id === stopId}
             onSelect={() => onSelect(id)}
             onClose={() => onClose(id)}
@@ -360,6 +365,7 @@ export default memo(
   (prev, next) =>
     prev.activeId === next.activeId &&
     prev.appName === next.appName &&
+    prev.runIndicator === next.runIndicator &&
     prev.runningIds === next.runningIds &&
     prev.sessions === next.sessions &&
     prev.onNew === next.onNew &&

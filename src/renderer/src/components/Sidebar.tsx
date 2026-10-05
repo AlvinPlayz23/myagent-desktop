@@ -885,10 +885,26 @@ function Sidebar({
                   </>
                 ) : (
                   <>
-                {visibleSessions.length > 0 && (
+                <button
+                  className="mb-1 flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-ui-caption outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={newSessionAction}
+                >
+                  <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                    {knownProjects.length > 0 ? 'New session' : 'Add project'}
+                  </span>
+                </button>
+
+                {(visibleSessions.length > 0 || runningSessions.length > 0) && (
                   <div className="flex items-center gap-2 px-2.5 pb-0.5 pt-1.5">
                     <span className="text-ui-sm font-medium text-muted-foreground">Sessions</span>
+                    <span className="ml-auto rounded-md bg-hover px-1.5 text-ui-xs tabular-nums text-muted-foreground">
+                      {visibleSessions.length + runningSessions.length}
+                    </span>
                   </div>
+                )}
+                {currentProject && (
+                  <div className="truncate px-2.5 pb-1 text-ui-sm text-foreground-subtlest">{currentProject.name}</div>
                 )}
 
                 <div className="space-y-[3px] pt-0.5">

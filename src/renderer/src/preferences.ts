@@ -25,6 +25,7 @@ export type ToolActivityDisplay = 'expanded' | 'compact' | 'hidden'
 export type ModelSelectorVariant = 'compact' | 'gallery'
 export type EffortSelectorVariant = 'slider' | 'chips'
 export type SidebarVariant = 'inbox' | 'grouped'
+export type RunIndicatorStyle = 'dotmatrix' | 'color'
 
 export interface Preferences {
   theme: ThemePreference
@@ -46,6 +47,8 @@ export interface Preferences {
    * grouped view with every project folder expanded in one place.
    */
   sidebarVariant: SidebarVariant
+  /** How a running session is marked in the tab strip. */
+  runIndicator: RunIndicatorStyle
   /** Whether the desktop material should be visible through the app shell. */
   transparencyEnabled: boolean
   /** 0 is more opaque; 100 lets more of the desktop material show through. */
@@ -76,6 +79,7 @@ export const defaults: Preferences = {
   modelSelectorVariant: 'compact',
   effortSelectorVariant: 'slider',
   sidebarVariant: 'inbox',
+  runIndicator: 'dotmatrix',
   transparencyEnabled: true,
   transparency: 50,
   interfaceFontSize: 13.5,
@@ -111,6 +115,7 @@ export function loadPreferences(): Preferences {
       modelSelectorVariant: stored.modelSelectorVariant === 'gallery' ? 'gallery' : 'compact',
       effortSelectorVariant: stored.effortSelectorVariant === 'chips' ? 'chips' : 'slider',
       sidebarVariant: stored.sidebarVariant === 'grouped' ? 'grouped' : 'inbox',
+      runIndicator: stored.runIndicator === 'color' ? 'color' : 'dotmatrix',
       transparencyEnabled: stored.transparencyEnabled !== false,
       transparency: normalizeTransparency(stored.transparency),
       interfaceFontSize: normalizeFontSize(stored.interfaceFontSize),
