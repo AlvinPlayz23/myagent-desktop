@@ -719,13 +719,7 @@ function Sidebar({
 
           {!collapsed && !isGrouped && (
             <div className="shrink-0 px-0.5 pb-1 pt-2">
-              <div className="flex items-center gap-2 px-2 pb-0.5">
-                <span className="text-ui-sm font-medium text-muted-foreground">Sessions</span>
-                <span className="ml-auto rounded-md bg-hover px-1.5 text-ui-xs tabular-nums text-muted-foreground">
-                  {visibleSessions.length + runningSessions.length}
-                </span>
-              </div>
-              <div className="flex">
+              <div className="flex items-center gap-2">
             <button
               ref={projectButtonRef}
               className={cn(
@@ -754,6 +748,9 @@ function Sidebar({
                 )}
               />
             </button>
+                <span className="ml-auto shrink-0 rounded-md bg-hover px-1.5 text-ui-xs tabular-nums text-muted-foreground">
+                  {visibleSessions.length + runningSessions.length}
+                </span>
               </div>
             </div>
           )}
