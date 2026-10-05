@@ -8,6 +8,7 @@ import {
   GitBranch01,
   HelpCircle,
   MoreHorizontal,
+  Robot01,
   Settings01
 } from './ui/icons'
 import type { ChatState } from '../state'
@@ -33,6 +34,10 @@ interface Props {
   debugOpen: boolean
   onToggleGit(): void
   gitOpen: boolean
+  onToggleSubagents(): void
+  subagentsOpen: boolean
+  /** Background subagents still running in this session. */
+  runningSubagents: number
   onSettings(): void
   settingsOpen: boolean
   onHelp(): void
@@ -116,6 +121,7 @@ function TopBar(props: Props): JSX.Element {
   const {
     chat, title, onCompact, onRename, onArchive,
     onToggleDebug, debugOpen, onToggleGit, gitOpen,
+    onToggleSubagents, subagentsOpen, runningSubagents,
     onSettings, onHelp
   } = props
   const [menuOpen, setMenuOpen] = useState(false)
@@ -157,6 +163,26 @@ function TopBar(props: Props): JSX.Element {
             onClick={onToggleGit}
           >
             <GitBranch01 size={15} strokeWidth={1.8} />
+          </button>
+          {/* Subagents: the background tasks this session delegated. Badged
+              while any are still running, because they outlive the turn that
+              launched them and would otherwise be silent. */}
+          <button
+            className={cn(iconButton(subagentsOpen), 'relative')}
+            title={subagentsOpen ? 'Close subagents' : 'Open subagents'}
+            aria-pressed={subagentsOpen}
+            aria-label="Subagents"
+            onClick={onToggleSubagents}
+          >
+            <Robot01 size={15} strokeWidth={1.8} />
+            {runningSubagents > 0 && (
+              <span
+                className="absolute -right-0.5 -top-0.5 grid min-w-3 place-items-center rounded-full bg-busy px-1 text-ui-2xs font-semibold leading-[14px] text-foreground-inverse"
+                aria-label={`${runningSubagents} running`}
+              >
+                {runningSubagents}
+              </span>
+            )}
           </button>
           {/* debug-panel: toggle button for the LLM debug drawer */}
           <button

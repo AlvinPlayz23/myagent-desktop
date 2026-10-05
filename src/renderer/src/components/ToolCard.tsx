@@ -1,42 +1,12 @@
 import { memo, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import {
-  ComputerTerminal,
-  File01,
-  FileEdit,
-  FileAdd,
-  Wrench01,
-  ChevronRight,
-  Alert02,
-  Loading03,
-  type IconComponent
-} from './ui/icons'
+import { ChevronRight, Alert02, Loading03 } from './ui/icons'
 import type { ToolRun } from '../state'
 import { buildToolDiff } from '../diff'
 import DiffView from './DiffView'
 import { cn } from '../util'
 import { disclosure } from '../motion'
-
-const LABELS: Record<string, string> = {
-  bash: 'Ran command',
-  read: 'Read file',
-  edit: 'Edited file',
-  write: 'Wrote file'
-}
-
-const RUNNING_LABELS: Record<string, string> = {
-  bash: 'Running command',
-  read: 'Reading file',
-  edit: 'Editing file',
-  write: 'Writing file'
-}
-
-const ICONS: Record<string, IconComponent> = {
-  bash: ComputerTerminal,
-  read: File01,
-  edit: FileEdit,
-  write: FileAdd
-}
+import { TOOL_LABELS, TOOL_RUNNING_LABELS, toolIcon } from '../toolMeta'
 
 function summaryOf(run: ToolRun): string {
   const a = run.args
@@ -66,7 +36,7 @@ const MAX_PREVIEW = 5000
 function ToolCard({ run }: { run: ToolRun }): JSX.Element {
   const [open, setOpen] = useState(false)
   const [full, setFull] = useState(false)
-  const Icon = ICONS[run.name] ?? Wrench01
+  const Icon = toolIcon(run.name)
   const text = resultText(run)
   // GitHub-style diff for edit/write, derived from the tool-call args. A
   // failed run falls back to the error text — the change never applied.
@@ -97,7 +67,7 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
             run.status === 'running' ? 'font-medium text-foreground' : 'text-foreground-subtle'
           )}
         >
-          {(run.status === 'running' ? RUNNING_LABELS[run.name] : LABELS[run.name]) ?? run.name}
+          {(run.status === 'running' ? TOOL_RUNNING_LABELS[run.name] : TOOL_LABELS[run.name]) ?? run.name}
         </span>
         {run.status === 'running' && <Loading03 size={13} strokeWidth={1.75} className="shrink-0 animate-spin text-foreground-subtle" aria-label="Running" />}
         {run.status === 'error' && (

@@ -1,4 +1,4 @@
-export type CommandName = 'help' | 'compact' | 'clear'
+export type CommandName = 'help' | 'compact' | 'clear' | 'tools'
 
 export interface DesktopCommand {
   name: CommandName
@@ -13,7 +13,8 @@ export interface DesktopCommand {
 export const commands: DesktopCommand[] = [
   { name: 'help', slash: '/help', usage: '/help', title: 'Help', description: 'Show available commands and shortcuts' },
   { name: 'compact', slash: '/compact', usage: '/compact', title: 'Compact context', description: 'Summarize older conversation context now' },
-  { name: 'clear', slash: '/clear', usage: '/clear', title: 'Clear transcript', description: 'Clear the visible transcript' }
+  { name: 'clear', slash: '/clear', usage: '/clear', title: 'Clear transcript', description: 'Clear the visible transcript' },
+  { name: 'tools', slash: '/tools', usage: '/tools', title: 'Tools', description: 'Enable or disable the tools the model can use' }
 ]
 
 export type ParsedCommand = { command: DesktopCommand; argument: string } | { error: string }

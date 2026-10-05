@@ -18,6 +18,8 @@ import WindowControls from './components/WindowControls'
 import TabBar from './components/TabBar'
 import OpenWith from './components/OpenWith'
 import GitPanel from './components/GitPanel'
+import SubagentPanel from './components/SubagentPanel'
+import { subagentTaskList, type SubagentTask } from './subagents'
 import { applyTheme, applyFontSize, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
@@ -25,8 +27,11 @@ import DebugPanel from './debug-panel/DebugPanel'
 import type { CommandName } from './commands'
 import CommandModal from './components/CommandModal'
 import RenameSessionModal from './components/RenameSessionModal'
+import ToolsModal from './components/ToolsModal'
 import { matchShortcut, composerFocus, composerModelPicker, type ShortcutId } from './shortcuts'
 import type { ContentBlock, ReasoningEffort } from '../../shared/protocol'
+
+const NO_SUBAGENTS: SubagentTask[] = []
 
 export default function App(): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -35,11 +40,12 @@ export default function App(): JSX.Element {
   // debug-panel: drawer open/closed state
   const [debugOpen, setDebugOpen] = useState(false)
   const [gitOpen, setGitOpen] = useState(false)
+  const [subagentsOpen, setSubagentsOpen] = useState(false)
   const [preferences, setPreferences] = useState<Preferences>(loadPreferences)
   const [queuedFollowUps, setQueuedFollowUps] = useState<{ id: string; sessionId: string; content: ContentBlock[]; label: string }[]>([])
   const [homeNotice, setHomeNotice] = useState<string | null>(null)
   const [sessionPreferences, setSessionPreferences] = useState<SessionPreferences>(loadSessionPreferences)
-  const [modal, setModal] = useState<'help' | null>(null)
+  const [modal, setModal] = useState<'help' | 'tools' | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
   const chat = activeChat(state)
   const activeSession = useRef<string | null>(null)
@@ -309,6 +315,10 @@ export default function App(): JSX.Element {
     startChromeAnimation(200)
     setGitOpen((value) => !value)
   }, [])
+  const toggleSubagents = useCallback(() => {
+    startChromeAnimation(200)
+    setSubagentsOpen((value) => !value)
+  }, [])
   const toggleSettings = useCallback(() => setView((v) => (v === 'settings' ? 'content' : 'settings')), [])
   const openSettings = useCallback(() => setView('settings'), [])
 
@@ -435,10 +445,36 @@ export default function App(): JSX.Element {
     [chat]
   )
 
+  // The server rejects a tools change with ErrBusy while a run is in flight
+  // (the registry swap must not land mid-turn), so refuse it here too rather
+  // than letting the user stage toggles that cannot be saved.
+  const applyTools = useCallback((disabled: string[]) => {
+    if (!chat) return
+    dispatch({
+      type: 'chatNotice',
+      sessionId: chat.sessionId,
+      text: disabled.length === 0 ? 'All tools enabled.' : `Tools updated globally: ${disabled.length} disabled.`
+    })
+  }, [chat])
+
   const handleCommand = useCallback(async (name: CommandName, argument: string) => {
     if (name === 'help') {
       if (argument) dispatch({ type: 'notice', text: argument })
       setModal('help')
+      return
+    }
+    // Checked before the `!chat` bail: /tools is reachable from the home
+    // composer too, where it needs an explanation rather than silence.
+    if (name === 'tools') {
+      if (!chat) {
+        dispatch({ type: 'notice', text: 'Open a chat to change tools.' })
+        return
+      }
+      if (chat.running) {
+        dispatch({ type: 'notice', text: 'Stop the active run before changing tools.' })
+        return
+      }
+      setModal('tools')
       return
     }
     if (!chat) return
@@ -492,6 +528,12 @@ export default function App(): JSX.Element {
   )
   const runningIds = useMemo(() => new Set(runningKey ? runningKey.split(',') : []), [runningKey])
 
+  // Background subagents outlive the turn that launched them, so the active
+  // session is the only scope that answers "what is this session doing now".
+  // subagentTaskList is memoized on chat identity, so this is free per token.
+  const subagentTasks = chat ? subagentTaskList(chat) : NO_SUBAGENTS
+  const runningSubagents = subagentTasks.reduce((n, t) => (t.state === 'running' ? n + 1 : n), 0)
+
   // Map each global shortcut id to the callback that should run. Held in a ref
   // so the keydown listener (subscribed once) always calls the latest closures
   // without resubscribing on every state change.
@@ -505,6 +547,7 @@ export default function App(): JSX.Element {
     compact: () => { if (chat && !chat.running) compact() },
     modelPicker: () => composerModelPicker.current?.(),
     toggleDebug: () => setDebugOpen((value) => !value),
+    toggleSubagents: () => { if (chat) toggleSubagents() },
     closeTab: () => { if (chat) dispatch({ type: 'closeTab', sessionId: chat.sessionId }) },
     switchTab1: () => { const id = state.tabOrder[0]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
     switchTab2: () => { const id = state.tabOrder[1]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
@@ -566,9 +609,9 @@ export default function App(): JSX.Element {
         <div
           className={cn(
             'drag-region relative flex h-9 shrink-0 items-center gap-2 overflow-visible pl-2 transition-[padding] duration-[160ms] ease-[var(--ease-smooth-out)]',
-            // With the git panel open the window controls sit over the panel's
+            // With a side panel open the window controls sit over that panel's
             // title strip, so the top bar no longer has to clear them.
-            gitOpen ? 'pr-2' : 'pr-[140px]'
+            gitOpen || subagentsOpen ? 'pr-2' : 'pr-[140px]'
           )}
           onDoubleClick={(e) => {
             // Tabs, buttons and inputs own their double-clicks — only empty
@@ -613,6 +656,9 @@ export default function App(): JSX.Element {
             debugOpen={debugOpen}
             onToggleGit={toggleGit}
             gitOpen={gitOpen}
+            onToggleSubagents={toggleSubagents}
+            subagentsOpen={subagentsOpen}
+            runningSubagents={runningSubagents}
             onSettings={toggleSettings}
             settingsOpen={view === 'settings'}
             onHelp={() => setModal('help')}
@@ -719,6 +765,33 @@ export default function App(): JSX.Element {
             </motion.aside>
           )}
         </AnimatePresence>
+
+        <AnimatePresence initial={false}>
+          {subagentsOpen && (
+            <motion.aside
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+              className="shrink-0 overflow-hidden border-l border-border/60 bg-card/40"
+            >
+              <div className="flex h-full w-[320px] flex-col">
+                {/* Same reason as the git panel above: the window controls are
+                    fixed over the top-right corner. */}
+                <div className="drag-region h-9 shrink-0" />
+                <div className="min-h-0 flex-1">
+                  {/* Keyed on the session so switching tabs remounts and drops
+                      the previous expansion state. */}
+                  <SubagentPanel
+                    key={chat?.sessionId ?? 'none'}
+                    tasks={subagentTasks}
+                    onClose={() => setSubagentsOpen(false)}
+                  />
+                </div>
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
       </main>
       <WindowControls />
       <AnimatePresence>
@@ -745,6 +818,11 @@ export default function App(): JSX.Element {
       </AnimatePresence>
       <AnimatePresence>
         {modal === 'help' && <CommandModal key="help" onClose={() => setModal(null)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {modal === 'tools' && chat && (
+          <ToolsModal key="tools" sessionId={chat.sessionId} onClose={() => setModal(null)} onSaved={applyTools} />
+        )}
       </AnimatePresence>
       <AnimatePresence>
         {renameTarget && <RenameSessionModal key="rename" initialTitle={renameTarget.title} onClose={() => setRenameTarget(null)} onSave={saveSessionRename} />}

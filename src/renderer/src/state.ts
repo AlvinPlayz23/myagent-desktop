@@ -5,8 +5,10 @@ import type {
   Message,
   ProvidersInfo,
   SessionMeta,
+  SubagentReport,
   ToolResult
 } from '../../shared/protocol'
+import { SubagentCompletionSource } from '../../shared/protocol'
 import type { ReasoningEffort } from '../../shared/protocol'
 
 // Tool execution is a first-class timeline activity. It is deliberately
@@ -35,6 +37,7 @@ export type ChatItem =
   | { kind: 'thinking'; id: string; text: string; redacted: boolean; durationMs?: number }
   | { kind: 'compaction'; info: CompactionInfo }
   | { kind: 'turn'; summary: TurnSummary }
+  | { kind: 'subagent'; taskId: string; report: SubagentReport }
 
 // How long one reasoning block streamed for. The protocol carries no reasoning
 // duration (Usage.reasoning is a token count), so it is measured off the stream.
@@ -160,6 +163,53 @@ export function blocksOf(msg: Message | null | undefined): ContentBlock[] {
 export function normalizeMessage<T extends Message>(msg: T): T {
   if (Array.isArray(msg.content)) return msg
   return { ...msg, content: [] }
+}
+
+/**
+ * Recognizes the system-generated message a finished background subagent
+ * injects into the parent conversation.
+ *
+ * It is the one message that must never be mistaken for human input: it
+ * carries `Role` 'user' (providers reject an unknown role) and its body is the
+ * whole JSON report, so both the optimistic-bubble reconciliation and the
+ * transcript would otherwise render it as if the user had typed it. Detection
+ * is deliberately conservative — `source` is checked *and* the details must
+ * actually parse as a report — so a malformed payload degrades to the previous
+ * behaviour instead of silently vanishing from the transcript.
+ */
+function subagentReportOf(msg: Message): SubagentReport | null {
+  if (msg.source !== SubagentCompletionSource) return null
+  const details = msg.details
+  if (!details || typeof details !== 'object') return null
+  const report = details as Partial<SubagentReport>
+  if (typeof report.taskId !== 'string' || typeof report.status !== 'string') return null
+  return {
+    version: typeof report.version === 'number' ? report.version : 0,
+    taskId: report.taskId,
+    parentToolCallId: typeof report.parentToolCallId === 'string' ? report.parentToolCallId : '',
+    prompt: typeof report.prompt === 'string' ? report.prompt : '',
+    systemPrompt: report.systemPrompt,
+    cwd: report.cwd,
+    provider: report.provider,
+    model: typeof report.model === 'string' ? report.model : '',
+    effort: report.effort,
+    timeoutMs: report.timeoutMs,
+    startedAt: typeof report.startedAt === 'number' ? report.startedAt : 0,
+    endedAt: typeof report.endedAt === 'number' ? report.endedAt : 0,
+    status: report.status,
+    error: report.error,
+    turns: typeof report.turns === 'number' ? report.turns : 0,
+    toolCalls: typeof report.toolCalls === 'number' ? report.toolCalls : 0,
+    usage: report.usage,
+    trajectory: report.trajectory,
+    finalResult: typeof report.finalResult === 'string' ? report.finalResult : ''
+  }
+}
+
+/** Builds the transcript item for a completed subagent, or null. */
+function subagentItemOf(msg: Message): ChatItem | null {
+  const report = subagentReportOf(msg)
+  return report ? { kind: 'subagent', taskId: report.taskId, report } : null
 }
 
 function normalizeResult<T extends { content?: ContentBlock[] | null }>(res: T): T {
@@ -298,6 +348,14 @@ export function loadHistory(chat: ChatState, messages: Message[]): ChatState {
   let lastTokens = 0
   for (const raw of messages) {
     const msg = normalizeMessage(raw)
+    // A finished subagent is system-generated, not human input. It becomes its
+    // own timeline row so a resumed session reconstructs exactly what the live
+    // stream showed, instead of re-rendering the JSON report as a user bubble.
+    const subagent = subagentItemOf(msg)
+    if (subagent) {
+      items.push(subagent)
+      continue
+    }
     if (msg.role === 'toolResult') {
       const id = msg.toolCallId ?? ''
       toolRuns[id] = {
@@ -394,6 +452,13 @@ export function applyEvent(chat: ChatState, ev: AgentEvent): ChatState {
       const raw = ev.message
       if (!raw) return chat
       const msg = normalizeMessage(raw)
+      // Checked before the role switch below: a subagent completion arrives as
+      // a user-role message, so it would otherwise consume an optimistic bubble
+      // or land in the transcript as if the user had sent it.
+      const subagent = subagentItemOf(msg)
+      if (subagent) {
+        return { ...chat, items: [...chat.items, subagent] }
+      }
       if (msg.role === 'toolResult') {
         const id = msg.toolCallId ?? ''
         const prev = chat.toolRuns[id]
