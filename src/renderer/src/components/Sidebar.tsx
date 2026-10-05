@@ -729,6 +729,23 @@ function Sidebar({
             )}
           </div>
 
+          {searchOpen && !collapsed && (
+            <div className="mb-1 flex shrink-0 items-center gap-2 rounded-lg border border-border/70 bg-muted/50 px-2.5">
+              <Search01 size={12} strokeWidth={1.8} className="shrink-0 text-foreground-subtle" />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') toggleSearch()
+                }}
+                placeholder="Search sessions…"
+                aria-label="Search sessions"
+                className="h-8 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
+              />
+            </div>
+          )}
+
           {/* Running sessions sit right under the header so a run in another
               folder stays visible. No header and no container of its own: the
               rows are identical to every other row, they just come first, and
@@ -755,23 +772,6 @@ function Sidebar({
           {/* The project picker stays fixed. Only the session/archive canvas
               below it scrolls, so changing the list never moves the picker or
               the running-session rows. Comet edge_fade: 28px mask gated by scroll. */}
-          {searchOpen && !collapsed && (
-            <div className="mb-1 flex shrink-0 items-center gap-2 rounded-lg border border-border/70 bg-muted/50 px-2.5">
-              <Search01 size={12} strokeWidth={1.8} className="shrink-0 text-foreground-subtle" />
-              <input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') toggleSearch()
-                }}
-                placeholder="Search sessions…"
-                aria-label="Search sessions"
-                className="h-8 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
-              />
-            </div>
-          )}
-
           <div
             ref={scrollRef}
             className={cn(
