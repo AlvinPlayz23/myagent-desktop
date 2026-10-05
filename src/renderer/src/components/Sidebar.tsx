@@ -25,6 +25,7 @@ import { BLOOM_FAST, EASE_IN, EASE_OUT, bloomDown } from '../motion'
 import { cn, relTime } from '../util'
 import type { RunIndicatorStyle, SidebarVariant } from '../preferences'
 import RunIndicator from './RunIndicator'
+import { formatCombo } from '../shortcuts'
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 interface Menu { session: SessionMeta; x: number; y: number }
@@ -103,6 +104,9 @@ function Sidebar({
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null)
   const [projectMenuOpen, setProjectMenuOpen] = useState(false)
   const [projectQuery, setProjectQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [archivedOpen, setArchivedOpen] = useState(false)
   const [archivedShown, setArchivedShown] = useState(ARCHIVED_INITIAL)
   const [menu, setMenu] = useState<Menu | null>(null)
@@ -258,12 +262,31 @@ function Sidebar({
     else onAddProject()
   }
 
+  // Session search spans every project, so an active query overrides the
+  // project filter instead of silently narrowing it.
+  const query = searchQuery.trim().toLowerCase()
+  const searching = query.length > 0
+  const matchesSearch = (session: SessionMeta): boolean => {
+    if (!searching) return true
+    const project = knownProjects.find((item) => item.cwd === session.cwd)
+    return `${session.title ?? ''} ${session.preview ?? ''} ${project?.name ?? ''}`.toLowerCase().includes(query)
+  }
+  const toggleSearch = (): void => {
+    if (searchOpen) {
+      setSearchOpen(false)
+      setSearchQuery('')
+    } else {
+      setSearchOpen(true)
+      queueMicrotask(() => searchInputRef.current?.focus())
+    }
+  }
+
   // Live runs, ACROSS every project. This list deliberately ignores
   // `selectedCwd`: a run you started in another folder is exactly the thing the
   // project filter would otherwise hide from you, so urgency outranks scope.
   const runningSessions = useMemo(
-    () => sessions.filter((session) => runningIds.has(session.id) && !archivedSessionIds.has(session.id)),
-    [sessions, runningIds, archivedSessionIds]
+    () => sessions.filter((session) => runningIds.has(session.id) && !archivedSessionIds.has(session.id) && matchesSearch(session)),
+    [sessions, runningIds, archivedSessionIds, query, knownProjects]
   )
 
   // Running rows are pinned above the header, so they must not also appear
@@ -274,18 +297,21 @@ function Sidebar({
         (session) =>
           !archivedSessionIds.has(session.id) &&
           !runningIds.has(session.id) &&
-          (!selectedCwd || session.cwd === selectedCwd)
+          (searching || !selectedCwd || session.cwd === selectedCwd) &&
+          matchesSearch(session)
       ),
-    [sessions, archivedSessionIds, runningIds, selectedCwd]
+    [sessions, archivedSessionIds, runningIds, selectedCwd, query, knownProjects]
   )
 
   const archived = useMemo(
     () =>
       sessions.filter(
         (session) =>
-          archivedSessionIds.has(session.id) && (!selectedCwd || session.cwd === selectedCwd)
+          archivedSessionIds.has(session.id) &&
+          (searching || !selectedCwd || session.cwd === selectedCwd) &&
+          matchesSearch(session)
       ),
-    [sessions, archivedSessionIds, selectedCwd]
+    [sessions, archivedSessionIds, selectedCwd, query, knownProjects]
   )
 
   const filteredProjects = useMemo(() => {
@@ -318,12 +344,12 @@ function Sidebar({
   const grouped = useMemo(() => {
     const byCwd = new Map<string, SessionMeta[]>()
     for (const session of sessions) {
-      if (archivedSessionIds.has(session.id)) continue
+      if (archivedSessionIds.has(session.id) || !matchesSearch(session)) continue
       const list = byCwd.get(session.cwd)
       if (list) list.push(session)
       else byCwd.set(session.cwd, [session])
     }
-    const out = knownProjects.map((project) => ({
+    const out = knownProjects.filter((project) => !searching || byCwd.has(project.cwd)).map((project) => ({
       cwd: project.cwd,
       name: project.name,
       sessions: byCwd.get(project.cwd) ?? [],
@@ -336,7 +362,7 @@ function Sidebar({
       return a.latest < b.latest ? 1 : -1
     })
     return out
-  }, [sessions, archivedSessionIds, knownProjects])
+  }, [sessions, archivedSessionIds, knownProjects, query])
 
   const activeCwd = useMemo(
     () => sessions.find((session) => session.id === activeId)?.cwd ?? null,
@@ -346,6 +372,7 @@ function Sidebar({
   // A section stays open while its project is active until the user overrides
   // it; with nothing active, the first section leads.
   const isGroupOpen = (cwd: string, index: number): boolean => {
+    if (searching) return true
     if (cwd in toggled) return toggled[cwd]
     if (activeCwd) return cwd === activeCwd
     return index === 0
@@ -535,9 +562,16 @@ function Sidebar({
         )}
       >
         <div
-          className="drag-region h-9 shrink-0"
+          className="drag-region flex h-9 shrink-0 items-center justify-end px-2"
           onDoubleClick={() => window.myagent.toggleMaximizeWindow().catch(() => {})}
-        />
+        >
+          {!collapsed && (
+            <div className="no-drag flex items-center gap-0.5" onDoubleClick={(event) => event.stopPropagation()}>
+              {railButton('search', <Search01 size={15} strokeWidth={1.8} />, 'Search sessions', toggleSearch, searchOpen)}
+              {railButton('collapse', <LayoutAlignLeft size={16} strokeWidth={1.8} />, 'Collapse sidebar', onToggle)}
+            </div>
+          )}
+        </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2">
           {/* Running sessions sit above the project picker so a run in another
@@ -567,7 +601,7 @@ function Sidebar({
               expanded it is the project picker plus the new-session action.
               Fixed-size boxes anchored to the same edges in both states, so a
               hover fill rides the width transition instead of morphing. */}
-          <div className={cn('flex shrink-0 items-center gap-1', collapsed ? 'h-auto py-1' : 'h-[52px]')}>
+          <div className={cn('flex shrink-0 items-center gap-1', collapsed ? 'h-auto py-1' : isGrouped ? 'h-[52px]' : 'pb-1')}>
             {collapsed ? (
               <div className="flex w-full flex-col items-center gap-1">
                 {railButton(
@@ -581,8 +615,9 @@ function Sidebar({
                   <Search01 size={15} strokeWidth={1.8} />,
                   'Search sessions',
                   () => {
-                    // Expand and let the project filter receive focus via the header search
                     onToggle()
+                    setSearchOpen(true)
+                    window.setTimeout(() => searchInputRef.current?.focus(), 280)
                   }
                 )}
                 <div className="my-1 h-px w-6 bg-border/50" />
@@ -661,54 +696,56 @@ function Sidebar({
                   <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate text-foreground">New session</span>
                 </button>
-                {railButton(
-                  'collapse',
-                  <LayoutAlignLeft size={16} strokeWidth={1.8} />,
-                  'Collapse sidebar',
-                  onToggle
-                )}
               </>
             ) : (
               <>
-                <button
-                  ref={projectButtonRef}
-                  className={cn(
-                    'flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 text-left outline-none',
-                    'focus-visible:ring-2 focus-visible:ring-ring',
-                    !settling && 'transition-colors',
-                    projectMenuOpen ? 'bg-selected' : !settling && 'hover:bg-hover'
-                  )}
-                  title="Switch project"
-                  onClick={() => {
-                    setMenu(null)
-                    setProjectQuery('')
-                    setProjectMenuOpen((value) => !value)
-                  }}
-                >
-                  <Folder02 size={15} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate text-ui-caption font-medium tracking-[-0.006em] text-foreground">
-                    {currentProject?.name ?? 'All projects'}
-                  </span>
-                  <ChevronDown
-                    size={13}
+                <div className="flex w-full flex-col gap-1">
+                  <button
                     className={cn(
-                      'shrink-0 text-foreground-subtlest transition-transform duration-200',
-                      projectMenuOpen && 'rotate-180'
+                      'flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left outline-none',
+                      'focus-visible:ring-2 focus-visible:ring-ring',
+                      !settling && 'transition-colors hover:bg-hover'
                     )}
-                  />
-                </button>
-                {railButton(
-                  'new',
-                  <Plus size={15} strokeWidth={1.9} />,
-                  knownProjects.length > 0 ? 'New session' : 'Add a project first',
-                  newSessionAction
-                )}
-                {railButton(
-                  'collapse',
-                  <LayoutAlignLeft size={16} strokeWidth={1.8} />,
-                  'Collapse sidebar',
-                  onToggle
-                )}
+                    onClick={newSessionAction}
+                  >
+                    <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate text-ui-caption font-medium text-foreground">
+                      {knownProjects.length > 0 ? 'New session' : 'Add project'}
+                    </span>
+                    {knownProjects.length > 0 && (
+                      <span className="shrink-0 text-ui-xs text-foreground-subtlest">{formatCombo('mod+n')}</span>
+                    )}
+                  </button>
+                  <button
+                    ref={projectButtonRef}
+                    className={cn(
+                      'flex h-7 max-w-full items-center gap-1.5 self-start rounded-md px-2 text-left outline-none',
+                      'focus-visible:ring-2 focus-visible:ring-ring',
+                      !settling && 'transition-colors',
+                      projectMenuOpen ? 'bg-selected' : !settling && 'hover:bg-hover'
+                    )}
+                    title="Switch project"
+                    aria-haspopup="listbox"
+                    aria-expanded={projectMenuOpen}
+                    onClick={() => {
+                      setMenu(null)
+                      setProjectQuery('')
+                      setProjectMenuOpen((value) => !value)
+                    }}
+                  >
+                    <Folder02 size={13} strokeWidth={1.8} className="shrink-0 text-foreground-subtle" />
+                    <span className="min-w-0 truncate text-ui-sm text-muted-foreground">
+                      {currentProject?.name ?? 'All projects'}
+                    </span>
+                    <ChevronDown
+                      size={12}
+                      className={cn(
+                        'shrink-0 text-foreground-subtlest transition-transform duration-200',
+                        projectMenuOpen && 'rotate-180'
+                      )}
+                    />
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -716,6 +753,23 @@ function Sidebar({
           {/* The project picker stays fixed. Only the session/archive canvas
               below it scrolls, so changing the list never moves the picker or
               the running-session rows. Comet edge_fade: 28px mask gated by scroll. */}
+          {searchOpen && !collapsed && (
+            <div className="mb-1 flex shrink-0 items-center gap-2 rounded-lg border border-border/70 bg-muted/50 px-2.5">
+              <Search01 size={12} strokeWidth={1.8} className="shrink-0 text-foreground-subtle" />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') toggleSearch()
+                }}
+                placeholder="Search sessions…"
+                aria-label="Search sessions"
+                className="h-8 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
+              />
+            </div>
+          )}
+
           <div
             ref={scrollRef}
             className={cn(
@@ -888,16 +942,6 @@ function Sidebar({
                   </>
                 ) : (
                   <>
-                <button
-                  className="mb-1 flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-ui-caption outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={newSessionAction}
-                >
-                  <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-                    {knownProjects.length > 0 ? 'New session' : 'Add project'}
-                  </span>
-                </button>
-
                 {(visibleSessions.length > 0 || runningSessions.length > 0) && (
                   <div className="flex items-center gap-2 px-2.5 pb-0.5 pt-1.5">
                     <span className="text-ui-sm font-medium text-muted-foreground">Sessions</span>
@@ -905,9 +949,6 @@ function Sidebar({
                       {visibleSessions.length + runningSessions.length}
                     </span>
                   </div>
-                )}
-                {currentProject && (
-                  <div className="truncate px-2.5 pb-1 text-ui-sm text-foreground-subtlest">{currentProject.name}</div>
                 )}
 
                 <div className="space-y-[3px] pt-0.5">
@@ -924,7 +965,7 @@ function Sidebar({
                       className="mx-auto mb-2 text-foreground-subtlest"
                     />
                     <p className="text-ui-sm text-foreground-subtlest">
-                      {knownProjects.length === 0 ? 'No projects yet' : 'No sessions here'}
+                      {searching ? 'No matching sessions' : knownProjects.length === 0 ? 'No projects yet' : 'No sessions here'}
                     </p>
                     <button
                       className="mt-2.5 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-ui-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
