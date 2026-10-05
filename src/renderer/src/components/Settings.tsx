@@ -68,7 +68,7 @@ const sidebarVariants: Array<{ value: SidebarVariant; title: string; detail: str
 ]
 
 const runIndicatorOptions: Array<{ value: RunIndicatorStyle; title: string; detail: string }> = [
-  { value: 'dotmatrix', title: 'Dot matrix', detail: 'Animated dot grid on tabs while a session is running' },
+  { value: 'dotmatrix', title: 'Dot matrix', detail: 'Animated dot grid on tabs and sidebar rows while a session is running' },
   { value: 'color', title: 'Color', detail: 'A plain busy-coloured dot' }
 ]
 
@@ -612,7 +612,7 @@ export default function Settings({
                   />
                   <ChoiceRailRow
                     id="run-indicator"
-                    title="Running tab indicator"
+                    title="Running indicator"
                     options={runIndicatorOptions}
                     current={preferences.runIndicator}
                     onSelect={(runIndicator) => onChange({ runIndicator })}
