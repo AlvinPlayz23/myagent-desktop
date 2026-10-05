@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
-import { AiBrain01, Archive01, ArchiveRestore, InformationCircle, Keyboard01, Message01, PaintBoard, Search01, Tick01 } from './ui/icons'
+import { AiBrain01, Archive01, ArchiveRestore, InformationCircle, Keyboard01, LayoutAlignLeft, Message01, PaintBoard, Search01, Tick01 } from './ui/icons'
 import type { ConnState } from '../state'
 import { THEMES, normalizeAppName, normalizeFontSize, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant, type RunIndicatorStyle } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
@@ -282,7 +282,7 @@ function ToggleRow({
   )
 }
 
-type SectionId = 'appearance' | 'chat' | 'providers' | 'archive' | 'shortcuts' | 'about'
+type SectionId = 'appearance' | 'sidebar' | 'chat' | 'providers' | 'archive' | 'shortcuts' | 'about'
 
 export default function Settings({
   preferences,
@@ -320,6 +320,7 @@ export default function Settings({
       group: 'Preferences',
       items: [
         { id: 'appearance' as const, label: 'Appearance', icon: PaintBoard },
+        { id: 'sidebar' as const, label: 'Sidebar', icon: LayoutAlignLeft },
         { id: 'chat' as const, label: 'Chat', icon: Message01 }
       ]
     },
@@ -558,6 +559,29 @@ export default function Settings({
               </>
             )}
 
+            {section === 'sidebar' && (
+              <>
+                <SettingsHeader title="Sidebar" description="Choose how sessions are listed and how running work is shown." />
+
+                <SettingsSection title="Layout">
+                  <ChoiceRailRow
+                    id="sidebar-variant"
+                    title="Sidebar layout"
+                    options={sidebarVariants}
+                    current={preferences.sidebarVariant}
+                    onSelect={(sidebarVariant) => onChange({ sidebarVariant })}
+                  />
+                  <ChoiceRailRow
+                    id="run-indicator"
+                    title="Running indicator"
+                    options={runIndicatorOptions}
+                    current={preferences.runIndicator}
+                    onSelect={(runIndicator) => onChange({ runIndicator })}
+                  />
+                </SettingsSection>
+              </>
+            )}
+
             {section === 'chat' && (
               <>
                 <SettingsHeader title="Chat" description="Configure message density, tool activity visualization, and input behavior." />
@@ -599,23 +623,6 @@ export default function Settings({
                     options={effortSelectorVariants}
                     current={preferences.effortSelectorVariant}
                     onSelect={(effortSelectorVariant) => onChange({ effortSelectorVariant })}
-                  />
-                </SettingsSection>
-
-                <SettingsSection title="Sidebar">
-                  <ChoiceRailRow
-                    id="sidebar-variant"
-                    title="Sidebar"
-                    options={sidebarVariants}
-                    current={preferences.sidebarVariant}
-                    onSelect={(sidebarVariant) => onChange({ sidebarVariant })}
-                  />
-                  <ChoiceRailRow
-                    id="run-indicator"
-                    title="Running indicator"
-                    options={runIndicatorOptions}
-                    current={preferences.runIndicator}
-                    onSelect={(runIndicator) => onChange({ runIndicator })}
                   />
                 </SettingsSection>
 
