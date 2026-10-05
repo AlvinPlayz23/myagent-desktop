@@ -104,6 +104,9 @@ function Sidebar({
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null)
   const [projectMenuOpen, setProjectMenuOpen] = useState(false)
   const [projectQuery, setProjectQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [archivedOpen, setArchivedOpen] = useState(false)
   const [archivedShown, setArchivedShown] = useState(ARCHIVED_INITIAL)
   const [menu, setMenu] = useState<Menu | null>(null)
@@ -259,12 +262,31 @@ function Sidebar({
     else onAddProject()
   }
 
+  // Session search spans every project, so an active query overrides the
+  // project filter instead of silently narrowing it.
+  const query = searchQuery.trim().toLowerCase()
+  const searching = query.length > 0
+  const matchesSearch = (session: SessionMeta): boolean => {
+    if (!searching) return true
+    const project = knownProjects.find((item) => item.cwd === session.cwd)
+    return `${session.title ?? ''} ${session.preview ?? ''} ${project?.name ?? ''}`.toLowerCase().includes(query)
+  }
+  const toggleSearch = (): void => {
+    if (searchOpen) {
+      setSearchOpen(false)
+      setSearchQuery('')
+    } else {
+      setSearchOpen(true)
+      queueMicrotask(() => searchInputRef.current?.focus())
+    }
+  }
+
   // Live runs, ACROSS every project. This list deliberately ignores
   // `selectedCwd`: a run you started in another folder is exactly the thing the
   // project filter would otherwise hide from you, so urgency outranks scope.
   const runningSessions = useMemo(
-    () => sessions.filter((session) => runningIds.has(session.id) && !archivedSessionIds.has(session.id)),
-    [sessions, runningIds, archivedSessionIds]
+    () => sessions.filter((session) => runningIds.has(session.id) && !archivedSessionIds.has(session.id) && matchesSearch(session)),
+    [sessions, runningIds, archivedSessionIds, query, knownProjects]
   )
 
   // Running rows are pinned above the header, so they must not also appear
@@ -275,18 +297,21 @@ function Sidebar({
         (session) =>
           !archivedSessionIds.has(session.id) &&
           !runningIds.has(session.id) &&
-          (!selectedCwd || session.cwd === selectedCwd)
+          (searching || !selectedCwd || session.cwd === selectedCwd) &&
+          matchesSearch(session)
       ),
-    [sessions, archivedSessionIds, runningIds, selectedCwd]
+    [sessions, archivedSessionIds, runningIds, selectedCwd, query, knownProjects]
   )
 
   const archived = useMemo(
     () =>
       sessions.filter(
         (session) =>
-          archivedSessionIds.has(session.id) && (!selectedCwd || session.cwd === selectedCwd)
+          archivedSessionIds.has(session.id) &&
+          (searching || !selectedCwd || session.cwd === selectedCwd) &&
+          matchesSearch(session)
       ),
-    [sessions, archivedSessionIds, selectedCwd]
+    [sessions, archivedSessionIds, selectedCwd, query, knownProjects]
   )
 
   const filteredProjects = useMemo(() => {
@@ -319,12 +344,12 @@ function Sidebar({
   const grouped = useMemo(() => {
     const byCwd = new Map<string, SessionMeta[]>()
     for (const session of sessions) {
-      if (archivedSessionIds.has(session.id)) continue
+      if (archivedSessionIds.has(session.id) || !matchesSearch(session)) continue
       const list = byCwd.get(session.cwd)
       if (list) list.push(session)
       else byCwd.set(session.cwd, [session])
     }
-    const out = knownProjects.map((project) => ({
+    const out = knownProjects.filter((project) => !searching || byCwd.has(project.cwd)).map((project) => ({
       cwd: project.cwd,
       name: project.name,
       sessions: byCwd.get(project.cwd) ?? [],
@@ -337,7 +362,7 @@ function Sidebar({
       return a.latest < b.latest ? 1 : -1
     })
     return out
-  }, [sessions, archivedSessionIds, knownProjects])
+  }, [sessions, archivedSessionIds, knownProjects, query])
 
   const activeCwd = useMemo(
     () => sessions.find((session) => session.id === activeId)?.cwd ?? null,
@@ -347,6 +372,7 @@ function Sidebar({
   // A section stays open while its project is active until the user overrides
   // it; with nothing active, the first section leads.
   const isGroupOpen = (cwd: string, index: number): boolean => {
+    if (searching) return true
     if (cwd in toggled) return toggled[cwd]
     if (activeCwd) return cwd === activeCwd
     return index === 0
@@ -540,7 +566,8 @@ function Sidebar({
           onDoubleClick={() => window.myagent.toggleMaximizeWindow().catch(() => {})}
         >
           {!collapsed && (
-            <div className="no-drag" onDoubleClick={(event) => event.stopPropagation()}>
+            <div className="no-drag flex items-center gap-0.5" onDoubleClick={(event) => event.stopPropagation()}>
+              {railButton('search', <Search01 size={15} strokeWidth={1.8} />, 'Search sessions', toggleSearch, searchOpen)}
               {railButton('collapse', <LayoutAlignLeft size={16} strokeWidth={1.8} />, 'Collapse sidebar', onToggle)}
             </div>
           )}
@@ -588,8 +615,9 @@ function Sidebar({
                   <Search01 size={15} strokeWidth={1.8} />,
                   'Search sessions',
                   () => {
-                    // Expand and let the project filter receive focus via the header search
                     onToggle()
+                    setSearchOpen(true)
+                    window.setTimeout(() => searchInputRef.current?.focus(), 280)
                   }
                 )}
                 <div className="my-1 h-px w-6 bg-border/50" />
@@ -725,6 +753,23 @@ function Sidebar({
           {/* The project picker stays fixed. Only the session/archive canvas
               below it scrolls, so changing the list never moves the picker or
               the running-session rows. Comet edge_fade: 28px mask gated by scroll. */}
+          {searchOpen && !collapsed && (
+            <div className="mb-1 flex shrink-0 items-center gap-2 rounded-lg border border-border/70 bg-muted/50 px-2.5">
+              <Search01 size={12} strokeWidth={1.8} className="shrink-0 text-foreground-subtle" />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') toggleSearch()
+                }}
+                placeholder="Search sessions…"
+                aria-label="Search sessions"
+                className="h-8 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
+              />
+            </div>
+          )}
+
           <div
             ref={scrollRef}
             className={cn(
@@ -920,7 +965,7 @@ function Sidebar({
                       className="mx-auto mb-2 text-foreground-subtlest"
                     />
                     <p className="text-ui-sm text-foreground-subtlest">
-                      {knownProjects.length === 0 ? 'No projects yet' : 'No sessions here'}
+                      {searching ? 'No matching sessions' : knownProjects.length === 0 ? 'No projects yet' : 'No sessions here'}
                     </p>
                     <button
                       className="mt-2.5 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-ui-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
