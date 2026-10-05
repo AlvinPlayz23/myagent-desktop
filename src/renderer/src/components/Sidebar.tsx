@@ -670,7 +670,7 @@ function Sidebar({
                     else onAddProject()
                   }}
                 >
-                  <CirclePlus size={18} className="text-muted-foreground" />
+                  <CirclePlus size={18} />
                   <span className="min-w-0 flex-1 truncate text-foreground">New session</span>
                 </button>
               </>
@@ -686,7 +686,7 @@ function Sidebar({
                       )}
                       onClick={newSessionAction}
                     >
-                      <CirclePlus size={18} className="text-muted-foreground" />
+                      <CirclePlus size={18} />
                       <span className="min-w-0 truncate text-ui-caption font-medium text-foreground">
                         {knownProjects.length > 0 ? 'New session' : 'Add project'}
                       </span>
@@ -695,35 +695,6 @@ function Sidebar({
                       <span className="shrink-0 pr-2 text-ui-xs text-foreground-subtlest">{formatCombo('mod+n')}</span>
                     )}
                   </div>
-                  <button
-                    ref={projectButtonRef}
-                    className={cn(
-                      'flex h-7 max-w-full items-center gap-1.5 self-start rounded-md px-2 text-left outline-none',
-                      'focus-visible:ring-2 focus-visible:ring-ring',
-                      !settling && 'transition-colors',
-                      projectMenuOpen ? 'bg-selected' : !settling && 'hover:bg-hover'
-                    )}
-                    title="Switch project"
-                    aria-haspopup="listbox"
-                    aria-expanded={projectMenuOpen}
-                    onClick={() => {
-                      setMenu(null)
-                      setProjectQuery('')
-                      setProjectMenuOpen((value) => !value)
-                    }}
-                  >
-                    <Folder02 size={13} strokeWidth={1.8} className="shrink-0 text-foreground-subtle" />
-                    <span className="min-w-0 truncate text-ui-sm text-muted-foreground">
-                      {currentProject?.name ?? 'All projects'}
-                    </span>
-                    <ChevronDown
-                      size={12}
-                      className={cn(
-                        'shrink-0 text-foreground-subtlest transition-transform duration-200',
-                        projectMenuOpen && 'rotate-180'
-                      )}
-                    />
-                  </button>
                 </div>
               </>
             )}
@@ -743,6 +714,44 @@ function Sidebar({
                 aria-label="Search sessions"
                 className="h-8 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
               />
+            </div>
+          )}
+
+          {!collapsed && !isGrouped && (
+            <div className="shrink-0 px-0.5 pb-1 pt-2">
+              <div className="flex items-center gap-2">
+            <button
+              ref={projectButtonRef}
+              className={cn(
+                'flex h-6 max-w-full self-start items-center gap-1.5 rounded-md px-2 text-left outline-none',
+                'focus-visible:ring-2 focus-visible:ring-ring',
+                !settling && 'transition-colors',
+                projectMenuOpen ? 'bg-selected' : !settling && 'hover:bg-hover'
+              )}
+              title="Switch project"
+              aria-haspopup="listbox"
+              aria-expanded={projectMenuOpen}
+              onClick={() => {
+                setMenu(null)
+                setProjectQuery('')
+                setProjectMenuOpen((value) => !value)
+              }}
+            >
+              <span className="min-w-0 truncate text-ui-sm text-foreground-subtle">
+                {currentProject?.name ?? 'All projects'}
+              </span>
+              <ChevronDown
+                size={12}
+                className={cn(
+                  'shrink-0 text-foreground-subtlest transition-transform duration-200',
+                  projectMenuOpen && 'rotate-180'
+                )}
+              />
+            </button>
+                <span className="ml-auto shrink-0 rounded-md bg-hover px-1.5 text-ui-xs tabular-nums text-muted-foreground">
+                  {visibleSessions.length + runningSessions.length}
+                </span>
+              </div>
             </div>
           )}
 
@@ -940,15 +949,6 @@ function Sidebar({
                   </>
                 ) : (
                   <>
-                {(visibleSessions.length > 0 || runningSessions.length > 0) && (
-                  <div className="flex items-center gap-2 px-2.5 pb-0.5 pt-1.5">
-                    <span className="text-ui-sm font-medium text-muted-foreground">Sessions</span>
-                    <span className="ml-auto rounded-md bg-hover px-1.5 text-ui-xs tabular-nums text-muted-foreground">
-                      {visibleSessions.length + runningSessions.length}
-                    </span>
-                  </div>
-                )}
-
                 <div className="space-y-[3px] pt-0.5">
                   <AnimatePresence initial={false}>
                     {visibleSessions.map((session) => sessionRow(session))}
