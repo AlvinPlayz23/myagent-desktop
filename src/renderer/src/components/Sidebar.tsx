@@ -25,6 +25,7 @@ import { BLOOM_FAST, EASE_IN, EASE_OUT, bloomDown } from '../motion'
 import { cn, relTime } from '../util'
 import type { RunIndicatorStyle, SidebarVariant } from '../preferences'
 import RunIndicator from './RunIndicator'
+import { formatCombo } from '../shortcuts'
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 interface Menu { session: SessionMeta; x: number; y: number }
@@ -535,9 +536,15 @@ function Sidebar({
         )}
       >
         <div
-          className="drag-region h-9 shrink-0"
+          className="drag-region flex h-9 shrink-0 items-center justify-end px-2"
           onDoubleClick={() => window.myagent.toggleMaximizeWindow().catch(() => {})}
-        />
+        >
+          {!collapsed && (
+            <div className="no-drag" onDoubleClick={(event) => event.stopPropagation()}>
+              {railButton('collapse', <LayoutAlignLeft size={16} strokeWidth={1.8} />, 'Collapse sidebar', onToggle)}
+            </div>
+          )}
+        </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2">
           {/* Running sessions sit above the project picker so a run in another
@@ -567,7 +574,7 @@ function Sidebar({
               expanded it is the project picker plus the new-session action.
               Fixed-size boxes anchored to the same edges in both states, so a
               hover fill rides the width transition instead of morphing. */}
-          <div className={cn('flex shrink-0 items-center gap-1', collapsed ? 'h-auto py-1' : 'h-[52px]')}>
+          <div className={cn('flex shrink-0 items-center gap-1', collapsed ? 'h-auto py-1' : isGrouped ? 'h-[52px]' : 'pb-1')}>
             {collapsed ? (
               <div className="flex w-full flex-col items-center gap-1">
                 {railButton(
@@ -661,54 +668,56 @@ function Sidebar({
                   <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate text-foreground">New session</span>
                 </button>
-                {railButton(
-                  'collapse',
-                  <LayoutAlignLeft size={16} strokeWidth={1.8} />,
-                  'Collapse sidebar',
-                  onToggle
-                )}
               </>
             ) : (
               <>
-                <button
-                  ref={projectButtonRef}
-                  className={cn(
-                    'flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 text-left outline-none',
-                    'focus-visible:ring-2 focus-visible:ring-ring',
-                    !settling && 'transition-colors',
-                    projectMenuOpen ? 'bg-selected' : !settling && 'hover:bg-hover'
-                  )}
-                  title="Switch project"
-                  onClick={() => {
-                    setMenu(null)
-                    setProjectQuery('')
-                    setProjectMenuOpen((value) => !value)
-                  }}
-                >
-                  <Folder02 size={15} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate text-ui-caption font-medium tracking-[-0.006em] text-foreground">
-                    {currentProject?.name ?? 'All projects'}
-                  </span>
-                  <ChevronDown
-                    size={13}
+                <div className="flex w-full flex-col gap-1">
+                  <button
                     className={cn(
-                      'shrink-0 text-foreground-subtlest transition-transform duration-200',
-                      projectMenuOpen && 'rotate-180'
+                      'flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left outline-none',
+                      'focus-visible:ring-2 focus-visible:ring-ring',
+                      !settling && 'transition-colors hover:bg-hover'
                     )}
-                  />
-                </button>
-                {railButton(
-                  'new',
-                  <Plus size={15} strokeWidth={1.9} />,
-                  knownProjects.length > 0 ? 'New session' : 'Add a project first',
-                  newSessionAction
-                )}
-                {railButton(
-                  'collapse',
-                  <LayoutAlignLeft size={16} strokeWidth={1.8} />,
-                  'Collapse sidebar',
-                  onToggle
-                )}
+                    onClick={newSessionAction}
+                  >
+                    <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate text-ui-caption font-medium text-foreground">
+                      {knownProjects.length > 0 ? 'New session' : 'Add project'}
+                    </span>
+                    {knownProjects.length > 0 && (
+                      <span className="shrink-0 text-ui-xs text-foreground-subtlest">{formatCombo('mod+n')}</span>
+                    )}
+                  </button>
+                  <button
+                    ref={projectButtonRef}
+                    className={cn(
+                      'flex h-7 max-w-full items-center gap-1.5 self-start rounded-md px-2 text-left outline-none',
+                      'focus-visible:ring-2 focus-visible:ring-ring',
+                      !settling && 'transition-colors',
+                      projectMenuOpen ? 'bg-selected' : !settling && 'hover:bg-hover'
+                    )}
+                    title="Switch project"
+                    aria-haspopup="listbox"
+                    aria-expanded={projectMenuOpen}
+                    onClick={() => {
+                      setMenu(null)
+                      setProjectQuery('')
+                      setProjectMenuOpen((value) => !value)
+                    }}
+                  >
+                    <Folder02 size={13} strokeWidth={1.8} className="shrink-0 text-foreground-subtle" />
+                    <span className="min-w-0 truncate text-ui-sm text-muted-foreground">
+                      {currentProject?.name ?? 'All projects'}
+                    </span>
+                    <ChevronDown
+                      size={12}
+                      className={cn(
+                        'shrink-0 text-foreground-subtlest transition-transform duration-200',
+                        projectMenuOpen && 'rotate-180'
+                      )}
+                    />
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -888,16 +897,6 @@ function Sidebar({
                   </>
                 ) : (
                   <>
-                <button
-                  className="mb-1 flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-ui-caption outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={newSessionAction}
-                >
-                  <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-                    {knownProjects.length > 0 ? 'New session' : 'Add project'}
-                  </span>
-                </button>
-
                 {(visibleSessions.length > 0 || runningSessions.length > 0) && (
                   <div className="flex items-center gap-2 px-2.5 pb-0.5 pt-1.5">
                     <span className="text-ui-sm font-medium text-muted-foreground">Sessions</span>
@@ -905,9 +904,6 @@ function Sidebar({
                       {visibleSessions.length + runningSessions.length}
                     </span>
                   </div>
-                )}
-                {currentProject && (
-                  <div className="truncate px-2.5 pb-1 text-ui-sm text-foreground-subtlest">{currentProject.name}</div>
                 )}
 
                 <div className="space-y-[3px] pt-0.5">
