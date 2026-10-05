@@ -709,7 +709,9 @@ function Sidebar({
                       )}
                       onClick={newSessionAction}
                     >
-                      <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
+                      <span className="grid size-[18px] shrink-0 place-items-center rounded-full border border-foreground-subtlest text-muted-foreground" aria-hidden>
+                        <Plus size={11} strokeWidth={2} />
+                      </span>
                       <span className="min-w-0 truncate text-ui-caption font-medium text-foreground">
                         {knownProjects.length > 0 ? 'New session' : 'Add project'}
                       </span>
