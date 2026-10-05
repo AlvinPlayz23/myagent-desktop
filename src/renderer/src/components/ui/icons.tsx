@@ -143,3 +143,16 @@ export const ViewOff = makeIcon(ViewOffIcon)
 export const Delete02 = makeIcon(Delete02Icon)
 export const AlertCircle = makeIcon(AlertCircleIcon)
 export const CheckmarkCircle02 = makeIcon(CheckmarkCircle02Icon)
+
+/** Outlined circle with a plus: the app-wide "new session" glyph. */
+export function CirclePlus({ size = 18, className }: { size?: number; className?: string }): JSX.Element {
+  return (
+    <span
+      className={`grid shrink-0 place-items-center rounded-full border border-current/60 ${className ?? ''}`}
+      style={{ width: size, height: size }}
+      aria-hidden
+    >
+      <Plus size={Math.round(size * 0.6)} strokeWidth={2} />
+    </span>
+  )
+}

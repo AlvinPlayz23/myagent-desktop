@@ -1,13 +1,14 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Add01Icon, ArrowDown01Icon, Cancel01Icon, Loading03Icon, Message01Icon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, Cancel01Icon, Loading03Icon, Message01Icon } from '@hugeicons/core-free-icons'
 import { cn } from '../util'
 import { BLOOM_FAST, EASE_OUT, bloomDown } from '../motion'
 import type { SessionMeta } from '../../../shared/protocol'
 import type { ChatState } from '../state'
 import type { RunIndicatorStyle } from '../preferences'
 import RunIndicator from './RunIndicator'
+import { CirclePlus } from './ui/icons'
 
 /** Narrowest a tab may get before the strip starts moving tabs into the overflow menu. */
 const TAB_MIN_WIDTH = 116
@@ -349,7 +350,7 @@ function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator 
           onClick={onNew}
           className="no-drag grid size-7 shrink-0 place-items-center rounded-lg text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <HugeiconsIcon icon={Add01Icon} size={15} strokeWidth={1.75} aria-hidden />
+          <CirclePlus size={18} />
         </button>
       </div>
     </div>

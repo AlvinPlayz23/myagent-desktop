@@ -15,7 +15,7 @@ import {
   LayoutAlignLeft,
   LayoutAlignRight,
   Message01,
-  Plus,
+  CirclePlus,
   Search01,
   Settings01,
   Tick01
@@ -574,29 +574,6 @@ function Sidebar({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2">
-          {/* Running sessions sit above the project picker so a run in another
-              folder stays visible. No header and no container of its own: the
-              rows are identical to every other row, they just come first, and
-              the group collapses away entirely when the last run finishes. */}
-          <AnimatePresence initial={false}>
-            {!collapsed && !isGrouped && runningSessions.length > 0 && (
-              <motion.div
-                key="running-sessions"
-                className="w-[248px] shrink-0 space-y-[3px] overflow-hidden pb-1.5"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2, ease: EASE_OUT }}
-              >
-                <div className="no-scrollbar max-h-[280px] overflow-y-auto">
-                  <AnimatePresence initial={false}>
-                    {runningSessions.map((session) => sessionRow(session))}
-                  </AnimatePresence>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {/* Header. Collapsed it is a two-icon rail (expand, new session);
               expanded it is the project picker plus the new-session action.
               Fixed-size boxes anchored to the same edges in both states, so a
@@ -606,7 +583,7 @@ function Sidebar({
               <div className="flex w-full flex-col items-center gap-1">
                 {railButton(
                   'new',
-                  <Plus size={15} strokeWidth={1.9} />,
+                  <CirclePlus size={18} />,
                   knownProjects.length > 0 ? 'New session' : 'Add a project first',
                   newSessionAction
                 )}
@@ -693,7 +670,7 @@ function Sidebar({
                     else onAddProject()
                   }}
                 >
-                  <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
+                  <CirclePlus size={18} className="text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate text-foreground">New session</span>
                 </button>
               </>
@@ -709,7 +686,7 @@ function Sidebar({
                       )}
                       onClick={newSessionAction}
                     >
-                      <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
+                      <CirclePlus size={18} className="text-muted-foreground" />
                       <span className="min-w-0 truncate text-ui-caption font-medium text-foreground">
                         {knownProjects.length > 0 ? 'New session' : 'Add project'}
                       </span>
@@ -752,9 +729,6 @@ function Sidebar({
             )}
           </div>
 
-          {/* The project picker stays fixed. Only the session/archive canvas
-              below it scrolls, so changing the list never moves the picker or
-              the running-session rows. Comet edge_fade: 28px mask gated by scroll. */}
           {searchOpen && !collapsed && (
             <div className="mb-1 flex shrink-0 items-center gap-2 rounded-lg border border-border/70 bg-muted/50 px-2.5">
               <Search01 size={12} strokeWidth={1.8} className="shrink-0 text-foreground-subtle" />
@@ -772,6 +746,32 @@ function Sidebar({
             </div>
           )}
 
+          {/* Running sessions sit right under the header so a run in another
+              folder stays visible. No header and no container of its own: the
+              rows are identical to every other row, they just come first, and
+              the group collapses away entirely when the last run finishes. */}
+          <AnimatePresence initial={false}>
+            {!collapsed && !isGrouped && runningSessions.length > 0 && (
+              <motion.div
+                key="running-sessions"
+                className="w-[248px] shrink-0 space-y-[3px] overflow-hidden pt-1 pb-1.5"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: EASE_OUT }}
+              >
+                <div className="no-scrollbar max-h-[280px] overflow-y-auto">
+                  <AnimatePresence initial={false}>
+                    {runningSessions.map((session) => sessionRow(session))}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* The project picker stays fixed. Only the session/archive canvas
+              below it scrolls, so changing the list never moves the picker or
+              the running-session rows. Comet edge_fade: 28px mask gated by scroll. */}
           <div
             ref={scrollRef}
             className={cn(
@@ -890,11 +890,7 @@ function Sidebar({
                               aria-label={`New session in ${project.name}`}
                               onClick={() => onCompose(project.cwd)}
                             >
-                              <Plus
-                                size={13}
-                                strokeWidth={2}
-                                className="absolute"
-                              />
+                              <CirclePlus size={16} className="absolute" />
                             </button>
                           </div>
 
@@ -917,7 +913,7 @@ function Sidebar({
                                       className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
                                       onClick={() => onCompose(project.cwd)}
                                     >
-                                      <Plus size={12} strokeWidth={1.8} className="shrink-0" />
+                                      <CirclePlus size={16} />
                                       <span className="text-ui-sm">Start first session</span>
                                     </button>
                                   </div>
@@ -973,7 +969,7 @@ function Sidebar({
                       className="mt-2.5 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-ui-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
                       onClick={newSessionAction}
                     >
-                      <Plus size={11} strokeWidth={2} />
+                      <CirclePlus size={16} />
                       {knownProjects.length > 0 ? 'New session' : 'Add project'}
                     </button>
                   </div>
