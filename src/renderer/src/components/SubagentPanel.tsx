@@ -7,7 +7,6 @@ import {
   subagentElapsedLabel,
   subagentModelLabel,
   subagentPromptPreview,
-  subagentStats,
   type SubagentTask
 } from '../subagents'
 import { cn } from '../util'
@@ -37,35 +36,26 @@ function useNow(active: boolean): number {
   return now
 }
 
-/** Brings the matching transcript row into view. */
-function revealInTranscript(key: string): void {
-  const el = document.querySelector(`[data-subagent-task="${CSS.escape(key)}"]`)
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-}
-
 function TaskRow({
   task,
   now,
-  expanded,
-  onToggle
+  onOpen
 }: {
   task: SubagentTask
   now: number
-  expanded: boolean
-  onToggle(): void
+  /** Opens the full detail modal for this task. */
+  onOpen(task: SubagentTask): void
 }): JSX.Element {
   const status = SUBAGENT_STATUS[task.state]
   const running = task.state === 'running'
   const model = subagentModelLabel(task)
   const prompt = subagentPromptPreview(task.prompt)
-  const stats = subagentStats(task)
 
   return (
     <li className="min-w-0">
       <button
         type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
+        onClick={() => onOpen(task)}
         className="flex w-full min-w-0 flex-col gap-1 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="flex w-full min-w-0 items-center gap-2">
@@ -85,10 +75,7 @@ function TaskRow({
           <ChevronRight
             size={12}
             strokeWidth={1.75}
-            className={cn(
-              'shrink-0 text-foreground-subtlest transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]',
-              expanded && 'rotate-90'
-            )}
+            className="shrink-0 text-foreground-subtlest transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]"
             aria-hidden
           />
         </span>
@@ -100,38 +87,6 @@ function TaskRow({
           {model && <span className="min-w-0 truncate font-mono text-foreground-subtlest">· {model}</span>}
         </span>
       </button>
-
-      {expanded && (
-        <div className="mx-2 mb-1.5 rounded-lg border border-border/60 bg-background/40 px-2 py-1.5">
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-ui-xs text-foreground-subtlest">
-            {stats && <span>{stats}</span>}
-            {task.effort && <span>effort {task.effort}</span>}
-            {task.provider && <span>{task.provider}</span>}
-          </div>
-          {task.error && (
-            <p className="m-0 mt-1 whitespace-pre-wrap break-words font-mono text-ui-xs text-destructive-foreground">
-              {task.error}
-            </p>
-          )}
-          {!task.launchFailed && (
-            <>
-              <div className="mt-1.5 mb-0.5 text-ui-2xs uppercase tracking-wide text-foreground-subtlest">
-                Final answer
-              </div>
-              <p className="m-0 line-clamp-6 whitespace-pre-wrap break-words font-mono text-ui-xs leading-relaxed text-muted-foreground">
-                {task.finalResult || task.prompt || '—'}
-              </p>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => revealInTranscript(task.key)}
-            className="mt-1.5 text-ui-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
-          >
-            Show in conversation
-          </button>
-        </div>
-      )}
     </li>
   )
 }
@@ -145,13 +100,19 @@ function TaskRow({
  * running children, since the parent turn has usually ended by the time a
  * report is still outstanding.
  */
-function SubagentPanel({ tasks, onClose }: { tasks: SubagentTask[]; onClose(): void }): JSX.Element {
-  const [expanded, setExpanded] = useState<string | null>(null)
+function SubagentPanel({
+  tasks,
+  onClose,
+  onOpen
+}: {
+  tasks: SubagentTask[]
+  onClose(): void
+  /** Opens the full detail modal for a task. */
+  onOpen(task: SubagentTask): void
+}): JSX.Element {
   const running = tasks.filter((t) => t.state === 'running')
   const finished = tasks.filter((t) => t.state !== 'running')
   const now = useNow(running.length > 0)
-
-  const toggle = (key: string): void => setExpanded((current) => (current === key ? null : key))
 
   const section = (title: string, rows: SubagentTask[]): JSX.Element | null => {
     if (rows.length === 0) return null
@@ -162,13 +123,7 @@ function SubagentPanel({ tasks, onClose }: { tasks: SubagentTask[]; onClose(): v
         </div>
         <ul className="m-0 list-none p-0">
           {rows.map((task) => (
-            <TaskRow
-              key={task.key}
-              task={task}
-              now={now}
-              expanded={expanded === task.key}
-              onToggle={() => toggle(task.key)}
-            />
+            <TaskRow key={task.key} task={task} now={now} onOpen={onOpen} />
           ))}
         </ul>
       </div>

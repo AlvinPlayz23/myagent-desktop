@@ -260,6 +260,16 @@ export function subagentPromptPreview(prompt: string, max = 120): string {
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
 }
 
+/**
+ * Brings the transcript row for a task into view. Rows carry
+ * `data-subagent-task` with the task key (see SubagentToolCard/SubagentNotice),
+ * so the side panel and the detail modal can both jump to the conversation.
+ */
+export function revealSubagentInTranscript(key: string): void {
+  const el = document.querySelector(`[data-subagent-task="${CSS.escape(key)}"]`)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 /** Model id without its provider prefix, for tight chips. */
 export function subagentModelLabel(task: SubagentTask, max = 28): string {
   const model = task.model?.trim()

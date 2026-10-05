@@ -6,20 +6,10 @@ import { buildToolDiff } from '../diff'
 import DiffView from './DiffView'
 import { cn } from '../util'
 import { disclosure } from '../motion'
-import { TOOL_LABELS, TOOL_RUNNING_LABELS, toolIcon } from '../toolMeta'
+import { TOOL_LABELS, TOOL_RUNNING_LABELS, toolIcon, toolSummary } from '../toolMeta'
 
 function summaryOf(run: ToolRun): string {
-  const a = run.args
-  const first =
-    (a.command as string) ??
-    (a.path as string) ??
-    (a.file_path as string) ??
-    (a.filePath as string) ??
-    (a.pattern as string) ??
-    ''
-  if (first) return String(first)
-  const vals = Object.values(a).filter((v) => typeof v === 'string') as string[]
-  return vals[0] ?? ''
+  return toolSummary(run.args)
 }
 
 function resultText(run: ToolRun): string {

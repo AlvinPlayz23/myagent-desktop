@@ -37,3 +37,22 @@ export const TOOL_RUNNING_LABELS: Record<string, string> = {
   edit: 'Editing file',
   write: 'Writing file'
 }
+
+/**
+ * The one-line argument summary for a tool row: the command, the path, or the
+ * first string argument — the same rule the main timeline's ToolCard uses, so a
+ * trajectory row reads exactly like its transcript counterpart.
+ */
+export function toolSummary(args: Record<string, unknown> | undefined): string {
+  if (!args) return ''
+  const first =
+    (args.command as string) ??
+    (args.path as string) ??
+    (args.file_path as string) ??
+    (args.filePath as string) ??
+    (args.pattern as string) ??
+    ''
+  if (first) return String(first)
+  const vals = Object.values(args).filter((v) => typeof v === 'string') as string[]
+  return vals[0] ?? ''
+}

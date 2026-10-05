@@ -118,8 +118,10 @@ function collapseContext(lines: DiffLine[]): DiffLine[] {
 }
 
 // buildToolDiff derives a renderable diff for edit/write runs, or null when
-// the tool has no diff representation (or the args are malformed).
-export function buildToolDiff(run: ToolRun): ToolDiff | null {
+// the tool has no diff representation (or the args are malformed). Takes the
+// name + args rather than a full ToolRun so trajectory rows (which only carry
+// what the child's report recorded) can render the same diffs as the timeline.
+export function buildToolDiff(run: Pick<ToolRun, 'name' | 'args'>): ToolDiff | null {
   if (run.name === 'edit') {
     const edits = run.args.edits
     if (!Array.isArray(edits) || edits.length === 0) return null

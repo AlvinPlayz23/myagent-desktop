@@ -86,6 +86,13 @@ export type SubagentStatus = 'completed' | 'failed' | 'timed_out' | 'cancelled'
 export interface SubagentToolCall {
   id: string
   name: string
+  /**
+   * The arguments the child passed. Mirrors the Go side's
+   * `PublicToolCall.Arguments` (marshalled JSON object) — present when the
+   * child supplied any, absent for argument-less calls. Lets clients render
+   * the same per-tool summaries (command, path, …) as the main timeline.
+   */
+  arguments?: Record<string, unknown>
 }
 
 /**

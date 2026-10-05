@@ -19,7 +19,7 @@ import TabBar from './components/TabBar'
 import OpenWith from './components/OpenWith'
 import GitPanel from './components/GitPanel'
 import SubagentPanel from './components/SubagentPanel'
-import { subagentTaskList, type SubagentTask } from './subagents'
+import { subagentTaskIndex, subagentTaskList, revealSubagentInTranscript, type SubagentTask } from './subagents'
 import { applyTheme, applyFontSize, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
@@ -28,6 +28,7 @@ import type { CommandName } from './commands'
 import CommandModal from './components/CommandModal'
 import RenameSessionModal from './components/RenameSessionModal'
 import ToolsModal from './components/ToolsModal'
+import SubagentModal from './components/SubagentModal'
 import { matchShortcut, composerFocus, composerModelPicker, type ShortcutId } from './shortcuts'
 import type { ContentBlock, ReasoningEffort } from '../../shared/protocol'
 
@@ -47,6 +48,11 @@ export default function App(): JSX.Element {
   const [sessionPreferences, setSessionPreferences] = useState<SessionPreferences>(loadSessionPreferences)
   const [modal, setModal] = useState<'help' | 'tools' | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
+  // The open subagent detail modal, by task key. Resolved against the live
+  // index on every render (not stored as an object) so a modal left open on a
+  // running child fills in when its report lands. launchError rides along
+  // because only the transcript card holds the tool run that produced it.
+  const [subagentModal, setSubagentModal] = useState<{ key: string; launchError?: string } | null>(null)
   const chat = activeChat(state)
   const activeSession = useRef<string | null>(null)
   const conn = useRef(state.conn)
@@ -319,6 +325,17 @@ export default function App(): JSX.Element {
     startChromeAnimation(200)
     setSubagentsOpen((value) => !value)
   }, [])
+  // Clicking any subagent row (transcript card, completion notice, side-panel
+  // row) opens the detail modal. Stored by key so the modal always reads the
+  // latest task object — including a report that lands while it is open.
+  const openSubagent = useCallback((task: SubagentTask, launchError?: string) => {
+    setSubagentModal({ key: task.key, launchError })
+  }, [])
+  const showSubagentInConversation = useCallback((task: SubagentTask) => {
+    setSubagentModal(null)
+    // Let the modal's exit fade out before the transcript jumps underneath it.
+    window.setTimeout(() => revealSubagentInTranscript(task.key), 60)
+  }, [])
   const toggleSettings = useCallback(() => setView((v) => (v === 'settings' ? 'content' : 'settings')), [])
   const openSettings = useCallback(() => setView('settings'), [])
 
@@ -533,6 +550,9 @@ export default function App(): JSX.Element {
   // subagentTaskList is memoized on chat identity, so this is free per token.
   const subagentTasks = chat ? subagentTaskList(chat) : NO_SUBAGENTS
   const runningSubagents = subagentTasks.reduce((n, t) => (t.state === 'running' ? n + 1 : n), 0)
+  // The modal's task, resolved live by key. A null here (tab closed, session
+  // switched) unmounts the modal rather than showing a stale snapshot.
+  const subagentModalTask = subagentModal && chat ? subagentTaskIndex(chat).get(subagentModal.key) : undefined
 
   // Map each global shortcut id to the callback that should run. Held in a ref
   // so the keydown listener (subscribed once) always calls the latest closures
@@ -676,7 +696,7 @@ export default function App(): JSX.Element {
         {chat ? (
           <>
             <ChatErrorBoundary key={chat.sessionId}>
-              <Chat key={chat.sessionId} chat={chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} />
+              <Chat key={chat.sessionId} chat={chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} onOpenSubagent={openSubagent} />
             </ChatErrorBoundary>
             <div className="shrink-0 px-4 pb-4 pt-2 sm:px-7">
               <Composer
@@ -786,6 +806,7 @@ export default function App(): JSX.Element {
                     key={chat?.sessionId ?? 'none'}
                     tasks={subagentTasks}
                     onClose={() => setSubagentsOpen(false)}
+                    onOpen={openSubagent}
                   />
                 </div>
               </div>
@@ -826,6 +847,17 @@ export default function App(): JSX.Element {
       </AnimatePresence>
       <AnimatePresence>
         {renameTarget && <RenameSessionModal key="rename" initialTitle={renameTarget.title} onClose={() => setRenameTarget(null)} onSave={saveSessionRename} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {subagentModalTask && (
+          <SubagentModal
+            key={subagentModalTask.key}
+            task={subagentModalTask}
+            launchError={subagentModal?.launchError}
+            onClose={() => setSubagentModal(null)}
+            onShowInConversation={showSubagentInConversation}
+          />
+        )}
       </AnimatePresence>
     </div>
     </MotionConfig>

@@ -22,10 +22,12 @@ export type WorkEntry =
 
 function EntryView({
   entry,
-  tasks
+  tasks,
+  onOpenSubagent
 }: {
   entry: WorkEntry
   tasks: ReadonlyMap<string, SubagentTask>
+  onOpenSubagent(task: SubagentTask, launchError?: string): void
 }): JSX.Element {
   if (entry.kind === 'tool') {
     // A subagent is handed off, not awaited, so it gets its own card instead of
@@ -33,7 +35,7 @@ function EntryView({
     // across the pre-acknowledgement window (before a task id exists).
     if (isSubagent(entry.run.name)) {
       const task = tasks.get(entry.run.id)
-      if (task) return <SubagentToolCard run={entry.run} task={task} />
+      if (task) return <SubagentToolCard run={entry.run} task={task} onOpen={onOpenSubagent} />
     }
     return <ToolCard run={entry.run} />
   }
@@ -52,7 +54,8 @@ function ToolGroup({
   entries,
   tasks,
   display,
-  live = false
+  live = false,
+  onOpenSubagent
 }: {
   entries: WorkEntry[]
   /**
@@ -70,6 +73,8 @@ function ToolGroup({
    * entry landed, so the fold waits for the turn itself to end.
    */
   live?: boolean
+  /** Opens the detail modal for a subagent task. */
+  onOpenSubagent(task: SubagentTask, launchError?: string): void
 }): JSX.Element | null {
   const [open, setOpen] = useState(false)
   if (entries.length === 0) return null
@@ -86,6 +91,7 @@ function ToolGroup({
       key={entry.kind === 'tool' ? entry.run.id : entry.id}
       entry={entry}
       tasks={tasks ?? EMPTY_TASKS}
+      onOpenSubagent={onOpenSubagent}
     />
   )
 
@@ -181,5 +187,6 @@ export default memo(
     // The task index is memoized on chat identity, so this is a pointer compare
     // that only trips when a subagent actually started, settled or reported.
     prev.tasks === next.tasks &&
+    prev.onOpenSubagent === next.onOpenSubagent &&
     sameEntries(prev.entries, next.entries)
 )

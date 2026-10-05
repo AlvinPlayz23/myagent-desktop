@@ -4,7 +4,7 @@ import { Folder01, Sparkles } from './ui/icons'
 import type { ChatItem, ChatState } from '../state'
 import type { Message } from '../../../shared/protocol'
 import type { ToolActivityDisplay } from '../preferences'
-import { subagentTaskIndex } from '../subagents'
+import { subagentTaskIndex, type SubagentTask } from '../subagents'
 import MessageView from './MessageView'
 import Working from './Working'
 import SubagentNotice from './SubagentNotice'
@@ -37,12 +37,15 @@ export default function Chat({
   chat,
   autoScroll = true,
   messageSize = 'default',
-  toolActivityDisplay = 'compact'
+  toolActivityDisplay = 'compact',
+  onOpenSubagent
 }: {
   chat: ChatState
   autoScroll?: boolean
   messageSize?: 'compact' | 'default' | 'large'
   toolActivityDisplay?: ToolActivityDisplay
+  /** Opens the detail modal for a subagent task. */
+  onOpenSubagent(task: SubagentTask, launchError?: string): void
 }): JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
   // Transcript body whose height changes as late layout settles (see the
@@ -200,7 +203,7 @@ export default function Chat({
       if (!task) return null
       return (
         <div key={key} className="mt-5">
-          <SubagentNotice task={task} />
+          <SubagentNotice task={task} onOpen={onOpenSubagent} />
         </div>
       )
     }
@@ -233,9 +236,15 @@ export default function Chat({
   // while a new turn runs.
   const flushSegment = (live = false): void => {
     if (workEntries.length > 0) {
-rows.push(
+    rows.push(
           <Entrance key={`work-${segment}`} animate={liveRegion.current}>
-            <ToolGroup entries={workEntries} tasks={subagentTasks} display={toolActivityDisplay} live={live} />
+            <ToolGroup
+              entries={workEntries}
+              tasks={subagentTasks}
+              display={toolActivityDisplay}
+              live={live}
+              onOpenSubagent={onOpenSubagent}
+            />
           </Entrance>
         )
     }
