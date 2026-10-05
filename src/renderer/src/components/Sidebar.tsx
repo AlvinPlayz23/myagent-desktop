@@ -700,22 +700,24 @@ function Sidebar({
             ) : (
               <>
                 <div className="flex w-full flex-col gap-1">
-                  <button
-                    className={cn(
-                      'flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left outline-none',
-                      'focus-visible:ring-2 focus-visible:ring-ring',
-                      !settling && 'transition-colors hover:bg-hover'
-                    )}
-                    onClick={newSessionAction}
-                  >
-                    <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate text-ui-caption font-medium text-foreground">
-                      {knownProjects.length > 0 ? 'New session' : 'Add project'}
-                    </span>
+                  <div className="flex h-8 items-center justify-between gap-2 px-0.5">
+                    <button
+                      className={cn(
+                        'flex h-7 min-w-0 items-center gap-2 rounded-md px-2 text-left outline-none',
+                        'focus-visible:ring-2 focus-visible:ring-ring',
+                        !settling && 'transition-colors hover:bg-hover'
+                      )}
+                      onClick={newSessionAction}
+                    >
+                      <Plus size={15} strokeWidth={1.9} className="shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 truncate text-ui-caption font-medium text-foreground">
+                        {knownProjects.length > 0 ? 'New session' : 'Add project'}
+                      </span>
+                    </button>
                     {knownProjects.length > 0 && (
-                      <span className="shrink-0 text-ui-xs text-foreground-subtlest">{formatCombo('mod+n')}</span>
+                      <span className="shrink-0 pr-2 text-ui-xs text-foreground-subtlest">{formatCombo('mod+n')}</span>
                     )}
-                  </button>
+                  </div>
                   <button
                     ref={projectButtonRef}
                     className={cn(
