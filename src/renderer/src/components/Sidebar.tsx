@@ -670,7 +670,7 @@ function Sidebar({
                     else onAddProject()
                   }}
                 >
-                  <CirclePlus size={18} className="text-muted-foreground" />
+                  <CirclePlus size={18} />
                   <span className="min-w-0 flex-1 truncate text-foreground">New session</span>
                 </button>
               </>
@@ -686,7 +686,7 @@ function Sidebar({
                       )}
                       onClick={newSessionAction}
                     >
-                      <CirclePlus size={18} className="text-muted-foreground" />
+                      <CirclePlus size={18} />
                       <span className="min-w-0 truncate text-ui-caption font-medium text-foreground">
                         {knownProjects.length > 0 ? 'New session' : 'Add project'}
                       </span>
