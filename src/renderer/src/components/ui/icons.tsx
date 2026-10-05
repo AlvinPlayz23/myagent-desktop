@@ -41,6 +41,7 @@ import {
   KeyboardIcon,
   MinusSignIcon,
   RefreshIcon,
+  Robot01Icon,
   SidebarLeftIcon,
   Tick02Icon,
   UnfoldMoreIcon,
@@ -105,6 +106,7 @@ export const GitBranch01 = makeIcon(GitBranchIcon)
 export const GitCommit01 = makeIcon(GitCommitIcon)
 export const GitPullRequest01 = makeIcon(GitPullRequestIcon)
 export const Refresh01 = makeIcon(RefreshIcon)
+export const Robot01 = makeIcon(Robot01Icon)
 export const Undo01 = makeIcon(Undo02Icon)
 export const ArrowDownTray = makeIcon(Download04Icon)
 export const ArrowUpTray = makeIcon(Upload04Icon)

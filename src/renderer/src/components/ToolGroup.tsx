@@ -5,7 +5,9 @@ import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
 import type { Message } from '../../../shared/protocol'
 import type { ToolRun } from '../state'
 import type { ToolActivityDisplay } from '../preferences'
+import { isSubagent, type SubagentTask } from '../subagents'
 import ToolCard from './ToolCard'
+import SubagentToolCard from './SubagentToolCard'
 import Thinking from './Thinking'
 import MessageView from './MessageView'
 import { cn, duration } from '../util'
@@ -18,8 +20,23 @@ export type WorkEntry =
   | { kind: 'thinking'; id: string; text: string; redacted: boolean; durationMs?: number }
   | { kind: 'message'; id: string; msg: Message }
 
-function EntryView({ entry }: { entry: WorkEntry }): JSX.Element {
-  if (entry.kind === 'tool') return <ToolCard run={entry.run} />
+function EntryView({
+  entry,
+  tasks
+}: {
+  entry: WorkEntry
+  tasks: ReadonlyMap<string, SubagentTask>
+}): JSX.Element {
+  if (entry.kind === 'tool') {
+    // A subagent is handed off, not awaited, so it gets its own card instead of
+    // the generic tool row. Tasks are keyed by tool call id, which is stable
+    // across the pre-acknowledgement window (before a task id exists).
+    if (isSubagent(entry.run.name)) {
+      const task = tasks.get(entry.run.id)
+      if (task) return <SubagentToolCard run={entry.run} task={task} />
+    }
+    return <ToolCard run={entry.run} />
+  }
   if (entry.kind === 'message') return <MessageView msg={entry.msg} messageSize="default" showThinking={false} />
   // Entries reaching a group are finalized, so reasoning is never live here.
   return <Thinking text={entry.redacted ? '[redacted]' : entry.text} durationMs={entry.durationMs} />
@@ -33,10 +50,17 @@ function EntryView({ entry }: { entry: WorkEntry }): JSX.Element {
 //   hidden    nothing, except tool failures which always stay visible
 function ToolGroup({
   entries,
+  tasks,
   display,
   live = false
 }: {
   entries: WorkEntry[]
+  /**
+   * Background subagent tasks for the owning chat, keyed by tool call id.
+   * Supplied by Chat so a subagent call renders as a hand-off card rather than a
+   * finished command; omitted by callers that have no subagent state.
+   */
+  tasks?: ReadonlyMap<string, SubagentTask>
   display: ToolActivityDisplay
   /**
    * The turn that produced these entries is still in flight. Tool status alone
@@ -52,29 +76,27 @@ function ToolGroup({
 
   const runs = entries.flatMap((e) => (e.kind === 'tool' ? [e.run] : []))
   const running = live || runs.some((r) => r.status === 'running')
-  const errors = runs.filter((r) => r.status === 'error')
+  const errors = entries.filter(
+    (e): e is Extract<WorkEntry, { kind: 'tool' }> => e.kind === 'tool' && e.run.status === 'error'
+  )
   const toolCount = runs.length
 
+  const renderEntry = (entry: WorkEntry): JSX.Element => (
+    <EntryView
+      key={entry.kind === 'tool' ? entry.run.id : entry.id}
+      entry={entry}
+      tasks={tasks ?? EMPTY_TASKS}
+    />
+  )
+
   if (display === 'expanded') {
-    return (
-      <div className="mt-5 flex flex-col">
-        {entries.map((entry) => (
-          <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
-        ))}
-      </div>
-    )
+    return <div className="mt-5 flex flex-col">{entries.map(renderEntry)}</div>
   }
 
   if (display === 'hidden') {
     // Failures are never silently swallowed, even in the quietest mode.
     if (errors.length === 0) return null
-    return (
-      <div className="mt-5 flex flex-col">
-        {errors.map((run) => (
-          <ToolCard key={run.id} run={run} />
-        ))}
-      </div>
-    )
+    return <div className="mt-5 flex flex-col">{errors.map(renderEntry)}</div>
   }
 
   // compact — while the turn is still live (or thinking-only with nothing to
@@ -85,11 +107,7 @@ function ToolGroup({
   if (running || toolCount === 0) {
     return (
       <section className="mt-5 transcript-rise">
-        <div className="flex flex-col">
-          {entries.map((entry) => (
-            <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
-          ))}
-        </div>
+        <div className="flex flex-col">{entries.map(renderEntry)}</div>
       </section>
     )
   }
@@ -124,17 +142,15 @@ function ToolGroup({
             exit="exit"
             className="overflow-hidden"
           >
-            <div className="flex flex-col pt-1">
-              {entries.map((entry) => (
-                <EntryView key={entry.kind === 'tool' ? entry.run.id : entry.id} entry={entry} />
-              ))}
-            </div>
+            <div className="flex flex-col pt-1">{entries.map(renderEntry)}</div>
           </motion.div>
         )}
       </AnimatePresence>
     </section>
   )
 }
+
+const EMPTY_TASKS: ReadonlyMap<string, SubagentTask> = new Map()
 
 // Chat rebuilds the entries array on every render, but the underlying runs,
 // messages, and thinking entries keep their identities across pure streaming
@@ -162,5 +178,8 @@ export default memo(
   (prev, next) =>
     prev.display === next.display &&
     prev.live === next.live &&
+    // The task index is memoized on chat identity, so this is a pointer compare
+    // that only trips when a subagent actually started, settled or reported.
+    prev.tasks === next.tasks &&
     sameEntries(prev.entries, next.entries)
 )

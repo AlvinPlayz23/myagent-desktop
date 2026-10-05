@@ -8,6 +8,8 @@ import type {
   SessionInfo,
   ReasoningEffort,
   SessionMeta,
+  SessionTool,
+  SessionTools,
   ServerPush
 } from '../../shared/protocol'
 
@@ -58,6 +60,25 @@ export const api = {
     call('session.followUp', { sessionId, content }),
   abort: (sessionId: string): Promise<void> => call('session.abort', { sessionId }),
   compact: (sessionId: string): Promise<void> => call('session.compact', { sessionId }),
+  sessionTools: async (sessionId: string): Promise<SessionTools> => {
+    const result = await call<{ tools?: SessionTool[]; disabled?: string[]; running?: boolean }>(
+      'session.tools',
+      { sessionId }
+    )
+    return { tools: result.tools ?? [], disabled: result.disabled ?? [], running: result.running ?? false }
+  },
+  /**
+   * Applies a deny list to the session and persists it globally to config.json,
+   * so it also becomes the default for sessions created later. Rejected with
+   * code -32001 (busy) while a run is in flight.
+   *
+   * `disabled` is normalized to [] because the Go handler's nil slice would
+   * otherwise surface as null.
+   */
+  setTools: (sessionId: string, disabled: string[]): Promise<{ disabled: string[] }> =>
+    call<{ disabled?: string[] }>('session.setTools', { sessionId, disabled }).then((result) => ({
+      disabled: result.disabled ?? []
+    })),
   setModel: (sessionId: string, provider: string, model: string): Promise<{ effort: ReasoningEffort }> =>
     call<{ effort?: ReasoningEffort }>('session.setModel', { sessionId, provider, model }).then((result) => ({ effort: result.effort ?? '' })),
   setEffort: (sessionId: string, effort: ReasoningEffort): Promise<{ effort: ReasoningEffort }> =>

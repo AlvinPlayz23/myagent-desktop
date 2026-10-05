@@ -42,10 +42,22 @@ export function startServer(): Promise<SpawnedServer> {
       proc = spawn(bin, ['serve', '--port', '0', '--token', token], {
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
+        // Detached (no console inheritance) on purpose. The Electron main
+        // process is a GUI-subsystem app with no console of its own; spawning
+        // the console-subsystem server attached to that state can stall child
+        // startup for a minute or more (observed: zero output, process alive,
+        // `connect:` line never arriving before the 15s timeout). Detached the
+        // server starts in ~100ms and the pipes still work.
+        //
+        // unref() keeps the child from holding Electron's event loop open; it
+        // does NOT orphan the server — stop() below still kills it explicitly,
+        // and before-quit calls stop() too.
+        detached: true,
         // Isolate desktop sessions from the CLI/TUI. Relative value is resolved
         // under config.Dir() by the Go side, so config.json + auth/ stay shared.
         env: { ...process.env, MYAGENT_SESSIONS_DIR: 'sessions/desktop' }
       })
+      proc.unref()
     } catch (err) {
       reject(err)
       return

@@ -50,7 +50,84 @@ export interface Message {
   toolName?: string
   isError?: boolean
   details?: unknown
+  /**
+   * Marks system-generated messages that carry `Role` 'user' for provider
+   * compatibility but are not human input. Today the only producer is
+   * `SubagentCompletionSource` (a finished background subagent). Ordinary
+   * messages omit the field entirely, including sessions persisted before it
+   * existed.
+   */
+  source?: string
   timestamp: number
+}
+
+/** `Message.source` value for an injected subagent completion. */
+export const SubagentCompletionSource = 'subagent_completion'
+
+/**
+ * Details attached to the immediate launch acknowledgement of a subagent tool
+ * call. Mirrors internal/subagent.AckDetails: the background task has started,
+ * but the child has not finished.
+ */
+export interface SubagentAckDetails {
+  taskId: string
+  model: string
+  effort?: string
+  status: string
+}
+
+// ---------------------------------------------------------------------------
+// Subagents
+// ---------------------------------------------------------------------------
+
+export type SubagentStatus = 'completed' | 'failed' | 'timed_out' | 'cancelled'
+
+/** One tool call the child agent made, as recorded in its public trajectory. */
+export interface SubagentToolCall {
+  id: string
+  name: string
+}
+
+/**
+ * One message from the child's public trajectory. Thinking blocks, signatures
+ * and arbitrary tool details are deliberately absent — this is the same
+ * allowlisted view the model receives.
+ */
+export interface SubagentTrajectoryMessage {
+  role: string
+  text?: string
+  toolCalls?: SubagentToolCall[]
+  toolCallId?: string
+  toolName?: string
+  isError?: boolean
+  note?: string
+}
+
+/**
+ * The complete record of one background subagent run, carried as the details
+ * of its system-generated completion message. Mirrors
+ * internal/subagent.TaskReport.
+ */
+export interface SubagentReport {
+  version: number
+  taskId: string
+  parentToolCallId: string
+  prompt: string
+  systemPrompt?: string
+  cwd?: string
+  provider?: string
+  model: string
+  effort?: string
+  timeoutMs?: number
+  startedAt: number
+  endedAt: number
+  status: SubagentStatus
+  error?: string
+  turns: number
+  toolCalls: number
+  usage?: Usage
+  trajectory?: SubagentTrajectoryMessage[]
+  finalResult: string
 }
 
 export interface ToolResult {
@@ -138,6 +215,27 @@ export interface SessionInfo {
   cwd: string
   effort?: ReasoningEffort
   messages?: Message[]
+}
+
+/**
+ * One tool the model may be given, as reported by `session.tools`.
+ * `description` is the model's own tool description passed through verbatim
+ * from the Go side (tools.Tool.Description), so a client never hardcodes what a
+ * tool does — which also makes plugin-provided tools self-describing.
+ */
+export interface SessionTool {
+  name: string
+  description: string
+}
+
+/** Result of `session.tools`: the toggleable set plus the session's state. */
+export interface SessionTools {
+  /** Toggleable tools in registry order. Excludes tools the active profile disallows. */
+  tools: SessionTool[]
+  /** The session's current deny list; a tool listed here still appears in `tools` so it can be re-enabled. */
+  disabled: string[]
+  /** True while an agent run is in flight. A save is rejected server-side (ErrBusy) while this holds. */
+  running: boolean
 }
 
 export interface RpcError {

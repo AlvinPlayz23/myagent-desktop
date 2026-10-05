@@ -4,8 +4,10 @@ import { Folder01, Sparkles } from './ui/icons'
 import type { ChatItem, ChatState } from '../state'
 import type { Message } from '../../../shared/protocol'
 import type { ToolActivityDisplay } from '../preferences'
+import { subagentTaskIndex } from '../subagents'
 import MessageView from './MessageView'
 import Working from './Working'
+import SubagentNotice from './SubagentNotice'
 import ToolGroup, { type WorkEntry } from './ToolGroup'
 import { ArrowDown02 } from './ui/icons'
 import { ScrollFadeViewport } from './ui/scroll-fade-viewport'
@@ -156,6 +158,11 @@ export default function Chat({
     glide.current = requestAnimationFrame(step)
   }
 
+  // One derivation feeds both the transcript's subagent rows and the tool
+  // cards. Memoized on chat identity, so a streamed text delta costs nothing and
+  // both consumers compare tasks by reference.
+  const subagentTasks = subagentTaskIndex(chat)
+
   const renderItem = (item: ChatItem, key: string): JSX.Element | null => {
     if (item.kind === 'msg') {
       // Finalized reasoning is shown as a foldable work item (see ToolGroup),
@@ -188,6 +195,15 @@ export default function Chat({
         </div>
       )
     }
+    if (item.kind === 'subagent') {
+      const task = subagentTasks.get(item.taskId)
+      if (!task) return null
+      return (
+        <div key={key} className="mt-5">
+          <SubagentNotice task={task} />
+        </div>
+      )
+    }
     // Turn markers only describe agent lifecycle. They must never decide
     // whether a timeline message is visible.
     return null
@@ -217,11 +233,11 @@ export default function Chat({
   // while a new turn runs.
   const flushSegment = (live = false): void => {
     if (workEntries.length > 0) {
-      rows.push(
-        <Entrance key={`work-${segment}`} animate={liveRegion.current}>
-          <ToolGroup entries={workEntries} display={toolActivityDisplay} live={live} />
-        </Entrance>
-      )
+rows.push(
+          <Entrance key={`work-${segment}`} animate={liveRegion.current}>
+            <ToolGroup entries={workEntries} tasks={subagentTasks} display={toolActivityDisplay} live={live} />
+          </Entrance>
+        )
     }
     if (finalAssistant) rows.push(finalAssistant)
     workEntries = []
@@ -278,6 +294,12 @@ export default function Chat({
       } else if (item.kind === 'compaction') {
         // Compaction is not agent commentary; keep its existing visible marker
         // in the transcript and do not absorb it into the work log.
+        flushSegment()
+        rows.push(<Entrance key={`enter-${i}`} animate={liveRegion.current}>{node}</Entrance>)
+      } else if (item.kind === 'subagent') {
+        // A finished subagent's report is the deliverable of the delegation, not
+        // agent commentary — so it gets its own row rather than a slot inside the
+        // folded "Worked for …" divider, where it would be invisible by default.
         flushSegment()
         rows.push(<Entrance key={`enter-${i}`} animate={liveRegion.current}>{node}</Entrance>)
       } else if (item.kind === 'msg') {

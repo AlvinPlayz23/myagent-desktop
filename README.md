@@ -171,6 +171,9 @@ execution, session persistence, and retry handling live in the Go server.
 - **Steering and follow-ups**: Send mid-turn corrections or queue follow-ups.
 - **Context compaction**: Summarize older conversation context to stay within
   model limits.
+- **Tool selector**: `/tools` toggles which tools the model can use. The list
+  comes from the server (`session.tools`), so plugin-provided tools appear
+  automatically; changes are saved globally to `config.json`.
 - **Debug panel**: Inspect the full LLM request and retry timeline.
 - **Theme support**: Light, dark, and system theme with reduced-motion option.
 - **Reconnection**: Automatic reconnection with session recovery when the
@@ -207,6 +210,8 @@ The desktop app speaks JSON-RPC 2.0 over WebSocket to the Go agent. See
 | `session.abort`    | client → server  | Stop the current run               |
 | `session.compact`  | client → server  | Trigger manual compaction          |
 | `session.setModel` | client → server  | Change the active model            |
+| `session.tools`   | client → server  | List the tools and the current deny list |
+| `session.setTools`| client → server  | Apply a tool deny list (idle only) |
 | `session.close`    | client → server  | Close a session (file is kept)     |
 | `session.list`     | client → server  | List persisted sessions            |
 | `provider.list`    | client → server  | Get configured providers           |
