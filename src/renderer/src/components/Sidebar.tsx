@@ -103,7 +103,7 @@ function Sidebar({
   pinnedSessionIds,
   onPin,
   sidebarVariant = 'inbox',
-  runIndicator = 'dotmatrix'
+  runIndicator = 'S1'
 }: Props): JSX.Element {
   const isGrouped = sidebarVariant === 'grouped'
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null)

@@ -19,6 +19,8 @@ import TabBar from './components/TabBar'
 import OpenWith from './components/OpenWith'
 import GitPanel from './components/GitPanel'
 import SubagentPanel from './components/SubagentPanel'
+import { BrainCircuit, ChevronRight } from './components/ui/icons'
+import { useDiffStats } from './hooks/use-diff-stats'
 import { subagentTaskIndex, subagentTaskList, revealSubagentInTranscript, type SubagentTask } from './subagents'
 import { applyTheme, applyFontSize, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
@@ -565,6 +567,11 @@ export default function App(): JSX.Element {
   // subagentTaskList is memoized on chat identity, so this is free per token.
   const subagentTasks = chat ? subagentTaskList(chat) : NO_SUBAGENTS
   const runningSubagents = subagentTasks.reduce((n, t) => (t.state === 'running' ? n + 1 : n), 0)
+  const tabCwds = useMemo(
+    () => state.tabOrder.map((id) => state.chats[id]?.cwd).filter((cwd): cwd is string => !!cwd),
+    [state.tabOrder, state.chats]
+  )
+  const diffStats = useDiffStats(tabCwds, preferences.tabDiffCounts, runningKey)
   // The modal's task, resolved live by key. A null here (tab closed, session
   // switched) unmounts the modal rather than showing a stale snapshot.
   const subagentModalTask = subagentModal && chat ? subagentTaskIndex(chat).get(subagentModal.key) : undefined
@@ -672,6 +679,7 @@ export default function App(): JSX.Element {
             appName={normalizeAppName(preferences.appName)}
             runIndicator={preferences.runIndicator}
             pinnedIds={pinnedSessionIds}
+            diffStats={preferences.tabDiffCounts ? diffStats : undefined}
             onSelect={(id) => dispatch({ type: 'focusChat', sessionId: id })}
             onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
             onNew={goHome}
@@ -716,9 +724,25 @@ export default function App(): JSX.Element {
         {chat ? (
           <>
             <ChatErrorBoundary key={chat.sessionId}>
-              <Chat key={chat.sessionId} chat={chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} onOpenSubagent={openSubagent} />
+              <Chat key={chat.sessionId} chat={chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} compactSummary={preferences.compactTurnSummary} workingOrb={preferences.workingOrb} onOpenSubagent={openSubagent} />
             </ChatErrorBoundary>
             <div className="shrink-0 px-4 pb-4 pt-2 sm:px-7">
+              {preferences.subagentsChip && subagentTasks.length > 0 && (
+                <div className="mx-auto w-full max-w-3xl px-1">
+                <button
+                  type="button"
+                  onClick={toggleSubagents}
+                  aria-expanded={subagentsOpen}
+                  className="mb-2 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-ui-sm text-foreground-subtle outline-none transition-colors hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <BrainCircuit size={13} strokeWidth={1.7} className="shrink-0" />
+                  <span>Subagents</span>
+                  <span className="text-ui-xs tabular-nums text-foreground-subtlest">{subagentTasks.length}</span>
+                  {runningSubagents > 0 && <span className="sr-only">{runningSubagents} running</span>}
+                  <ChevronRight size={12} className="shrink-0" />
+                </button>
+                </div>
+              )}
               <Composer
                 running={chat.running}
                 onSend={send}

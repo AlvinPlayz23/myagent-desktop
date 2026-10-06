@@ -1,16 +1,20 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Cancel01Icon } from '@hugeicons/core-free-icons'
+import { Cancel01Icon, FolderTreeIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons'
 import {
   ArrowDown02,
   ArrowUp02,
   Check,
+  CheckmarkCircle02,
   ChevronDown,
   ChevronRight,
   GitBranch01,
+  Folder01,
   GitCommit01,
   Loading03,
+  MinusSign,
+  Plus,
   Rotate01,
   Undo01
 } from './ui/icons'
@@ -68,15 +72,86 @@ function DiffFor({ path, staged }: { path: string; staged: boolean }): JSX.Eleme
   )
 }
 
+function Section({
+  title,
+  count,
+  open,
+  onToggle,
+  actions,
+  children
+}: {
+  title: string
+  count: number
+  open: boolean
+  onToggle(): void
+  actions?: { title: string; icon: JSX.Element; onClick(): void }[]
+  children: React.ReactNode
+}): JSX.Element {
+  return (
+    <div className="mb-1.5">
+      <div className="group/section flex h-7 items-center gap-1 px-1">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ChevronRight size={12} className={cn('shrink-0 text-foreground-subtlest transition-transform duration-150', open && 'rotate-90')} />
+          <span className="truncate text-ui-sm font-medium text-muted-foreground">{title}</span>
+        </button>
+        <div className="relative flex h-5 min-w-[44px] shrink-0 items-center justify-end pr-1">
+          <span className="text-ui-sm tabular-nums text-foreground-subtlest transition-opacity group-focus-within/section:opacity-0 group-hover/section:opacity-0">{count}</span>
+          <div className="absolute right-0 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/section:opacity-100 group-hover/section:opacity-100">
+          {actions?.map((action) => (
+            <button
+              key={action.title}
+              type="button"
+              title={action.title}
+              aria-label={action.title}
+              onClick={action.onClick}
+              className="grid size-5 place-items-center rounded text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+            >
+              {action.icon}
+            </button>
+          ))}
+          </div>
+        </div>
+      </div>
+      {open && children}
+    </div>
+  )
+}
+
+interface TreeDir { name: string; path: string; dirs: Map<string, TreeDir>; files: GitFileChange[] }
+
+function buildTree(files: GitFileChange[]): TreeDir {
+  const root: TreeDir = { name: '', path: '', dirs: new Map(), files: [] }
+  for (const file of files) {
+    const parts = file.path.split('/')
+    let node = root
+    for (const part of parts.slice(0, -1)) {
+      const path = node.path ? `${node.path}/${part}` : part
+      let next = node.dirs.get(part)
+      if (!next) node.dirs.set(part, (next = { name: part, path, dirs: new Map(), files: [] }))
+      node = next
+    }
+    node.files.push(file)
+  }
+  return root
+}
+
 function FileRow({
   file,
   expanded,
+  depth,
   onToggle,
   onStage,
   onUnstage,
   onDiscard
 }: {
   file: GitFileChange
+  /** Tree view nesting level; the folder is then shown by the tree, not the row. */
+  depth?: number
   expanded: boolean
   onToggle(): void
   onStage(): void
@@ -85,12 +160,13 @@ function FileRow({
 }): JSX.Element {
   const meta = STATUS_META[file.status]
   const name = file.path.split('/').pop() ?? file.path
-  const dir = file.path.slice(0, file.path.length - name.length).replace(/\/$/, '')
+  const dir = depth === undefined ? file.path.slice(0, file.path.length - name.length).replace(/\/$/, '') : ''
 
   return (
     <div className="group">
       <div
         className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-hover"
+        style={depth ? { paddingLeft: 8 + depth * 12 } : undefined}
         title={file.partial ? `${file.path}\n(partially staged - has unstaged changes)` : file.path}
       >
         <button
@@ -196,6 +272,8 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [branchOpen, setBranchOpen] = useState(false)
   const [showLog, setShowLog] = useState(false)
+  const [tree, setTree] = useState(() => localStorage.getItem('myagent.git.view') === 'tree')
+  const [closedSections, setClosedSections] = useState<Set<string>>(new Set())
   const branchRef = useRef<HTMLDivElement>(null)
 
   // Collapses overlapping polls: on a large repo a status call can outlast the
@@ -297,6 +375,19 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
   const staged = useMemo(() => status?.files.filter((f) => f.staged) ?? [], [status])
   const unstaged = useMemo(() => status?.files.filter((f) => !f.staged) ?? [], [status])
 
+  const toggleView = (): void =>
+    setTree((value) => {
+      localStorage.setItem('myagent.git.view', value ? 'list' : 'tree')
+      return !value
+    })
+  const toggleSection = (id: string): void =>
+    setClosedSections((cur) => {
+      const next = new Set(cur)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
   const toggle = (path: string): void =>
     setExpanded((cur) => {
       const next = new Set(cur)
@@ -305,10 +396,11 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
       return next
     })
 
-  const rowFor = (f: GitFileChange): JSX.Element => (
+  const rowFor = (f: GitFileChange, depth?: number): JSX.Element => (
     <FileRow
       key={f.path}
       file={f}
+      depth={depth}
       expanded={expanded.has(f.path)}
       onToggle={() => toggle(f.path)}
       onStage={() => act('stage', () => window.myagent.git.stage(cwd!, [f.path]))}
@@ -320,6 +412,54 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
       }}
     />
   )
+
+  const renderDir = (dir: TreeDir, depth: number): JSX.Element[] => [
+    ...[...dir.dirs.values()]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((dir) => {
+        // Fold single-child chains (src/renderer/src) into one row.
+        let node = dir
+        let name = dir.name
+        while (node.files.length === 0 && node.dirs.size === 1) {
+          node = [...node.dirs.values()][0]
+          name += `/${node.name}`
+        }
+        return { node, name }
+      })
+      .flatMap(({ node: child, name }) => [
+        <div
+          key={`dir-${child.path}`}
+          className="flex h-6 items-center gap-1.5 truncate px-2 text-ui-xs text-foreground-subtle"
+          style={{ paddingLeft: 8 + depth * 12 }}
+          title={child.path}
+        >
+          <Folder01 size={12} strokeWidth={1.7} className="shrink-0" />
+          <span className="truncate">{name}</span>
+        </div>,
+        ...renderDir(child, depth + 1)
+      ]),
+    ...dir.files.sort((a, b) => a.path.localeCompare(b.path)).map((f) => rowFor(f, depth))
+  ]
+  const renderFiles = (files: GitFileChange[]): JSX.Element[] =>
+    tree ? renderDir(buildTree(files), 0) : files.map((f) => rowFor(f))
+
+  const syncAction = ((): { label: string; run: () => void } | null => {
+    if (!status?.isRepo || !status.branch || !cwd) return null
+    const git = window.myagent.git
+    if (!status.upstream) return { label: 'Publish branch', run: () => void act('push', () => git.push(cwd)) }
+    if (status.ahead > 0 && status.behind > 0) {
+      return {
+        label: `Sync changes  ↑${status.ahead} ↓${status.behind}`,
+        run: () => void act('sync', async () => {
+          const pulled = await git.pull(cwd)
+          return pulled.ok ? git.push(cwd) : pulled
+        })
+      }
+    }
+    if (status.ahead > 0) return { label: `Push  ↑${status.ahead}`, run: () => void act('push', () => git.push(cwd)) }
+    if (status.behind > 0) return { label: `Pull  ↓${status.behind}`, run: () => void act('pull', () => git.pull(cwd)) }
+    return null
+  })()
 
   if (!cwd) {
     return (
@@ -423,21 +563,12 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
         </button>
         <button
           type="button"
-          title="Pull"
-          disabled={!!busy}
-          onClick={() => act('pull', () => window.myagent.git.pull(cwd))}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
+          title={tree ? 'View as list' : 'View as tree'}
+          aria-label={tree ? 'View as list' : 'View as tree'}
+          onClick={toggleView}
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
         >
-          <ArrowDown02 size={14} strokeWidth={1.8} />
-        </button>
-        <button
-          type="button"
-          title="Push"
-          disabled={!!busy}
-          onClick={() => act('push', () => window.myagent.git.push(cwd))}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
-        >
-          <ArrowUp02 size={14} strokeWidth={1.8} />
+          <HugeiconsIcon icon={tree ? LeftToRightListBulletIcon : FolderTreeIcon} size={14} strokeWidth={1.8} aria-hidden />
         </button>
         <button
           type="button"
@@ -457,45 +588,46 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
 
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-1 py-1.5">
         {status && status.files.length === 0 && (
-          <div className="px-3 py-8 text-center text-ui-sm text-muted-foreground">
-            No changes. Working tree is clean.
+          <div className="flex flex-col items-center gap-2 px-3 py-10 text-center">
+            <CheckmarkCircle02 size={20} strokeWidth={1.6} className="text-foreground-subtlest" />
+            <p className="text-ui-sm text-muted-foreground">No changes</p>
+            <p className="text-ui-xs text-foreground-subtlest">Working tree is clean.</p>
           </div>
         )}
 
         {staged.length > 0 && (
-          <div className="mb-2">
-            <div className="flex items-center justify-between px-2 pb-0.5">
-              <span className="text-ui-sm font-medium text-muted-foreground">
-                Staged ({staged.length})
-              </span>
-              <button
-                type="button"
-                onClick={() => act('unstage', () => window.myagent.git.unstage(cwd, []))}
-                className="text-ui-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Unstage all
-              </button>
-            </div>
-            {staged.map(rowFor)}
-          </div>
+          <Section
+            title="Staged"
+            count={staged.length}
+            open={!closedSections.has('staged')}
+            onToggle={() => toggleSection('staged')}
+            actions={[{ title: 'Unstage all', icon: <MinusSign size={13} />, onClick: () => void act('unstage', () => window.myagent.git.unstage(cwd, [])) }]}
+          >
+            {renderFiles(staged)}
+          </Section>
         )}
 
         {unstaged.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between px-2 pb-0.5">
-              <span className="text-ui-sm font-medium text-muted-foreground">
-                Changes ({unstaged.length})
-              </span>
-              <button
-                type="button"
-                onClick={() => act('stage', () => window.myagent.git.stage(cwd, []))}
-                className="text-ui-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Stage all
-              </button>
-            </div>
-            {unstaged.map(rowFor)}
-          </div>
+          <Section
+            title="Changes"
+            count={unstaged.length}
+            open={!closedSections.has('changes')}
+            onToggle={() => toggleSection('changes')}
+            actions={[
+              {
+                title: 'Discard all',
+                icon: <Undo01 size={12} />,
+                onClick: () => {
+                  if (confirm(`Discard all ${unstaged.length} unstaged change(s)? This cannot be undone.`)) {
+                    void act('discard', () => window.myagent.git.discard(cwd, unstaged.map((f) => f.path)))
+                  }
+                }
+              },
+              { title: 'Stage all', icon: <Plus size={13} />, onClick: () => void act('stage', () => window.myagent.git.stage(cwd, [])) }
+            ]}
+          >
+            {renderFiles(unstaged)}
+          </Section>
         )}
 
         {/* Recent commits */}
@@ -553,6 +685,17 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
           {busy === 'commit' ? <Loading03 size={12} className="animate-spin" /> : <GitCommit01 size={12} />}
           Commit
         </button>
+        {syncAction && (
+          <button
+            type="button"
+            disabled={!!busy}
+            onClick={syncAction.run}
+            className="mt-1.5 flex h-8 w-full items-center justify-center gap-1.5 whitespace-pre rounded-lg border border-border text-ui-sm font-medium text-foreground transition-colors hover:bg-hover disabled:pointer-events-none disabled:opacity-40"
+          >
+            {busy === 'push' || busy === 'pull' || busy === 'sync' ? <Loading03 size={12} className="animate-spin" /> : <ArrowUp02 size={12} />}
+            {syncAction.label}
+          </button>
+        )}
       </div>
     </div>
     </CwdContext.Provider>

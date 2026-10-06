@@ -25,7 +25,17 @@ export type ToolActivityDisplay = 'expanded' | 'compact' | 'hidden'
 export type ModelSelectorVariant = 'compact' | 'gallery'
 export type EffortSelectorVariant = 'slider' | 'chips'
 export type SidebarVariant = 'inbox' | 'grouped'
-export type RunIndicatorStyle = 'dotmatrix' | 'color'
+/** Dot-matrix animation patterns; see Orb.tsx for how each one moves. */
+export type OrbVariant = 'S1' | 'S2' | 'S3' | 'S4' | 'S5'
+export const ORB_VARIANTS: readonly { id: OrbVariant; name: string; detail: string }[] = [
+  { id: 'S1', name: 'Radiate', detail: 'A round wave spreading from the centre' },
+  { id: 'S2', name: 'Sweep', detail: 'A broad band crossing the grid on the diagonal' },
+  { id: 'S3', name: 'Orbit', detail: 'One comet with a fading tail around the edge' },
+  { id: 'S4', name: 'Scan', detail: 'A soft column travelling left to right' },
+  { id: 'S5', name: 'Scatter', detail: 'The edge pulse jumping in scrambled order' }
+]
+/** Tabs and sidebar rows: an orb pattern, or a plain busy-coloured dot. */
+export type RunIndicatorStyle = OrbVariant | 'color'
 
 export interface Preferences {
   theme: ThemePreference
@@ -47,8 +57,16 @@ export interface Preferences {
    * grouped view with every project folder expanded in one place.
    */
   sidebarVariant: SidebarVariant
-  /** How a running session is marked in the tab strip. */
+  /** How a running session is marked on tabs and sidebar rows. */
   runIndicator: RunIndicatorStyle
+  /** Orb pattern beside "Working" in the chat. */
+  workingOrb: OrbVariant
+  /** Experimental: +N −M uncommitted-change counts on tabs. */
+  tabDiffCounts: boolean
+  /** Experimental: folded turn reads "N tool calls · M messages". */
+  compactTurnSummary: boolean
+  /** Experimental: "Subagents N" chip above the composer. */
+  subagentsChip: boolean
   /** Whether the desktop material should be visible through the app shell. */
   transparencyEnabled: boolean
   /** 0 is more opaque; 100 lets more of the desktop material show through. */
@@ -79,7 +97,11 @@ export const defaults: Preferences = {
   modelSelectorVariant: 'compact',
   effortSelectorVariant: 'slider',
   sidebarVariant: 'inbox',
-  runIndicator: 'dotmatrix',
+  runIndicator: 'S1',
+  workingOrb: 'S1',
+  tabDiffCounts: true,
+  compactTurnSummary: true,
+  subagentsChip: true,
   transparencyEnabled: true,
   transparency: 50,
   interfaceFontSize: 13.5,
@@ -104,6 +126,10 @@ export function normalizeAppName(value: string | undefined | null): string {
   return trimmed || DEFAULT_APP_NAME
 }
 
+function isOrbVariant(value: unknown): value is OrbVariant {
+  return ORB_VARIANTS.some((variant) => variant.id === value)
+}
+
 export function loadPreferences(): Preferences {
   try {
     const stored = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Preferences>
@@ -115,7 +141,13 @@ export function loadPreferences(): Preferences {
       modelSelectorVariant: stored.modelSelectorVariant === 'gallery' ? 'gallery' : 'compact',
       effortSelectorVariant: stored.effortSelectorVariant === 'chips' ? 'chips' : 'slider',
       sidebarVariant: stored.sidebarVariant === 'grouped' ? 'grouped' : 'inbox',
-      runIndicator: stored.runIndicator === 'color' ? 'color' : 'dotmatrix',
+      // 'dotmatrix' was the pre-variant name for the radiating pattern.
+      runIndicator:
+        stored.runIndicator === 'color' ? 'color' : isOrbVariant(stored.runIndicator) ? stored.runIndicator : 'S1',
+      workingOrb: isOrbVariant(stored.workingOrb) ? stored.workingOrb : 'S1',
+      tabDiffCounts: stored.tabDiffCounts !== false,
+      compactTurnSummary: stored.compactTurnSummary !== false,
+      subagentsChip: stored.subagentsChip !== false,
       transparencyEnabled: stored.transparencyEnabled !== false,
       transparency: normalizeTransparency(stored.transparency),
       interfaceFontSize: normalizeFontSize(stored.interfaceFontSize),

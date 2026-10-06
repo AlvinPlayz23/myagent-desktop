@@ -55,6 +55,7 @@ function ToolGroup({
   tasks,
   display,
   live = false,
+  compactSummary = false,
   onOpenSubagent
 }: {
   entries: WorkEntry[]
@@ -73,6 +74,7 @@ function ToolGroup({
    * entry landed, so the fold waits for the turn itself to end.
    */
   live?: boolean
+  compactSummary?: boolean
   /** Opens the detail modal for a subagent task. */
   onOpenSubagent(task: SubagentTask, launchError?: string): void
 }): JSX.Element | null {
@@ -120,7 +122,10 @@ function ToolGroup({
 
   const startedAt = Math.min(...runs.map((r) => r.createdAt))
   const endedAt = Math.max(...runs.map((r) => r.updatedAt))
-  const summary = `Worked for ${duration(endedAt - startedAt)} and made ${toolCount} tool ${toolCount === 1 ? 'call' : 'calls'}`
+  const messageCount = entries.filter((entry) => entry.kind === 'message').length
+  const summary = compactSummary
+    ? `${toolCount} tool ${toolCount === 1 ? 'call' : 'calls'}${messageCount > 0 ? ` · ${messageCount} ${messageCount === 1 ? 'message' : 'messages'}` : ''}`
+    : `Worked for ${duration(endedAt - startedAt)} and made ${toolCount} tool ${toolCount === 1 ? 'call' : 'calls'}`
   return (
     <section className="mt-5 transcript-rise">
       <button
@@ -129,7 +134,7 @@ function ToolGroup({
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
       >
-        <span className="min-w-0 truncate tabular-nums">{summary}</span>
+        <span className="min-w-0 truncate tabular-nums" title={`Worked for ${duration(endedAt - startedAt)}`}>{summary}</span>
         {errors.length > 0 && <span className="shrink-0 text-destructive-foreground">, {errors.length} failed</span>}
         <HugeiconsIcon
           icon={ArrowRight01Icon}
@@ -184,6 +189,7 @@ export default memo(
   (prev, next) =>
     prev.display === next.display &&
     prev.live === next.live &&
+    prev.compactSummary === next.compactSummary &&
     // The task index is memoized on chat identity, so this is a pointer compare
     // that only trips when a subagent actually started, settled or reported.
     prev.tasks === next.tasks &&
