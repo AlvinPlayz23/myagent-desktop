@@ -33,6 +33,7 @@ import {
   HelpCircleIcon,
   InformationCircleIcon,
   PaintBoardIcon,
+  Pin02Icon,
   AiBrain01Icon,
   ArrowLeft01Icon,
   ViewIcon,
@@ -118,6 +119,7 @@ export const MoreHorizontal = makeIcon(MoreHorizontalIcon)
 export const MouseLeftClick05 = makeIcon(MouseLeftClick05Icon)
 export const MouseRightClick05 = makeIcon(MouseRightClick05Icon)
 export const PanelLeftOpen = makeIcon(PanelLeftOpenIcon)
+export const Pin02 = makeIcon(Pin02Icon)
 export const Rotate01 = makeIcon(Rotate01Icon)
 export const Search01 = makeIcon(Search01Icon)
 export const Settings01 = makeIcon(Settings01Icon)

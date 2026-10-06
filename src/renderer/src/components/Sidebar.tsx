@@ -15,6 +15,7 @@ import {
   LayoutAlignLeft,
   LayoutAlignRight,
   Message01,
+  Pin02,
   CirclePlus,
   Search01,
   Settings01,
@@ -48,13 +49,15 @@ interface Props {
   onRename(id: string, currentTitle: string): void
   onArchive(id: string): void
   onRestore(id: string): void
+  pinnedSessionIds?: Set<string>
+  onPin?(id: string, pinned: boolean): void
   /** Sidebar presentation: the flat inbox list, or projects grouped with expandable sections. */
   sidebarVariant?: SidebarVariant
   runIndicator?: RunIndicatorStyle
 }
 
 const MENU_WIDTH = 240
-const MENU_HEIGHT = 140
+const MENU_HEIGHT = 172
 const ARCHIVED_INITIAL = 8
 const ARCHIVED_PAGE = 25
 
@@ -97,6 +100,8 @@ function Sidebar({
   onRename,
   onArchive,
   onRestore,
+  pinnedSessionIds,
+  onPin,
   sidebarVariant = 'inbox',
   runIndicator = 'dotmatrix'
 }: Props): JSX.Element {
@@ -284,9 +289,25 @@ function Sidebar({
   // Live runs, ACROSS every project. This list deliberately ignores
   // `selectedCwd`: a run you started in another folder is exactly the thing the
   // project filter would otherwise hide from you, so urgency outranks scope.
+  const isPinned = (id: string): boolean => pinnedSessionIds?.has(id) ?? false
+
+  // Pinned rows lead the list. Like running rows they ignore the project
+  // filter, so a pin is never hidden by narrowing scope.
+  const pinnedSessions = useMemo(
+    () => sessions.filter((session) => pinnedSessionIds?.has(session.id) && !archivedSessionIds.has(session.id) && matchesSearch(session)),
+    [sessions, pinnedSessionIds, archivedSessionIds, query, knownProjects]
+  )
+
   const runningSessions = useMemo(
-    () => sessions.filter((session) => runningIds.has(session.id) && !archivedSessionIds.has(session.id) && matchesSearch(session)),
-    [sessions, runningIds, archivedSessionIds, query, knownProjects]
+    () =>
+      sessions.filter(
+        (session) =>
+          runningIds.has(session.id) &&
+          !pinnedSessionIds?.has(session.id) &&
+          !archivedSessionIds.has(session.id) &&
+          matchesSearch(session)
+      ),
+    [sessions, runningIds, pinnedSessionIds, archivedSessionIds, query, knownProjects]
   )
 
   // Running rows are pinned above the header, so they must not also appear
@@ -297,10 +318,11 @@ function Sidebar({
         (session) =>
           !archivedSessionIds.has(session.id) &&
           !runningIds.has(session.id) &&
+          !pinnedSessionIds?.has(session.id) &&
           (searching || !selectedCwd || session.cwd === selectedCwd) &&
           matchesSearch(session)
       ),
-    [sessions, archivedSessionIds, runningIds, selectedCwd, query, knownProjects]
+    [sessions, archivedSessionIds, runningIds, pinnedSessionIds, selectedCwd, query, knownProjects]
   )
 
   const archived = useMemo(
@@ -329,14 +351,14 @@ function Sidebar({
   const railSessions = useMemo(() => {
     const seen = new Set<string>()
     const out: SessionMeta[] = []
-    for (const s of [...runningSessions, ...visibleSessions]) {
+    for (const s of [...pinnedSessions, ...runningSessions, ...visibleSessions]) {
       if (seen.has(s.id)) continue
       seen.add(s.id)
       out.push(s)
       if (out.length >= 3) break
     }
     return out
-  }, [runningSessions, visibleSessions])
+  }, [pinnedSessions, runningSessions, visibleSessions])
 
   // Grouped variant: every project folder in one place, sorted by latest
   // activity. Deliberately ignores `selectedCwd` — the inbox filter does not
@@ -438,12 +460,16 @@ function Sidebar({
           {running ? (
             <RunIndicator variant={runIndicator} />
           ) : (
-            <HugeiconsIcon
-              icon={Message01Icon}
-              size={15}
-              strokeWidth={1.5}
-              className={active ? 'text-foreground' : 'text-foreground-subtlest'}
-            />
+            isPinned(session.id) ? (
+              <Pin02 size={14} strokeWidth={1.6} className={active ? 'text-foreground' : 'text-foreground-subtle'} />
+            ) : (
+              <HugeiconsIcon
+                icon={Message01Icon}
+                size={15}
+                strokeWidth={1.5}
+                className={active ? 'text-foreground' : 'text-foreground-subtlest'}
+              />
+            )
           )}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -749,9 +775,15 @@ function Sidebar({
               />
             </button>
                 <span className="ml-auto shrink-0 rounded-md bg-hover px-1.5 text-ui-xs tabular-nums text-muted-foreground">
-                  {visibleSessions.length + runningSessions.length}
+                  {visibleSessions.length + runningSessions.length + pinnedSessions.length}
                 </span>
               </div>
+            </div>
+          )}
+
+          {!collapsed && !isGrouped && pinnedSessions.length > 0 && (
+            <div className="w-[248px] shrink-0 space-y-[3px] pb-1">
+              <AnimatePresence initial={false}>{pinnedSessions.map((session) => sessionRow(session))}</AnimatePresence>
             </div>
           )}
 
@@ -955,7 +987,7 @@ function Sidebar({
                   </AnimatePresence>
                 </div>
 
-                {visibleSessions.length === 0 && runningSessions.length === 0 && (
+                {visibleSessions.length === 0 && runningSessions.length === 0 && pinnedSessions.length === 0 && (
                   <div className="mt-2 rounded-lg border border-dashed border-border/70 px-3 py-5 text-center">
                     <Message01
                       size={18}
@@ -1217,6 +1249,18 @@ function Sidebar({
               <Edit01 size={12} className="shrink-0 text-muted-foreground" />
               <span>Rename</span>
             </button>
+            {onPin && !archivedSessionIds.has(menu.session.id) && (
+              <button
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-ui-caption text-foreground transition-colors hover:bg-hover"
+                onClick={() => {
+                  onPin(menu.session.id, !isPinned(menu.session.id))
+                  setMenu(null)
+                }}
+              >
+                <Pin02 size={12} className="shrink-0 text-muted-foreground" />
+                <span>{isPinned(menu.session.id) ? 'Unpin' : 'Pin'}</span>
+              </button>
+            )}
             {archivedSessionIds.has(menu.session.id) ? (
               <button
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-ui-caption text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
