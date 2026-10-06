@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Folder01, Sparkles } from './ui/icons'
+import { Folder01 } from './ui/icons'
 import type { ChatItem, ChatState } from '../state'
 import type { Message } from '../../../shared/protocol'
 import type { ToolActivityDisplay } from '../preferences'
@@ -337,20 +337,15 @@ export default function Chat({
       >
       <div className="mx-auto flex max-w-3xl flex-col px-5 pb-6 pt-7 sm:px-8" ref={contentRef}>
         {chat.items.length === 0 && !chat.streaming && (
-          <div className="mt-[8vh] flex flex-col items-center gap-4 text-center [animation:rise_0.4s_ease]">
-            <span className="grid size-11 place-items-center rounded-2xl border border-border bg-card shadow-sm">
-              <Sparkles size={18} strokeWidth={1.8} className="text-foreground" />
-            </span>
-            <div className="flex flex-col items-center gap-1.5">
-              <h2 className="text-ui-lg font-semibold tracking-[-0.015em] text-foreground">Fresh session</h2>
-              <p className="max-w-md text-ui-caption leading-relaxed text-muted-foreground">
-                Describe what you want built, fixed, or explained — the agent works directly in this folder.
-              </p>
-            </div>
-            <code className="surface-card inline-flex min-w-0 max-w-full items-center gap-2 rounded-full px-3.5 py-1.5 font-mono text-ui-sm text-muted-foreground">
+          <div className="mt-[10vh] flex flex-col gap-2 px-1 [animation:rise_0.4s_ease]">
+            <h2 className="text-balance text-ui-xl font-medium leading-tight tracking-[-0.02em] text-foreground">
+              What should we work on in{' '}
+              <span className="text-foreground-subtle">{chat.cwd.split(/[\\/]/).filter(Boolean).pop() ?? 'this folder'}</span>?
+            </h2>
+            <p className="flex min-w-0 items-center gap-1.5 font-mono text-ui-sm text-foreground-subtlest" title={chat.cwd}>
               <Folder01 size={12} strokeWidth={1.8} className="shrink-0" />
               <span className="min-w-0 truncate">{chat.cwd}</span>
-            </code>
+            </p>
           </div>
         )}
         {rows}
