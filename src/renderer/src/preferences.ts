@@ -36,6 +36,7 @@ export const ORB_VARIANTS: readonly { id: OrbVariant; name: string; detail: stri
 ]
 /** Tabs and sidebar rows: an orb pattern, or a plain busy-coloured dot. */
 export type RunIndicatorStyle = OrbVariant | 'color'
+export type SidebarRunColor = 'yellow' | 'blue' | 'green' | 'red' | 'neutral'
 
 export interface Preferences {
   theme: ThemePreference
@@ -59,6 +60,8 @@ export interface Preferences {
   sidebarVariant: SidebarVariant
   /** How a running session is marked on tabs and sidebar rows. */
   runIndicator: RunIndicatorStyle
+  /** Color for a running session glyph in the sidebar; tabs retain busy yellow. */
+  sidebarRunColor: SidebarRunColor
   /** Orb pattern beside "Working" in the chat. */
   workingOrb: OrbVariant
   /** Experimental: +N −M uncommitted-change counts on tabs. */
@@ -98,6 +101,7 @@ export const defaults: Preferences = {
   effortSelectorVariant: 'slider',
   sidebarVariant: 'inbox',
   runIndicator: 'S1',
+  sidebarRunColor: 'yellow',
   workingOrb: 'S1',
   tabDiffCounts: true,
   compactTurnSummary: true,
@@ -144,6 +148,9 @@ export function loadPreferences(): Preferences {
       // 'dotmatrix' was the pre-variant name for the radiating pattern.
       runIndicator:
         stored.runIndicator === 'color' ? 'color' : isOrbVariant(stored.runIndicator) ? stored.runIndicator : 'S1',
+      sidebarRunColor: ['yellow', 'blue', 'green', 'red', 'neutral'].includes(stored.sidebarRunColor as string)
+        ? stored.sidebarRunColor as SidebarRunColor
+        : 'yellow',
       workingOrb: isOrbVariant(stored.workingOrb) ? stored.workingOrb : 'S1',
       tabDiffCounts: stored.tabDiffCounts !== false,
       compactTurnSummary: stored.compactTurnSummary !== false,

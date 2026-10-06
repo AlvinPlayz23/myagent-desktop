@@ -4,7 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { AiBrain01, Archive01, ArchiveRestore, InformationCircle, Keyboard01, LayoutAlignLeft, Message01, PaintBoard, Search01, Tick01 } from './ui/icons'
 import type { ConnState } from '../state'
-import { THEMES, normalizeAppName, normalizeFontSize, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant, type RunIndicatorStyle, type OrbVariant, ORB_VARIANTS } from '../preferences'
+import { THEMES, normalizeAppName, normalizeFontSize, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant, type RunIndicatorStyle, type SidebarRunColor, type OrbVariant, ORB_VARIANTS } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
 import { cn } from '../util'
 import { Switch } from './ui/switch'
@@ -265,6 +265,42 @@ function OrbGallery<T extends OrbVariant | 'color'>({
           </button>
         )
       })}
+    </div>
+  )
+}
+
+const sidebarRunColors: Array<{ id: SidebarRunColor; name: string; swatch: string }> = [
+  { id: 'yellow', name: 'Yellow', swatch: 'bg-[color:var(--busy)]' },
+  { id: 'blue', name: 'Blue', swatch: 'bg-info' },
+  { id: 'green', name: 'Green', swatch: 'bg-success' },
+  { id: 'red', name: 'Red', swatch: 'bg-destructive' },
+  { id: 'neutral', name: 'Neutral', swatch: 'bg-muted-foreground' }
+]
+
+function SidebarRunColorPicker({ current, onSelect }: { current: SidebarRunColor; onSelect(color: SidebarRunColor): void }): JSX.Element {
+  return (
+    <div role="radiogroup" aria-label="Sidebar running indicator color" className="flex items-center gap-1.5 px-3 py-2">
+      {sidebarRunColors.map((color) => {
+        const active = current === color.id
+        return (
+          <button
+            key={color.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={color.name}
+            title={color.name}
+            onClick={() => onSelect(color.id)}
+            className={cn(
+              'grid size-8 place-items-center rounded-lg outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+              active ? 'bg-selected' : 'hover:bg-hover'
+            )}
+          >
+            <span className={cn('size-3 rounded-full', color.swatch, active && 'ring-2 ring-foreground ring-offset-2 ring-offset-background')} />
+          </button>
+        )
+      })}
+      <span className="ml-2 text-ui-sm text-muted-foreground">{sidebarRunColors.find((c) => c.id === current)?.name}</span>
     </div>
   )
 }
@@ -628,6 +664,14 @@ export default function Settings({
                     onSelect={(runIndicator) => onChange({ runIndicator })}
                     includeColor
                     tone="text-[color:var(--busy)]"
+                  />
+                </SettingsSection>
+
+                <SettingsSection title="Running indicator color">
+                  <SettingsRow
+                    title="Sidebar color"
+                    description="Choose the color for running session indicators in the sidebar. Tab indicators keep their own color."
+                    control={<SidebarRunColorPicker current={preferences.sidebarRunColor} onSelect={(sidebarRunColor) => onChange({ sidebarRunColor })} />}
                   />
                 </SettingsSection>
               </>
