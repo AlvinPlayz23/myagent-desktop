@@ -9,6 +9,7 @@ import type { ChatState } from '../state'
 import type { RunIndicatorStyle } from '../preferences'
 import RunIndicator from './RunIndicator'
 import { CirclePlus, Pin02 } from './ui/icons'
+import type { DiffStat } from '../hooks/use-diff-stats'
 
 /** Narrowest a tab may get before the strip starts moving tabs into the overflow menu. */
 const TAB_MIN_WIDTH = 116
@@ -22,6 +23,7 @@ interface TabProps {
   active: boolean
   running: boolean
   pinned: boolean
+  diff?: DiffStat
   runIndicator: RunIndicatorStyle
   focusable: boolean
   onSelect(): void
@@ -35,7 +37,7 @@ interface TabProps {
  * button on hover/focus, so the label keeps its full width and the close
  * target never sits next to the label's truncation edge.
  */
-function Tab({ id, label, active, running, pinned, runIndicator, focusable, onSelect, onClose, onKeyDown }: TabProps): JSX.Element {
+function Tab({ id, label, active, running, pinned, diff, runIndicator, focusable, onSelect, onClose, onKeyDown }: TabProps): JSX.Element {
   return (
     <div
       role="presentation"
@@ -88,6 +90,12 @@ function Tab({ id, label, active, running, pinned, runIndicator, focusable, onSe
           )}
         </span>
         <span className="min-w-0 flex-1 truncate">{label}</span>
+        {diff && (diff.insertions > 0 || diff.deletions > 0) && (
+          <span className="flex shrink-0 items-center gap-1 font-mono text-ui-xs tabular-nums" title="Uncommitted changes">
+            <span className="text-success-foreground">+{diff.insertions}</span>
+            <span className="text-destructive-foreground">−{diff.deletions}</span>
+          </span>
+        )}
       </button>
       <button
         type="button"
@@ -250,12 +258,13 @@ interface Props {
   appName: string
   runIndicator?: RunIndicatorStyle
   pinnedIds?: Set<string>
+  diffStats?: ReadonlyMap<string, DiffStat>
   onSelect(id: string): void
   onClose(id: string): void
   onNew(): void
 }
 
-function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator = 'dotmatrix', pinnedIds, onSelect, onClose, onNew }: Props): JSX.Element {
+function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator = 'dotmatrix', pinnedIds, diffStats, onSelect, onClose, onNew }: Props): JSX.Element {
   const stripRef = useRef<HTMLDivElement>(null)
   const [capacity, setCapacity] = useState(8)
 
@@ -342,6 +351,7 @@ function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator 
             running={runningIds.has(id)}
             runIndicator={runIndicator}
             pinned={pinnedIds?.has(id) ?? false}
+            diff={diffStats?.get(chats[id]?.cwd ?? '')}
             focusable={id === stopId}
             onSelect={() => onSelect(id)}
             onClose={() => onClose(id)}
@@ -376,6 +386,7 @@ export default memo(
     prev.appName === next.appName &&
     prev.runIndicator === next.runIndicator &&
     prev.pinnedIds === next.pinnedIds &&
+    prev.diffStats === next.diffStats &&
     prev.runningIds === next.runningIds &&
     prev.sessions === next.sessions &&
     prev.onNew === next.onNew &&

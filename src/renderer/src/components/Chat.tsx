@@ -38,12 +38,14 @@ export default function Chat({
   autoScroll = true,
   messageSize = 'default',
   toolActivityDisplay = 'compact',
+  compactSummary = false,
   onOpenSubagent
 }: {
   chat: ChatState
   autoScroll?: boolean
   messageSize?: 'compact' | 'default' | 'large'
   toolActivityDisplay?: ToolActivityDisplay
+  compactSummary?: boolean
   /** Opens the detail modal for a subagent task. */
   onOpenSubagent(task: SubagentTask, launchError?: string): void
 }): JSX.Element {
@@ -243,6 +245,7 @@ export default function Chat({
               tasks={subagentTasks}
               display={toolActivityDisplay}
               live={live}
+              compactSummary={compactSummary}
               onOpenSubagent={onOpenSubagent}
             />
           </Entrance>

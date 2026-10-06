@@ -640,6 +640,27 @@ export default function Settings({
                     onChange={(sendOnEnter) => onChange({ sendOnEnter })}
                   />
                 </SettingsSection>
+
+                <SettingsSection title="Experimental">
+                  <ToggleRow
+                    checked={preferences.tabDiffCounts}
+                    title="Diff counts on tabs"
+                    detail="Show uncommitted +added −removed line counts for each tab's folder."
+                    onChange={(tabDiffCounts) => onChange({ tabDiffCounts })}
+                  />
+                  <ToggleRow
+                    checked={preferences.compactTurnSummary}
+                    title="Compact turn summary"
+                    detail="Fold finished work into “N tool calls · M messages” instead of “Worked for …”."
+                    onChange={(compactTurnSummary) => onChange({ compactTurnSummary })}
+                  />
+                  <ToggleRow
+                    checked={preferences.subagentsChip}
+                    title="Subagents chip"
+                    detail="Show a Subagents shortcut above the composer when the session has subagent tasks."
+                    onChange={(subagentsChip) => onChange({ subagentsChip })}
+                  />
+                </SettingsSection>
               </>
             )}
 
