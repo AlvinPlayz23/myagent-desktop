@@ -1,5 +1,6 @@
 export interface SessionPreference {
   archived?: boolean
+  pinned?: boolean
 }
 
 export type SessionPreferences = Record<string, SessionPreference>

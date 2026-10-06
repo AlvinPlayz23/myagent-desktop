@@ -526,6 +526,21 @@ export default function App(): JSX.Element {
     [sessionPreferences, state.sessions]
   )
 
+  const pinSession = useCallback((id: string, pinned: boolean) => {
+    setSessionPreferences((current) => ({ ...current, [id]: { ...current[id], pinned } }))
+  }, [])
+
+  const pinnedKey = useMemo(
+    () =>
+      Object.entries(sessionPreferences)
+        .filter(([, pref]) => pref.pinned)
+        .map(([id]) => id)
+        .sort()
+        .join(','),
+    [sessionPreferences]
+  )
+  const pinnedSessionIds = useMemo(() => new Set(pinnedKey ? pinnedKey.split(',') : []), [pinnedKey])
+
   const archivedSessionIds = useMemo(
     () => new Set(archivedSessions.map((session) => session.id)),
     [archivedSessions]
@@ -621,6 +636,8 @@ export default function App(): JSX.Element {
         archivedSessionIds={archivedSessionIds}
         onRename={renameSession}
         onArchive={archiveSession}
+        pinnedSessionIds={pinnedSessionIds}
+        onPin={pinSession}
         onRestore={restoreSession}
         sidebarVariant={preferences.sidebarVariant}
         runIndicator={preferences.runIndicator}
@@ -654,6 +671,7 @@ export default function App(): JSX.Element {
             runningIds={runningIds}
             appName={normalizeAppName(preferences.appName)}
             runIndicator={preferences.runIndicator}
+            pinnedIds={pinnedSessionIds}
             onSelect={(id) => dispatch({ type: 'focusChat', sessionId: id })}
             onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
             onNew={goHome}

@@ -8,7 +8,7 @@ import type { SessionMeta } from '../../../shared/protocol'
 import type { ChatState } from '../state'
 import type { RunIndicatorStyle } from '../preferences'
 import RunIndicator from './RunIndicator'
-import { CirclePlus } from './ui/icons'
+import { CirclePlus, Pin02 } from './ui/icons'
 
 /** Narrowest a tab may get before the strip starts moving tabs into the overflow menu. */
 const TAB_MIN_WIDTH = 116
@@ -21,6 +21,7 @@ interface TabProps {
   label: string
   active: boolean
   running: boolean
+  pinned: boolean
   runIndicator: RunIndicatorStyle
   focusable: boolean
   onSelect(): void
@@ -34,7 +35,7 @@ interface TabProps {
  * button on hover/focus, so the label keeps its full width and the close
  * target never sits next to the label's truncation edge.
  */
-function Tab({ id, label, active, running, runIndicator, focusable, onSelect, onClose, onKeyDown }: TabProps): JSX.Element {
+function Tab({ id, label, active, running, pinned, runIndicator, focusable, onSelect, onClose, onKeyDown }: TabProps): JSX.Element {
   return (
     <div
       role="presentation"
@@ -69,13 +70,18 @@ function Tab({ id, label, active, running, runIndicator, focusable, onSelect, on
         title={label}
         onClick={onSelect}
         onKeyDown={onKeyDown}
-        className="relative flex h-full min-w-0 flex-1 select-none items-center gap-2 rounded-lg pl-2 pr-2.5 text-left text-ui-caption font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="relative flex h-full min-w-0 flex-1 select-none items-center gap-2 rounded-lg pl-2.5 pr-7 text-left text-ui-caption font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="relative grid size-4 shrink-0 place-items-center transition-[opacity,scale] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] group-hover/tab:scale-50 group-hover/tab:opacity-0 group-focus-within/tab:scale-50 group-focus-within/tab:opacity-0">
+        <span className="relative grid size-4 shrink-0 place-items-center">
           {running ? (
             <>
               <RunIndicator variant={runIndicator} />
               <span className="sr-only">Running. </span>
+            </>
+          ) : pinned ? (
+            <>
+              <Pin02 size={13} strokeWidth={1.7} aria-hidden />
+              <span className="sr-only">Pinned. </span>
             </>
           ) : (
             <HugeiconsIcon icon={Message01Icon} size={14} strokeWidth={1.5} aria-hidden />
@@ -92,10 +98,10 @@ function Tab({ id, label, active, running, runIndicator, focusable, onSelect, on
           onClose()
         }}
         className={cn(
-          'absolute left-1.5 top-1/2 grid size-5 -translate-y-1/2 scale-50 place-items-center rounded-md text-foreground-subtle opacity-0 outline-none',
-          'transition-[opacity,scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]',
-          'hover:bg-selected hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
-          'group-hover/tab:scale-100 group-hover/tab:opacity-100 group-focus-within/tab:scale-100 group-focus-within/tab:opacity-100'
+          'absolute right-1 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded-md text-foreground-subtle outline-none',
+          'transition-[opacity,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]',
+          'hover:bg-hover hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring',
+          active ? 'opacity-100' : 'opacity-0 group-hover/tab:opacity-100 group-focus-within/tab:opacity-100'
         )}
       >
         <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={2} aria-hidden />
@@ -243,12 +249,13 @@ interface Props {
   runningIds: Set<string>
   appName: string
   runIndicator?: RunIndicatorStyle
+  pinnedIds?: Set<string>
   onSelect(id: string): void
   onClose(id: string): void
   onNew(): void
 }
 
-function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator = 'dotmatrix', onSelect, onClose, onNew }: Props): JSX.Element {
+function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator = 'dotmatrix', pinnedIds, onSelect, onClose, onNew }: Props): JSX.Element {
   const stripRef = useRef<HTMLDivElement>(null)
   const [capacity, setCapacity] = useState(8)
 
@@ -334,6 +341,7 @@ function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator 
             active={id === activeId}
             running={runningIds.has(id)}
             runIndicator={runIndicator}
+            pinned={pinnedIds?.has(id) ?? false}
             focusable={id === stopId}
             onSelect={() => onSelect(id)}
             onClose={() => onClose(id)}
@@ -367,6 +375,7 @@ export default memo(
     prev.activeId === next.activeId &&
     prev.appName === next.appName &&
     prev.runIndicator === next.runIndicator &&
+    prev.pinnedIds === next.pinnedIds &&
     prev.runningIds === next.runningIds &&
     prev.sessions === next.sessions &&
     prev.onNew === next.onNew &&
