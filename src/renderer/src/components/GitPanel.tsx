@@ -97,7 +97,7 @@ function Section({
           className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ChevronRight size={12} className={cn('shrink-0 text-foreground-subtlest transition-transform duration-150', open && 'rotate-90')} />
-          <span className="truncate text-ui-xs font-semibold uppercase tracking-[0.05em] text-foreground-subtle">{title}</span>
+          <span className="truncate text-ui-sm font-medium text-muted-foreground">{title}</span>
           <span className="text-ui-xs tabular-nums text-foreground-subtlest">{count}</span>
         </button>
         <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/section:opacity-100 group-hover/section:opacity-100">
