@@ -98,9 +98,10 @@ function Section({
         >
           <ChevronRight size={12} className={cn('shrink-0 text-foreground-subtlest transition-transform duration-150', open && 'rotate-90')} />
           <span className="truncate text-ui-sm font-medium text-muted-foreground">{title}</span>
-          <span className="text-ui-xs tabular-nums text-foreground-subtlest">{count}</span>
         </button>
-        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/section:opacity-100 group-hover/section:opacity-100">
+        <div className="relative flex h-5 min-w-[44px] shrink-0 items-center justify-end pr-1">
+          <span className="text-ui-sm tabular-nums text-foreground-subtlest transition-opacity group-focus-within/section:opacity-0 group-hover/section:opacity-0">{count}</span>
+          <div className="absolute right-0 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/section:opacity-100 group-hover/section:opacity-100">
           {actions?.map((action) => (
             <button
               key={action.title}
@@ -113,6 +114,7 @@ function Section({
               {action.icon}
             </button>
           ))}
+          </div>
         </div>
       </div>
       {open && children}
