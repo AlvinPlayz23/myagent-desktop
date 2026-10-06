@@ -460,7 +460,7 @@ function Sidebar({
       >
         <span className="mt-[3px] grid size-4 shrink-0 place-items-center" aria-hidden>
           {running ? (
-            <RunIndicator variant={runIndicator} colorClass={sidebarRunColorClass(sidebarRunColor)} />
+            <RunIndicator variant={runIndicator} color={sidebarRunColorValue(sidebarRunColor)} />
           ) : (
             isPinned(session.id) ? (
               <Pin02 size={14} strokeWidth={1.6} className={active ? 'text-foreground' : 'text-foreground-subtle'} />
@@ -526,7 +526,7 @@ function Sidebar({
       >
         <span className="grid size-4 shrink-0 place-items-center" aria-hidden>
           {running ? (
-            <RunIndicator variant={runIndicator} colorClass={sidebarRunColorClass(sidebarRunColor)} />
+            <RunIndicator variant={runIndicator} color={sidebarRunColorValue(sidebarRunColor)} />
           ) : isPinned(session.id) ? (
             <Pin02 size={13} strokeWidth={1.6} className={active ? 'text-foreground' : 'text-foreground-subtle'} />
           ) : (
@@ -1296,13 +1296,13 @@ function Sidebar({
   )
 }
 
-function sidebarRunColorClass(color: SidebarRunColor): string {
+function sidebarRunColorValue(color: SidebarRunColor): string {
   switch (color) {
-    case 'blue': return 'text-info'
-    case 'green': return 'text-success'
-    case 'red': return 'text-destructive'
-    case 'neutral': return 'text-muted-foreground'
-    default: return 'text-[color:var(--busy)]'
+    case 'blue': return '#60a5fa'
+    case 'green': return '#4ade80'
+    case 'red': return '#f87171'
+    case 'neutral': return 'var(--muted-foreground)'
+    default: return 'var(--busy)'
   }
 }
 

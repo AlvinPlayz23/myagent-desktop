@@ -269,12 +269,12 @@ function OrbGallery<T extends OrbVariant | 'color'>({
   )
 }
 
-const sidebarRunColors: Array<{ id: SidebarRunColor; name: string; swatch: string }> = [
-  { id: 'yellow', name: 'Yellow', swatch: 'bg-[color:var(--busy)]' },
-  { id: 'blue', name: 'Blue', swatch: 'bg-info' },
-  { id: 'green', name: 'Green', swatch: 'bg-success' },
-  { id: 'red', name: 'Red', swatch: 'bg-destructive' },
-  { id: 'neutral', name: 'Neutral', swatch: 'bg-muted-foreground' }
+const sidebarRunColors: Array<{ id: SidebarRunColor; name: string; value: string }> = [
+  { id: 'yellow', name: 'Yellow', value: 'var(--busy)' },
+  { id: 'blue', name: 'Blue', value: '#60a5fa' },
+  { id: 'green', name: 'Green', value: '#4ade80' },
+  { id: 'red', name: 'Red', value: '#f87171' },
+  { id: 'neutral', name: 'Neutral', value: 'var(--muted-foreground)' }
 ]
 
 function SidebarRunColorPicker({ current, onSelect }: { current: SidebarRunColor; onSelect(color: SidebarRunColor): void }): JSX.Element {
@@ -296,7 +296,7 @@ function SidebarRunColorPicker({ current, onSelect }: { current: SidebarRunColor
               active ? 'bg-selected' : 'hover:bg-hover'
             )}
           >
-            <span className={cn('size-3 rounded-full', color.swatch, active && 'ring-2 ring-foreground ring-offset-2 ring-offset-background')} />
+            <span className={cn('size-3 rounded-full', active && 'ring-2 ring-foreground ring-offset-2 ring-offset-background')} style={{ backgroundColor: color.value }} />
           </button>
         )
       })}
