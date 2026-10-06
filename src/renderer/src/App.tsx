@@ -737,8 +737,8 @@ export default function App(): JSX.Element {
                 >
                   <BrainCircuit size={13} strokeWidth={1.7} className="shrink-0" />
                   <span>Subagents</span>
-                  <span className="rounded-md bg-hover px-1.5 text-ui-xs tabular-nums">{subagentTasks.length}</span>
-                  {runningSubagents > 0 && <span className="size-1.5 rounded-full bg-[color:var(--busy)] [animation:work-pulse_1.2s_ease-in-out_infinite]" aria-label={`${runningSubagents} running`} />}
+                  <span className="text-ui-xs tabular-nums text-foreground-subtlest">{subagentTasks.length}</span>
+                  {runningSubagents > 0 && <span className="sr-only">{runningSubagents} running</span>}
                   <ChevronRight size={12} className="shrink-0" />
                 </button>
                 </div>
