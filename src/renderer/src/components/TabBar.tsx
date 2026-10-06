@@ -264,7 +264,7 @@ interface Props {
   onNew(): void
 }
 
-function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator = 'dotmatrix', pinnedIds, diffStats, onSelect, onClose, onNew }: Props): JSX.Element {
+function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator = 'S1', pinnedIds, diffStats, onSelect, onClose, onNew }: Props): JSX.Element {
   const stripRef = useRef<HTMLDivElement>(null)
   const [capacity, setCapacity] = useState(8)
 

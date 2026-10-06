@@ -724,7 +724,7 @@ export default function App(): JSX.Element {
         {chat ? (
           <>
             <ChatErrorBoundary key={chat.sessionId}>
-              <Chat key={chat.sessionId} chat={chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} compactSummary={preferences.compactTurnSummary} onOpenSubagent={openSubagent} />
+              <Chat key={chat.sessionId} chat={chat} autoScroll={preferences.autoScroll} messageSize={preferences.messageSize} toolActivityDisplay={preferences.toolActivityDisplay} compactSummary={preferences.compactTurnSummary} workingOrb={preferences.workingOrb} onOpenSubagent={openSubagent} />
             </ChatErrorBoundary>
             <div className="shrink-0 px-4 pb-4 pt-2 sm:px-7">
               {preferences.subagentsChip && subagentTasks.length > 0 && (

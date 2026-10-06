@@ -4,12 +4,13 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { AiBrain01, Archive01, ArchiveRestore, InformationCircle, Keyboard01, LayoutAlignLeft, Message01, PaintBoard, Search01, Tick01 } from './ui/icons'
 import type { ConnState } from '../state'
-import { THEMES, normalizeAppName, normalizeFontSize, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant, type RunIndicatorStyle } from '../preferences'
+import { THEMES, normalizeAppName, normalizeFontSize, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant, type RunIndicatorStyle, type OrbVariant, ORB_VARIANTS } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
 import { cn } from '../util'
 import { Switch } from './ui/switch'
 import { shortcuts, shortcutCategories, formatCombo } from '../shortcuts'
 import ProviderManager from './ProviderManager'
+import Orb from './Orb'
 import { SettingsHeader, SETTINGS_PAGE_CLASS } from './SettingsKit'
 
 function CloseIcon(): JSX.Element {
@@ -65,11 +66,6 @@ const effortSelectorVariants: Array<{ value: EffortSelectorVariant; title: strin
 const sidebarVariants: Array<{ value: SidebarVariant; title: string; detail: string }> = [
   { value: 'inbox', title: 'Inbox', detail: 'Flat filtered list with project picker and live-run pinning' },
   { value: 'grouped', title: 'Grouped', detail: 'All folders in one place with expandable project sections' }
-]
-
-const runIndicatorOptions: Array<{ value: RunIndicatorStyle; title: string; detail: string }> = [
-  { value: 'dotmatrix', title: 'Dot matrix', detail: 'Animated dot grid on tabs and sidebar rows while a session is running' },
-  { value: 'color', title: 'Color', detail: 'A plain busy-coloured dot' }
 ]
 
 function SettingsSection({
@@ -218,6 +214,58 @@ function ChoiceRailRow<T extends string>({
       description={active?.detail}
       control={<ChoiceRail id={id} label={title} options={options} current={current} onSelect={onSelect} />}
     />
+  )
+}
+
+/** Radio gallery of live dot-matrix patterns; each tile plays its own animation. */
+function OrbGallery<T extends OrbVariant | 'color'>({
+  label,
+  current,
+  onSelect,
+  includeColor,
+  tone
+}: {
+  label: string
+  current: T
+  onSelect(value: T): void
+  includeColor?: boolean
+  tone: string
+}): JSX.Element {
+  const options: Array<{ id: OrbVariant | 'color'; name: string }> = [
+    ...ORB_VARIANTS,
+    ...(includeColor ? [{ id: 'color' as const, name: 'Color dot' }] : [])
+  ]
+  return (
+    <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-6">
+      {options.map((option) => {
+        const active = option.id === current
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onSelect(option.id as T)}
+            className={cn(
+              'flex min-w-0 flex-col items-center gap-2 rounded-xl p-2 outline-none transition-colors duration-[var(--duration-quick)] focus-visible:ring-2 focus-visible:ring-ring',
+              active ? 'bg-selected' : 'hover:bg-hover'
+            )}
+          >
+            <span aria-hidden className={cn('grid h-12 w-full place-items-center rounded-lg bg-muted', tone)}>
+              {option.id === 'color' ? (
+                <span className="size-[9px] rounded-full bg-[color:var(--busy)]" />
+              ) : (
+                <Orb variant={option.id} size={28} />
+              )}
+            </span>
+            <span className="flex max-w-full items-center gap-1 text-ui-sm font-medium text-foreground">
+              <span className="truncate">{option.name}</span>
+              {active && <Tick01 size={12} strokeWidth={2} className="shrink-0" aria-hidden />}
+            </span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -571,12 +619,15 @@ export default function Settings({
                     current={preferences.sidebarVariant}
                     onSelect={(sidebarVariant) => onChange({ sidebarVariant })}
                   />
-                  <ChoiceRailRow
-                    id="run-indicator"
-                    title="Running indicator"
-                    options={runIndicatorOptions}
+                </SettingsSection>
+
+                <SettingsSection title="Running indicator">
+                  <OrbGallery
+                    label="Running indicator"
                     current={preferences.runIndicator}
                     onSelect={(runIndicator) => onChange({ runIndicator })}
+                    includeColor
+                    tone="text-[color:var(--busy)]"
                   />
                 </SettingsSection>
               </>
@@ -623,6 +674,15 @@ export default function Settings({
                     options={effortSelectorVariants}
                     current={preferences.effortSelectorVariant}
                     onSelect={(effortSelectorVariant) => onChange({ effortSelectorVariant })}
+                  />
+                </SettingsSection>
+
+                <SettingsSection title="Working indicator">
+                  <OrbGallery
+                    label="Working indicator"
+                    current={preferences.workingOrb}
+                    onSelect={(workingOrb) => onChange({ workingOrb })}
+                    tone="text-muted-foreground"
                   />
                 </SettingsSection>
 

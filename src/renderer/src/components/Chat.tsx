@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Folder01 } from './ui/icons'
 import type { ChatItem, ChatState } from '../state'
 import type { Message } from '../../../shared/protocol'
-import type { ToolActivityDisplay } from '../preferences'
+import type { OrbVariant, ToolActivityDisplay } from '../preferences'
 import { subagentTaskIndex, type SubagentTask } from '../subagents'
 import MessageView from './MessageView'
 import Working from './Working'
@@ -39,6 +39,7 @@ export default function Chat({
   messageSize = 'default',
   toolActivityDisplay = 'compact',
   compactSummary = false,
+  workingOrb = 'S1',
   onOpenSubagent
 }: {
   chat: ChatState
@@ -46,6 +47,7 @@ export default function Chat({
   messageSize?: 'compact' | 'default' | 'large'
   toolActivityDisplay?: ToolActivityDisplay
   compactSummary?: boolean
+  workingOrb?: OrbVariant
   /** Opens the detail modal for a subagent task. */
   onOpenSubagent(task: SubagentTask, launchError?: string): void
 }): JSX.Element {
@@ -366,7 +368,7 @@ export default function Chat({
         )}
         {chat.running && !chat.streaming && (
           <div className="px-1.5 py-1.5">
-            <Working />
+            <Working variant={workingOrb} />
           </div>
         )}
       </div>
