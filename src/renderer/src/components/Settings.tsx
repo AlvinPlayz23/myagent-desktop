@@ -223,13 +223,13 @@ function OrbGallery<T extends OrbVariant | 'color'>({
   current,
   onSelect,
   includeColor,
-  tone
+  previewColor
 }: {
   label: string
   current: T
   onSelect(value: T): void
   includeColor?: boolean
-  tone: string
+  previewColor: string
 }): JSX.Element {
   const options: Array<{ id: OrbVariant | 'color'; name: string }> = [
     ...ORB_VARIANTS,
@@ -251,9 +251,13 @@ function OrbGallery<T extends OrbVariant | 'color'>({
               active ? 'bg-selected' : 'hover:bg-hover'
             )}
           >
-            <span aria-hidden className={cn('grid h-12 w-full place-items-center rounded-lg bg-muted', tone)}>
+            <span
+              aria-hidden
+              className="grid h-12 w-full place-items-center rounded-lg bg-muted"
+              style={{ color: previewColor }}
+            >
               {option.id === 'color' ? (
-                <span className="size-[9px] rounded-full bg-[color:var(--busy)]" />
+                <span className="size-[9px] rounded-full bg-current" />
               ) : (
                 <Orb variant={option.id} size={28} />
               )}
@@ -663,7 +667,7 @@ export default function Settings({
                     current={preferences.runIndicator}
                     onSelect={(runIndicator) => onChange({ runIndicator })}
                     includeColor
-                    tone="text-[color:var(--busy)]"
+                    previewColor={sidebarRunColors.find((color) => color.id === preferences.sidebarRunColor)?.value ?? 'var(--busy)'}
                   />
                 </SettingsSection>
 
@@ -726,7 +730,7 @@ export default function Settings({
                     label="Working indicator"
                     current={preferences.workingOrb}
                     onSelect={(workingOrb) => onChange({ workingOrb })}
-                    tone="text-muted-foreground"
+                    previewColor="var(--muted-foreground)"
                   />
                 </SettingsSection>
 
