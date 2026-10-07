@@ -24,7 +24,7 @@ import {
 import type { GitBranch, SessionMeta } from '../../../shared/protocol'
 import { BLOOM_FAST, EASE_IN, EASE_OUT, bloomDown } from '../motion'
 import { cn, relTime } from '../util'
-import type { RunIndicatorStyle, SidebarVariant } from '../preferences'
+import type { RunIndicatorStyle, SidebarRunColor, SidebarVariant } from '../preferences'
 import RunIndicator from './RunIndicator'
 import { formatCombo } from '../shortcuts'
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from './ui/tooltip'
@@ -54,6 +54,7 @@ interface Props {
   /** Sidebar presentation: the flat inbox list, or projects grouped with expandable sections. */
   sidebarVariant?: SidebarVariant
   runIndicator?: RunIndicatorStyle
+  sidebarRunColor?: SidebarRunColor
 }
 
 const MENU_WIDTH = 240
@@ -103,7 +104,8 @@ function Sidebar({
   pinnedSessionIds,
   onPin,
   sidebarVariant = 'inbox',
-  runIndicator = 'S1'
+  runIndicator = 'S1',
+  sidebarRunColor = 'yellow'
 }: Props): JSX.Element {
   const isGrouped = sidebarVariant === 'grouped'
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null)
@@ -458,7 +460,7 @@ function Sidebar({
       >
         <span className="mt-[3px] grid size-4 shrink-0 place-items-center" aria-hidden>
           {running ? (
-            <RunIndicator variant={runIndicator} />
+            <RunIndicator variant={runIndicator} color={sidebarRunColorValue(sidebarRunColor)} />
           ) : (
             isPinned(session.id) ? (
               <Pin02 size={14} strokeWidth={1.6} className={active ? 'text-foreground' : 'text-foreground-subtle'} />
@@ -522,12 +524,15 @@ function Sidebar({
         onContextMenu={(event) => openMenu(event, session)}
         title={label(session)}
       >
-        <span
-          className={cn(
-            'size-1.5 shrink-0 rounded-full',
-            running ? 'bg-success' : 'bg-muted-foreground/40'
+        <span className="grid size-4 shrink-0 place-items-center" aria-hidden>
+          {running ? (
+            <RunIndicator variant={runIndicator} color={sidebarRunColorValue(sidebarRunColor)} />
+          ) : isPinned(session.id) ? (
+            <Pin02 size={13} strokeWidth={1.6} className={active ? 'text-foreground' : 'text-foreground-subtle'} />
+          ) : (
+            <span className="size-1.5 rounded-full bg-muted-foreground/40" />
           )}
-        />
+        </span>
         <span
           className={cn(
             'min-w-0 flex-1 truncate text-ui-sm',
@@ -581,7 +586,7 @@ function Sidebar({
           // One speed both ways: the collapse used to start 80ms late while the
           // expand ran slower and overshot past the rail's own width, which read
           // as the sidebar bouncing. toggleSidebar masks the repaint meanwhile.
-          'flex shrink-0 flex-col overflow-hidden transition-[width]',
+          'app-sidebar flex shrink-0 flex-col overflow-hidden transition-[width]',
           collapsed
             ? 'w-14 duration-[160ms] ease-[var(--ease-smooth-out)]'
             : 'w-[264px] duration-[180ms] ease-[var(--ease-smooth-out)]'
@@ -1289,6 +1294,16 @@ function Sidebar({
       </AnimatePresence>
     </TooltipProvider>
   )
+}
+
+function sidebarRunColorValue(color: SidebarRunColor): string {
+  switch (color) {
+    case 'blue': return '#60a5fa'
+    case 'green': return '#4ade80'
+    case 'red': return '#f87171'
+    case 'neutral': return 'var(--muted-foreground)'
+    default: return 'var(--busy)'
+  }
 }
 
 export default memo(Sidebar)

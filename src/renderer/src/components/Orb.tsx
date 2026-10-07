@@ -43,9 +43,10 @@ export interface OrbProps {
   variant?: OrbVariant
   size?: number
   className?: string
+  style?: CSSProperties
 }
 
-export default function Orb({ variant = 'S1', size = DEFAULT_SIZE, className }: OrbProps): JSX.Element {
+export default function Orb({ variant = 'S1', size = DEFAULT_SIZE, className, style }: OrbProps): JSX.Element {
   return (
     <span
       className={[styles.root, className].filter(Boolean).join(' ')}
@@ -53,7 +54,8 @@ export default function Orb({ variant = 'S1', size = DEFAULT_SIZE, className }: 
       style={{
         width: size,
         height: size,
-        '--orb-k': size / STAGE
+        '--orb-k': size / STAGE,
+        ...style
       } as CSSProperties}
     >
       <span className={styles.lattice}>
