@@ -764,8 +764,8 @@ export default function Settings({
                   />
                   <ToggleRow
                     checked={preferences.subagentsChip}
-                    title="Subagents chip"
-                    detail="Show a Subagents shortcut above the composer when the session has subagent tasks."
+                    title="Running subagent button"
+                    detail="Show a robot shortcut in the composer while a subagent is running."
                     onChange={(subagentsChip) => onChange({ subagentsChip })}
                   />
                 </SettingsSection>
