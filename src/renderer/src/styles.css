@@ -537,6 +537,10 @@
   }
   button {
     cursor: pointer;
+    /* Older Chromium (Electron 33) defaults buttons to align-items:flex-start,
+       which stops a flex-col button from stretching its children. Newer
+       Chromium uses normal; pin it so every runtime lays out the same. */
+    align-items: normal;
   }
   button:disabled {
     cursor: default;
@@ -1727,13 +1731,13 @@
 /* Comet-inspired translucent sidebar: give the rail its own frosted tint
    when the window has a compositor blur. Otherwise the 5% hover wash is
    invisible over a sharp wallpaper. */
-[data-backdrop]:not([data-backdrop='none']) aside {
+[data-backdrop]:not([data-backdrop='none']) .app-sidebar {
   background: color-mix(in srgb, var(--shell) 58%, transparent);
   backdrop-filter: blur(20px) saturate(1.2);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
   border-right: 1px solid var(--border);
 }
-[data-backdrop]:not([data-backdrop='none']):not(.dark) aside {
+[data-backdrop]:not([data-backdrop='none']):not(.dark) .app-sidebar {
   background: color-mix(in srgb, var(--shell) 72%, transparent);
 }
 
@@ -1747,8 +1751,8 @@
       of which resize a neighbour of the chat column (see chromeAnimation.ts).
 
    Plain selectors: both classes live on <html>. */
-.window-resizing aside,
-.chrome-animating aside {
+.window-resizing .app-sidebar,
+.chrome-animating .app-sidebar {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }

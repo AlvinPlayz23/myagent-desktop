@@ -586,7 +586,7 @@ function Sidebar({
           // One speed both ways: the collapse used to start 80ms late while the
           // expand ran slower and overshot past the rail's own width, which read
           // as the sidebar bouncing. toggleSidebar masks the repaint meanwhile.
-          'flex shrink-0 flex-col overflow-hidden transition-[width]',
+          'app-sidebar flex shrink-0 flex-col overflow-hidden transition-[width]',
           collapsed
             ? 'w-14 duration-[160ms] ease-[var(--ease-smooth-out)]'
             : 'w-[264px] duration-[180ms] ease-[var(--ease-smooth-out)]'
