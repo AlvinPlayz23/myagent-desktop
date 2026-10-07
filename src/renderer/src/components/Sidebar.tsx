@@ -24,7 +24,7 @@ import {
 import type { GitBranch, SessionMeta } from '../../../shared/protocol'
 import { BLOOM_FAST, EASE_IN, EASE_OUT, bloomDown } from '../motion'
 import { cn, relTime } from '../util'
-import type { RunIndicatorStyle, SidebarRunColor, SidebarVariant } from '../preferences'
+import { runIndicatorColorValue, type RunIndicatorStyle, type SidebarRunColor, type SidebarVariant } from '../preferences'
 import RunIndicator from './RunIndicator'
 import { formatCombo } from '../shortcuts'
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from './ui/tooltip'
@@ -460,7 +460,7 @@ function Sidebar({
       >
         <span className="mt-[3px] grid size-4 shrink-0 place-items-center" aria-hidden>
           {running ? (
-            <RunIndicator variant={runIndicator} color={sidebarRunColorValue(sidebarRunColor)} />
+            <RunIndicator variant={runIndicator} color={runIndicatorColorValue(sidebarRunColor)} />
           ) : (
             isPinned(session.id) ? (
               <Pin02 size={14} strokeWidth={1.6} className={active ? 'text-foreground' : 'text-foreground-subtle'} />
@@ -526,7 +526,7 @@ function Sidebar({
       >
         <span className="grid size-4 shrink-0 place-items-center" aria-hidden>
           {running ? (
-            <RunIndicator variant={runIndicator} color={sidebarRunColorValue(sidebarRunColor)} />
+            <RunIndicator variant={runIndicator} color={runIndicatorColorValue(sidebarRunColor)} />
           ) : isPinned(session.id) ? (
             <Pin02 size={13} strokeWidth={1.6} className={active ? 'text-foreground' : 'text-foreground-subtle'} />
           ) : (
@@ -1294,16 +1294,6 @@ function Sidebar({
       </AnimatePresence>
     </TooltipProvider>
   )
-}
-
-function sidebarRunColorValue(color: SidebarRunColor): string {
-  switch (color) {
-    case 'blue': return '#60a5fa'
-    case 'green': return '#4ade80'
-    case 'red': return '#f87171'
-    case 'neutral': return 'var(--muted-foreground)'
-    default: return 'var(--busy)'
-  }
 }
 
 export default memo(Sidebar)

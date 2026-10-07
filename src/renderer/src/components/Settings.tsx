@@ -674,7 +674,7 @@ export default function Settings({
                 <SettingsSection title="Running indicator color">
                   <SettingsRow
                     title="Sidebar color"
-                    description="Choose the color for running session indicators in the sidebar. Tab indicators keep their own color."
+                    description="Choose the color for running session indicators in both the sidebar and tabs."
                     control={<SidebarRunColorPicker current={preferences.sidebarRunColor} onSelect={(sidebarRunColor) => onChange({ sidebarRunColor })} />}
                   />
                 </SettingsSection>
@@ -764,8 +764,8 @@ export default function Settings({
                   />
                   <ToggleRow
                     checked={preferences.subagentsChip}
-                    title="Subagents chip"
-                    detail="Show a Subagents shortcut above the composer when the session has subagent tasks."
+                    title="Running subagent button"
+                    detail="Show a robot shortcut in the composer while a subagent is running."
                     onChange={(subagentsChip) => onChange({ subagentsChip })}
                   />
                 </SettingsSection>

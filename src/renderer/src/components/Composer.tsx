@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Add01Icon, ArrowDown01Icon, ArrowUp02Icon, AudioWave01Icon, Cancel01Icon, Mic01Icon, StopIcon as StopIconGlyph } from '@hugeicons/core-free-icons'
-import { AddToList, ChevronRight, MouseLeftClick05, MouseRightClick05, Search01, Tick01 } from './ui/icons'
+import { AddToList, ChevronRight, MouseLeftClick05, MouseRightClick05, Robot01, Search01, Tick01 } from './ui/icons'
 import JellyRadio from './ui/JellyRadio'
 import EffortSlider from './EffortSlider'
 import HoverTooltip from './ui/HoverTooltip'
@@ -358,6 +358,9 @@ interface Props {
   notice?: string | null
   onDismissNotice?(): void
   onCommand?(name: CommandName, argument: string): void
+  subagentRunning?: boolean
+  subagentsOpen?: boolean
+  onToggleSubagents?(): void
   /** Compact pill mode: single-row bar shown once a session has started. */
   compact?: boolean
   /** Model picker presentation: compact dropdown or gallery with provider rail. */
@@ -385,6 +388,9 @@ export default function Composer({
   notice = null,
   onDismissNotice,
   onCommand,
+  subagentRunning = false,
+  subagentsOpen = false,
+  onToggleSubagents,
   compact = false,
   modelSelectorVariant = 'compact',
   effortSelectorVariant = 'slider'
@@ -994,6 +1000,26 @@ export default function Composer({
           )}
         </div>
       </div>
+
+      {cmdCount === 0 && subagentRunning && onToggleSubagents && (
+        <div className="relative z-0 h-6 w-full overflow-hidden">
+          <div
+            style={{ position: 'absolute', bottom: -8, left: 20, width: 36, height: 32 }}
+            className="rounded-t-xl border border-b-0 border-border bg-muted"
+          >
+            <button
+              type="button"
+              onClick={onToggleSubagents}
+              aria-label="Open subagents"
+              aria-expanded={subagentsOpen}
+              title="Subagents"
+              className="grid size-full place-items-center rounded-t-xl text-muted-foreground outline-none transition-colors hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Robot01 size={14} strokeWidth={1.6} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Input: expanded card, or compact pill once a session has started.
           `layout` owns this swap: the two branches are different subtrees, so
