@@ -38,6 +38,17 @@ export const ORB_VARIANTS: readonly { id: OrbVariant; name: string; detail: stri
 export type RunIndicatorStyle = OrbVariant | 'color'
 export type SidebarRunColor = 'yellow' | 'blue' | 'green' | 'red' | 'neutral'
 
+/** Resolve the shared sidebar-and-tab running indicator color. */
+export function runIndicatorColorValue(color: SidebarRunColor): string {
+  switch (color) {
+    case 'blue': return '#60a5fa'
+    case 'green': return '#4ade80'
+    case 'red': return '#f87171'
+    case 'neutral': return 'var(--muted-foreground)'
+    default: return 'var(--busy)'
+  }
+}
+
 export interface Preferences {
   theme: ThemePreference
   /** Named palette; light/dark is chosen separately by `theme`. */

@@ -22,7 +22,7 @@ import SubagentPanel from './components/SubagentPanel'
 import { BrainCircuit, ChevronRight } from './components/ui/icons'
 import { useDiffStats } from './hooks/use-diff-stats'
 import { subagentTaskIndex, subagentTaskList, revealSubagentInTranscript, type SubagentTask } from './subagents'
-import { applyTheme, applyFontSize, loadPreferences, normalizeAppName, normalizeTransparency, savePreferences, type Preferences } from './preferences'
+import { applyTheme, applyFontSize, loadPreferences, normalizeAppName, normalizeTransparency, runIndicatorColorValue, savePreferences, type Preferences } from './preferences'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
 import DebugPanel from './debug-panel/DebugPanel'
@@ -679,6 +679,7 @@ export default function App(): JSX.Element {
             runningIds={runningIds}
             appName={normalizeAppName(preferences.appName)}
             runIndicator={preferences.runIndicator}
+            runIndicatorColor={runIndicatorColorValue(preferences.sidebarRunColor)}
             pinnedIds={pinnedSessionIds}
             diffStats={preferences.tabDiffCounts ? diffStats : undefined}
             onSelect={(id) => dispatch({ type: 'focusChat', sessionId: id })}

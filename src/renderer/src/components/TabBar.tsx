@@ -25,6 +25,7 @@ interface TabProps {
   pinned: boolean
   diff?: DiffStat
   runIndicator: RunIndicatorStyle
+  runIndicatorColor: string
   focusable: boolean
   onSelect(): void
   onClose(): void
@@ -37,7 +38,7 @@ interface TabProps {
  * button on hover/focus, so the label keeps its full width and the close
  * target never sits next to the label's truncation edge.
  */
-function Tab({ id, label, active, running, pinned, diff, runIndicator, focusable, onSelect, onClose, onKeyDown }: TabProps): JSX.Element {
+function Tab({ id, label, active, running, pinned, diff, runIndicator, runIndicatorColor, focusable, onSelect, onClose, onKeyDown }: TabProps): JSX.Element {
   return (
     <div
       role="presentation"
@@ -77,7 +78,7 @@ function Tab({ id, label, active, running, pinned, diff, runIndicator, focusable
         <span className="relative grid size-4 shrink-0 place-items-center">
           {running ? (
             <>
-              <RunIndicator variant={runIndicator} />
+              <RunIndicator variant={runIndicator} color={runIndicatorColor} />
               <span className="sr-only">Running. </span>
             </>
           ) : pinned ? (
@@ -257,6 +258,7 @@ interface Props {
   runningIds: Set<string>
   appName: string
   runIndicator?: RunIndicatorStyle
+  runIndicatorColor?: string
   pinnedIds?: Set<string>
   diffStats?: ReadonlyMap<string, DiffStat>
   onSelect(id: string): void
@@ -264,7 +266,7 @@ interface Props {
   onNew(): void
 }
 
-function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator = 'S1', pinnedIds, diffStats, onSelect, onClose, onNew }: Props): JSX.Element {
+function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator = 'S1', runIndicatorColor = 'var(--busy)', pinnedIds, diffStats, onSelect, onClose, onNew }: Props): JSX.Element {
   const stripRef = useRef<HTMLDivElement>(null)
   const [capacity, setCapacity] = useState(8)
 
@@ -350,6 +352,7 @@ function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator 
             active={id === activeId}
             running={runningIds.has(id)}
             runIndicator={runIndicator}
+            runIndicatorColor={runIndicatorColor}
             pinned={pinnedIds?.has(id) ?? false}
             diff={diffStats?.get(chats[id]?.cwd ?? '')}
             focusable={id === stopId}
@@ -385,6 +388,7 @@ export default memo(
     prev.activeId === next.activeId &&
     prev.appName === next.appName &&
     prev.runIndicator === next.runIndicator &&
+    prev.runIndicatorColor === next.runIndicatorColor &&
     prev.pinnedIds === next.pinnedIds &&
     prev.diffStats === next.diffStats &&
     prev.runningIds === next.runningIds &&
