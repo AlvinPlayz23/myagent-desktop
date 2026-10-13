@@ -71,9 +71,13 @@ export default function Home(props: Props): JSX.Element {
   const recents = recentSessions.slice(0, 6)
 
 
+  // Auto margins, not flex centering: a centered flex child that outgrows the
+  // viewport is clipped at the top with no way to scroll to it, which cut the
+  // heading off in short windows. `m-auto` still centers while it fits, and
+  // lets the full column scroll once it does not.
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6">
-      <div className="flex w-full max-w-2xl flex-col items-center gap-3 pb-16">
+    <div className="flex min-h-0 flex-1 overflow-y-auto px-6">
+      <div className="m-auto flex w-full max-w-2xl flex-col items-center gap-3 pb-16">
         {fatal ? (
           <div className="flex w-full max-w-xl flex-col items-center gap-4">
             <pre className="max-h-48 w-full overflow-auto rounded-xl border border-destructive/30 bg-destructive/8 p-4 font-mono text-ui-sm leading-relaxed text-destructive-foreground">

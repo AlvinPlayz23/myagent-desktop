@@ -3,7 +3,10 @@ import { ChevronRight, Robot01 } from './ui/icons'
 import {
   SUBAGENT_STATUS,
   subagentDurationLabel,
+  subagentFinishedTime,
   subagentModelLabel,
+  subagentPromptPreview,
+  subagentResultPreview,
   type SubagentTask
 } from '../subagents'
 import { cn } from '../util'
@@ -25,7 +28,12 @@ import { cn } from '../util'
  */
 function SubagentNotice({ task, onOpen }: { task: SubagentTask; onOpen(task: SubagentTask): void }): JSX.Element {
   const status = SUBAGENT_STATUS[task.state]
+  const completed = task.state === 'completed'
+  const title = subagentPromptPreview(task.prompt, 120)
+  const result = subagentResultPreview(task)
+  const time = subagentFinishedTime(task)
   const model = subagentModelLabel(task)
+  const meta = [model, subagentDurationLabel(task)].filter(Boolean).join(' · ')
 
   return (
     <div
@@ -33,33 +41,30 @@ function SubagentNotice({ task, onOpen }: { task: SubagentTask; onOpen(task: Sub
       data-subagent-task={task.key}
     >
       <button
-        className="-mx-1.5 flex min-h-8 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="-mx-2 flex min-h-11 items-center gap-3 rounded-lg px-2 py-1.5 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => onOpen(task)}
         aria-haspopup="dialog"
+        title={meta}
       >
-        <span className="relative grid size-4 shrink-0 place-items-center">
-          <Robot01 size={16} strokeWidth={1.5} className="text-foreground-subtle" />
-        </span>
-        <span className="shrink-0 text-foreground-subtle">
-          Subagent <span className="font-mono text-ui-sm">{task.taskId ?? task.key}</span> finished
-        </span>
-        <span className={cn('shrink-0 text-ui-sm', status.className)}>{status.label}</span>
-        <span className="ml-auto flex min-w-0 items-center gap-1.5">
-          {model && (
-            <span className="min-w-0 max-w-[14rem] truncate font-mono text-ui-xs text-foreground-subtlest">
-              {model}
+        <Robot01 size={16} strokeWidth={1.5} className="shrink-0 text-foreground-subtle" aria-hidden />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="min-w-0 truncate font-medium text-foreground">
+              {title || <span className="italic text-foreground-subtlest">Subagent task</span>}
             </span>
-          )}
-          <span className="shrink-0 font-mono text-ui-xs tabular-nums text-foreground-subtlest">
-            {subagentDurationLabel(task)}
+            <span className={cn('shrink-0 text-ui-sm', completed ? 'text-foreground-subtlest' : status.className)}>
+              {completed ? 'Finished' : status.label}
+            </span>
           </span>
-          <ChevronRight
-            size={13}
-            strokeWidth={1.75}
-            className="shrink-0 text-foreground-subtlest transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]"
-            aria-hidden
-          />
+          {result && <span className="min-w-0 truncate text-ui-sm text-foreground-subtlest">{result}</span>}
         </span>
+        {time && <span className="shrink-0 text-ui-sm tabular-nums text-foreground-subtlest">{time}</span>}
+        <ChevronRight
+          size={13}
+          strokeWidth={1.75}
+          className="shrink-0 text-foreground-subtlest transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]"
+          aria-hidden
+        />
       </button>
     </div>
   )

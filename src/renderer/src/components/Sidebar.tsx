@@ -613,6 +613,12 @@ function Sidebar({
             {collapsed ? (
               <div className="flex w-full flex-col items-center gap-1">
                 {railButton(
+                  'expand',
+                  <LayoutAlignRight size={16} strokeWidth={1.8} />,
+                  'Expand sidebar',
+                  onToggle
+                )}
+                {railButton(
                   'new',
                   <CirclePlus size={18} />,
                   knownProjects.length > 0 ? 'New session' : 'Add a project first',
@@ -679,13 +685,6 @@ function Sidebar({
                       window.setTimeout(() => setArchivedOpen(true), 280)
                     }
                   )}
-                <div className="my-1 h-px w-6 bg-border/50" />
-                {railButton(
-                  'expand',
-                  <LayoutAlignRight size={16} strokeWidth={1.8} />,
-                  'Expand sidebar',
-                  onToggle
-                )}
               </div>
             ) : isGrouped ? (
               <>

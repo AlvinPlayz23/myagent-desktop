@@ -822,7 +822,11 @@ export default function Composer({
   const canSubmit = (hasText || hasAttachments) && !readingAttachments
   const retrying = notice != null && /retry/i.test(notice)
   const cmdCount = commandSuggestions.length
-  const cmdHeight = cmdCount > 0 ? cmdCount * 30 + (cmdCount - 1) * 2 + 14 : 0
+  // Visible heights of the merged tray's sections; the tray's last 8px hide
+  // behind the composer, so each section carries its own bottom breathing room.
+  const ATTACH_ROW = 64
+  const cmdRows = cmdCount > 0 ? cmdCount * 30 + (cmdCount - 1) * 2 + 12 + (hasAttachments ? 1 : 0) : 0
+  const trayHeight = (hasAttachments ? ATTACH_ROW : 0) + cmdRows
 
   const showArrow = canSubmit && !isRecording && !running
   const showStop = running || isRecording
@@ -862,10 +866,11 @@ export default function Composer({
         )}
       </AnimatePresence>
 
-      {/* Attachment tab */}
+      {/* Attachment + slash-command tab: one tray so both can be open at once.
+          Thumbnails sit on top, a hairline separates the command list below. */}
       <div
-        aria-hidden={!hasAttachments}
-        style={{ height: hasAttachments ? 68 : 0, transition: `height 0.14s ${EASE_EXPAND}` }}
+        aria-hidden={trayHeight === 0}
+        style={{ height: trayHeight, transition: `height 0.14s ${EASE_EXPAND}` }}
         className="relative z-0 w-full overflow-hidden"
       >
         <div
@@ -874,60 +879,59 @@ export default function Composer({
             bottom: -8,
             left: 20,
             right: 20,
-            height: 68,
-            transform: hasAttachments ? 'translateY(0)' : 'translateY(100%)',
-            opacity: hasAttachments ? 1 : 0,
+            height: trayHeight + 8,
+            paddingBottom: 8,
+            transform: trayHeight > 0 ? 'translateY(0)' : 'translateY(100%)',
+            opacity: trayHeight > 0 ? 1 : 0,
             transition: `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease-out`
           }}
-          className="no-scrollbar flex items-start gap-2 overflow-x-auto rounded-t-2xl border border-b-0 border-border bg-card px-2 pb-1 pt-2"
+          className="flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted"
         >
-          {attachments.map((attachment, index) => (
-            <AttachmentThumb
-              key={attachment.id}
-              attachment={attachment}
-              index={index}
-              onRemove={removeAttachment}
-              onOpen={(a, rect) => setActiveAttachment({ attachment: a, rect })}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Slash-command tab */}
-      <div
-        aria-hidden={cmdCount === 0}
-        style={{ height: cmdCount > 0 ? cmdHeight : 0, transition: `height 0.14s ${EASE_EXPAND}` }}
-        className="relative z-0 w-full overflow-hidden"
-      >
-        <div
-          style={{
-            position: 'absolute',
-            bottom: -8,
-            left: 20,
-            right: 20,
-            height: cmdHeight || 1,
-            transform: cmdCount > 0 ? 'translateY(0)' : 'translateY(100%)',
-            opacity: cmdCount > 0 ? 1 : 0,
-            transition: `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease-out`
-          }}
-          className="flex flex-col gap-0.5 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted px-1.5 pb-2 pt-1.5"
-        >
-          {commandSuggestions.map((command, index) => (
-            <button
-              key={command.name}
-              type="button"
-              className={cn(
-                'flex h-[30px] w-full items-center rounded-lg px-2.5 text-left text-ui-caption transition-colors',
-                index === commandIndex ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
-              )}
-              title={command.description}
-              onMouseDown={(e) => e.preventDefault()}
-              onMouseEnter={() => setCommandIndex(index)}
-              onClick={() => executeCommand(command.slash)}
+          {hasAttachments && (
+            <div
+              style={{ height: ATTACH_ROW }}
+              className="no-scrollbar flex shrink-0 items-center gap-2 overflow-x-auto px-2.5"
             >
-              <span className="min-w-0 truncate">{command.title}</span>
-            </button>
-          ))}
+              {attachments.map((attachment, index) => (
+                <AttachmentThumb
+                  key={attachment.id}
+                  attachment={attachment}
+                  index={index}
+                  onRemove={removeAttachment}
+                  onOpen={(a, rect) => setActiveAttachment({ attachment: a, rect })}
+                />
+              ))}
+              <span className="sticky right-0 ml-auto shrink-0 pl-2 text-ui-xs text-foreground-subtlest">
+                {attachments.length} image{attachments.length === 1 ? '' : 's'}
+              </span>
+            </div>
+          )}
+          {cmdCount > 0 && (
+            <div
+              style={{ height: cmdRows }}
+              className={cn(
+                'flex shrink-0 flex-col gap-0.5 px-1.5 pt-1.5',
+                hasAttachments && 'border-t border-border/60'
+              )}
+            >
+              {commandSuggestions.map((command, index) => (
+                <button
+                  key={command.name}
+                  type="button"
+                  className={cn(
+                    'flex h-[30px] w-full items-center rounded-lg px-2.5 text-left text-ui-caption transition-colors',
+                    index === commandIndex ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
+                  )}
+                  title={command.description}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setCommandIndex(index)}
+                  onClick={() => executeCommand(command.slash)}
+                >
+                  <span className="min-w-0 truncate">{command.title}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

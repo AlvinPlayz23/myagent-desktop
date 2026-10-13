@@ -260,6 +260,24 @@ export function subagentPromptPreview(prompt: string, max = 120): string {
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
 }
 
+/** One-line, markdown-free preview of what a settled task produced. */
+export function subagentResultPreview(task: SubagentTask, max = 160): string {
+  const source = task.finalResult || task.error || ''
+  const flat = source
+    .slice(0, max * 2)
+    .replace(/^\s*\*{0,2}Result:?\*{0,2}:?\s*/i, '')
+    .replace(/[*_`#>]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
+}
+
+/** Wall-clock time a settled task finished, e.g. "12:15 AM"; '' if unknown. */
+export function subagentFinishedTime(task: SubagentTask): string {
+  if (!task.endedAt) return ''
+  return new Date(task.endedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
 /**
  * Brings the transcript row for a task into view. Rows carry
  * `data-subagent-task` with the task key (see SubagentToolCard/SubagentNotice),
