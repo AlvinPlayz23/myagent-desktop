@@ -745,6 +745,8 @@ export default function App(): JSX.Element {
                 notice={chat.notice}
                 onDismissNotice={() => dispatch({ type: 'notice', text: null })}
                 onCommand={handleCommand}
+                contextSessionId={chat.sessionId}
+                contextRevision={chat.items.length + chat.lastTokens}
                 subagentRunning={preferences.subagentsChip && runningSubagents > 0}
                 subagentsOpen={subagentsOpen}
                 onToggleSubagents={toggleSubagents}
