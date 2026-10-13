@@ -52,7 +52,7 @@ function StatusBar({ conn, detail, version, chat }: Props): JSX.Element {
               running
             </motion.span>
           )}
-          <span className="flex items-center gap-1 font-mono" title="context size (last request total tokens)">
+          <span className="flex items-center gap-1 font-mono" title="last request total tokens (not live context occupancy)">
             <FlipMetricValue value={chat.lastTokens > 0 ? `${(chat.lastTokens / 1000).toFixed(1)}k` : '—'} />
             <span>tok</span>
           </span>

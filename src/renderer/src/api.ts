@@ -6,6 +6,7 @@ import type {
   ProvidersInfo,
   RpcError,
   SessionInfo,
+  SessionContext,
   ReasoningEffort,
   SessionMeta,
   SessionTool,
@@ -59,6 +60,8 @@ export const api = {
   followUp: (sessionId: string, content: ContentBlock[]): Promise<void> =>
     call('session.followUp', { sessionId, content }),
   abort: (sessionId: string): Promise<void> => call('session.abort', { sessionId }),
+  sessionContext: (sessionId: string, includeMessages = false): Promise<SessionContext> =>
+    call('session.context', { sessionId, includeMessages }),
   compact: (sessionId: string): Promise<void> => call('session.compact', { sessionId }),
   sessionTools: async (sessionId: string): Promise<SessionTools> => {
     const result = await call<{ tools?: SessionTool[]; disabled?: string[]; running?: boolean }>(

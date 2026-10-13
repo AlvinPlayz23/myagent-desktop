@@ -41,6 +41,23 @@
       if (m === 'session.list') return ok({ sessions })
       if (m === 'session.resume') { const s = sessions.find(s => s.id === p.sessionId); return ok({ sessionId: s.id, model: 'anthropic/claude-opus-4-7', cwd: s.cwd, effort: 'medium', messages: msgs() }) }
       if (m === 'session.create') return ok({ sessionId: 'new' + Math.random(), model: 'anthropic/claude-opus-4-7', cwd: p.cwd || '/home/dev/x', effort: 'medium' })
+      if (m === 'session.context') {
+        return ok({
+          model: 'anthropic/claude-opus-4-7',
+          modelContextWindow: 200000,
+          harnessContextWindow: 256000,
+          compactionThreshold: 230000,
+          compactionEnabled: true,
+          estimatedTokens: 1800,
+          estimateSource: 'usage-and-estimate',
+          hasCompaction: false,
+          ...(p.includeMessages ? {
+            messages: msgs(),
+            systemPrompt: 'You are a coding assistant. Work within the selected project and explain your changes.',
+            tools: [{ name: 'read', description: 'Read a file in the project.' }, { name: 'bash', description: 'Run a shell command in the project.' }]
+          } : {})
+        })
+      }
       if (m === 'session.prompt') { setTimeout(() => emit({ kind: 'event', sessionId: p.sessionId, event: { type: 'agent_start' } }), 100) }
       return ok({})
     },

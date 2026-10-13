@@ -6,6 +6,7 @@ import { Add01Icon, ArrowDown01Icon, ArrowUp02Icon, AudioWave01Icon, Cancel01Ico
 import { AddToList, ChevronRight, MouseLeftClick05, MouseRightClick05, Robot01, Search01, Tick01 } from './ui/icons'
 import JellyRadio from './ui/JellyRadio'
 import EffortSlider from './EffortSlider'
+import ContextViewer from './ContextViewer'
 import HoverTooltip from './ui/HoverTooltip'
 import type { ContentBlock, ProvidersInfo, ReasoningEffort } from '../../../shared/protocol'
 import type { EffortSelectorVariant, ModelSelectorVariant } from '../preferences'
@@ -358,6 +359,8 @@ interface Props {
   notice?: string | null
   onDismissNotice?(): void
   onCommand?(name: CommandName, argument: string): void
+  contextSessionId?: string
+  contextRevision?: number
   subagentRunning?: boolean
   subagentsOpen?: boolean
   onToggleSubagents?(): void
@@ -388,6 +391,8 @@ export default function Composer({
   notice = null,
   onDismissNotice,
   onCommand,
+  contextSessionId,
+  contextRevision = 0,
   subagentRunning = false,
   subagentsOpen = false,
   onToggleSubagents,
@@ -1287,6 +1292,8 @@ export default function Composer({
             </button>
           )}
 
+          {contextSessionId && <ContextViewer key={contextSessionId} sessionId={contextSessionId} running={running} revision={contextRevision} model={model} />}
+
           {/* Primary action: wave (idle) / arrow (ready) / stop (busy) */}
           <button
             type="button"
@@ -1678,6 +1685,8 @@ export default function Composer({
                   <AddToList size={15} strokeWidth={1.8} />
                 </button>
               )}
+
+              {contextSessionId && <ContextViewer key={contextSessionId} sessionId={contextSessionId} running={running} revision={contextRevision} model={model} />}
 
               {/* Action Button: Morphing ArrowUp / Mic / Stop */}
               <button

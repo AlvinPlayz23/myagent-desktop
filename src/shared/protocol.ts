@@ -216,6 +216,21 @@ export interface SessionMeta {
   title: string
 }
 
+/** A backend snapshot of the effective context, not the visible transcript. */
+export interface SessionContext {
+  model: string
+  modelContextWindow?: number
+  harnessContextWindow: number
+  compactionThreshold: number
+  compactionEnabled: boolean
+  estimatedTokens: number
+  estimateSource: 'usage-and-estimate' | 'estimate'
+  hasCompaction?: boolean
+  messages?: Message[]
+  systemPrompt?: string
+  tools?: SessionTool[]
+}
+
 export interface SessionInfo {
   sessionId: string
   model: string
@@ -271,6 +286,8 @@ export interface ProviderEntry {
 
 export interface ProviderModelDetails {
   id: string
+  contextWindow?: number
+  outputLimit?: number
   reasoningKnown: boolean
   reasoning: boolean
   supportedEfforts?: ReasoningEffort[]
