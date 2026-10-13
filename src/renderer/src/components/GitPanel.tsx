@@ -5,6 +5,7 @@ import { Cancel01Icon, FolderTreeIcon, LeftToRightListBulletIcon } from '@hugeic
 import {
   ArrowDown02,
   ArrowUp02,
+  Cancel01,
   Check,
   CheckmarkCircle02,
   ChevronDown,
@@ -18,11 +19,15 @@ import {
   Rotate01,
   Undo01
 } from './ui/icons'
+import { Kbd, KbdGroup } from './ui/kbd'
 import type { GitBranch, GitCommit, GitFileChange, GitStatus } from '../../../shared/protocol'
 import { BLOOM_FAST, bloomDown } from '../motion'
+import { usePrefersReducedMotion } from '../hooks/use-reduced-motion'
 import { cn } from '../util'
 import { parseUnifiedDiff, type ToolDiff } from '../diff'
 import DiffView from './DiffView'
+import SlideCommit from './ui/SlideCommit'
+import HoldButton from './ui/HoldButton'
 
 // Poll interval while the panel is open and the window is visible -- git has no
 // change notifications. Every tick shells out to git, so this is deliberately
@@ -37,6 +42,14 @@ const STATUS_META: Record<GitFileChange['status'], { badge: string; tone: string
   untracked: { badge: 'U', tone: 'text-muted-foreground' },
   conflicted: { badge: '!', tone: 'text-destructive' }
 }
+
+/** Hold-button copy per sync kind. */
+const HOLD_COPY = {
+  publish: { label: 'Hold to publish', pending: 'Publishing…', done: 'Published', error: 'Publish failed' },
+  push: { label: 'Hold to push', pending: 'Pushing…', done: 'Pushed', error: 'Push failed' },
+  pull: { label: 'Hold to pull', pending: 'Pulling…', done: 'Pulled', error: 'Pull failed' },
+  sync: { label: 'Hold to sync', pending: 'Syncing…', done: 'Synced', error: 'Sync failed' }
+} as const
 
 // The panel owns one cwd for its whole subtree; DiffFor reads it without
 // threading a prop through every row.
@@ -275,6 +288,11 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
   const [tree, setTree] = useState(() => localStorage.getItem('myagent.git.view') === 'tree')
   const [closedSections, setClosedSections] = useState<Set<string>>(new Set())
   const branchRef = useRef<HTMLDivElement>(null)
+  const messageRef = useRef<HTMLTextAreaElement>(null)
+  // Honours both the OS preference and the app's own "Reduce UI motion"
+  // setting. The slide commit is the gesture, so it is the control that has
+  // to make way when motion is off.
+  const reduceMotion = usePrefersReducedMotion()
 
   // Collapses overlapping polls: on a large repo a status call can outlast the
   // interval, and without this the queue of git processes grows unbounded. A
@@ -372,8 +390,56 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
     [refresh]
   )
 
+  /**
+   * The commit, shaped the way the slide control needs it: the promise
+   * resolves on success and rejects with the git error, so the pill can unfurl
+   * or spring home red. Either way the banner carries the full message — a
+   * pre-commit hook failure, an unknown identity — which the pill's short
+   * error label cannot.
+   */
+  const commitNow = useCallback(
+    async (): Promise<void> => {
+      if (!cwd) return
+      setBusy('commit')
+      setError(null)
+      try {
+        const res = await window.myagent.git.commit(cwd, message)
+        if (res.ok) {
+          setMessage('')
+          return
+        }
+        const reason = res.error.message || 'Commit failed.'
+        setError(reason)
+        throw new Error(reason)
+      } finally {
+        setBusy(null)
+        refresh()
+      }
+    },
+    [cwd, message, refresh]
+  )
+
   const staged = useMemo(() => status?.files.filter((f) => f.staged) ?? [], [status])
   const unstaged = useMemo(() => status?.files.filter((f) => !f.staged) ?? [], [status])
+
+  // First line is the subject: kept under the classic 72-column limit.
+  const subjectLen = message.split('\n')[0]?.trim().length ?? 0
+  const subjectTone = subjectLen > 72 ? 'text-destructive' : subjectLen > 50 ? 'text-warning' : 'text-foreground-subtlest'
+
+  // The textarea grows with its content instead of scrolling a two-row slot.
+  useEffect(() => {
+    const el = messageRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }, [message])
+
+  const onMessageKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      if (message.trim() && staged.length > 0 && !busy) void commitNow().catch(() => {})
+    }
+  }
 
   const toggleView = (): void =>
     setTree((value) => {
@@ -443,23 +509,97 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
   const renderFiles = (files: GitFileChange[]): JSX.Element[] =>
     tree ? renderDir(buildTree(files), 0) : files.map((f) => rowFor(f))
 
-  const syncAction = ((): { label: string; run: () => void } | null => {
+  // The push/pull half of the commit box. Carries its own kind so the control
+  // can speak correctly: an up arrow on a pull, and raw ↑↓ counts inside the
+  // label, are both wrong. Counts render as pills; `hint` explains the action
+  // for the title tooltip.
+  const syncAction = ((): {
+    kind: 'publish' | 'push' | 'pull' | 'sync'
+    title: string
+    hint: string
+    busyLabel: 'push' | 'pull' | 'sync'
+    ahead: number
+    behind: number
+    op: () => Promise<{ ok: boolean; error?: { message: string } }>
+  } | null => {
     if (!status?.isRepo || !status.branch || !cwd) return null
     const git = window.myagent.git
-    if (!status.upstream) return { label: 'Publish branch', run: () => void act('push', () => git.push(cwd)) }
-    if (status.ahead > 0 && status.behind > 0) {
+    const ahead = status.ahead
+    const behind = status.behind
+    if (!status.upstream) {
       return {
-        label: `Sync changes  ↑${status.ahead} ↓${status.behind}`,
-        run: () => void act('sync', async () => {
-          const pulled = await git.pull(cwd)
-          return pulled.ok ? git.push(cwd) : pulled
-        })
+        kind: 'publish',
+        title: 'Publish branch',
+        hint: 'Publish the current branch and set its upstream',
+        busyLabel: 'push',
+        ahead,
+        behind,
+        op: () => git.push(cwd)
       }
     }
-    if (status.ahead > 0) return { label: `Push  ↑${status.ahead}`, run: () => void act('push', () => git.push(cwd)) }
-    if (status.behind > 0) return { label: `Pull  ↓${status.behind}`, run: () => void act('pull', () => git.pull(cwd)) }
+    if (ahead > 0 && behind > 0) {
+      return {
+        kind: 'sync',
+        title: 'Sync changes',
+        hint: `Pull ${behind} and push ${ahead}`,
+        busyLabel: 'sync',
+        ahead,
+        behind,
+        op: async () => {
+          const pulled = await git.pull(cwd)
+          return pulled.ok ? git.push(cwd) : pulled
+        }
+      }
+    }
+    if (ahead > 0) {
+      return {
+        kind: 'push',
+        title: ahead === 1 ? 'Push 1 commit' : `Push ${ahead} commits`,
+        hint: `Push ${ahead === 1 ? '1 commit' : `${ahead} commits`} to ${status.upstream}`,
+        busyLabel: 'push',
+        ahead,
+        behind,
+        op: () => git.push(cwd)
+      }
+    }
+    if (behind > 0) {
+      return {
+        kind: 'pull',
+        title: behind === 1 ? 'Pull 1 commit' : `Pull ${behind} commits`,
+        hint: `Pull ${behind === 1 ? '1 commit' : `${behind} commits`} from ${status.upstream}`,
+        busyLabel: 'pull',
+        ahead,
+        behind,
+        op: () => git.pull(cwd)
+      }
+    }
     return null
   })()
+
+  /**
+   * The sync, shaped the way the slide control needs it: resolves on success
+   * and rejects with the git error, so the pill can unfurl or spring home
+   * red. Mirrors commitNow above, including the banner carrying the full
+   * message.
+   */
+  const syncNow = useCallback(async (): Promise<void> => {
+    if (!syncAction) return
+    const { op, busyLabel, title } = syncAction
+    setBusy(busyLabel)
+    setError(null)
+    try {
+      const res = await op()
+      if (res.ok) return
+      const reason = res.error?.message || `${title} failed.`
+      setError(reason)
+      throw new Error(reason)
+    } finally {
+      setBusy(null)
+      refresh()
+    }
+    // Rebuilt every render alongside syncAction, like commitNow with message.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cwd, status?.ahead, status?.behind, status?.upstream, status?.branch, status?.isRepo, refresh])
 
   if (!cwd) {
     return (
@@ -663,39 +803,160 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
 
       {/* Commit box */}
       <div className="shrink-0 border-t border-border/60 p-2">
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder={staged.length > 0 ? `Commit ${staged.length} staged file(s)…` : 'Commit message…'}
-          rows={2}
-          className="w-full resize-none rounded-lg border border-border bg-background px-2.5 py-1.5 text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest focus:border-input focus:ring-1 focus:ring-ring/30"
-        />
-        <button
-          type="button"
-          disabled={!!busy || !message.trim() || staged.length === 0}
-          onClick={() =>
-            act('commit', async () => {
-              const res = await window.myagent.git.commit(cwd, message)
-              if (res.ok) setMessage('')
-              return res
-            })
-          }
-          className="mt-1.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-ui-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
-        >
-          {busy === 'commit' ? <Loading03 size={12} className="animate-spin" /> : <GitCommit01 size={12} />}
-          Commit
-        </button>
-        {syncAction && (
+        {/* Card mirrors the composer's input: borderless textarea on a surface
+            that answers hover and focus, with its own header and footer so the
+            bare bordered slot reads as a control, not a default. */}
+        <div className="rounded-lg border border-border bg-card shadow-sm transition-[border-color,box-shadow] duration-150 focus-within:border-ring/40 focus-within:ring-1 focus-within:ring-ring/20 hover:border-border/80">
+          <div className="flex items-center gap-1.5 px-2.5 pt-2">
+            <GitCommit01 size={13} className="shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground">Commit</span>
+            {staged.length > 0 ? (
+              <span className="shrink-0 rounded-full bg-success/15 px-1.5 py-px text-ui-xs font-medium text-success-foreground">
+                {staged.length} staged
+              </span>
+            ) : (
+              <span className="shrink-0 text-ui-xs text-foreground-subtlest">Nothing staged</span>
+            )}
+            {message.length > 0 && !busy && (
+              <button
+                type="button"
+                title="Clear message"
+                aria-label="Clear commit message"
+                onClick={() => {
+                  setMessage('')
+                  messageRef.current?.focus()
+                }}
+                className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+              >
+                <Cancel01 size={11} />
+              </button>
+            )}
+          </div>
+          <textarea
+            ref={messageRef}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={onMessageKeyDown}
+            placeholder={staged.length > 0 ? `Commit ${staged.length} staged file(s)…` : 'Stage files, then write a message…'}
+            rows={2}
+            disabled={!!busy}
+            aria-label="Commit message"
+            className="block max-h-40 min-h-[52px] w-full resize-none border-0 bg-transparent px-2.5 py-1 text-ui-sm leading-5 text-foreground outline-none placeholder:text-foreground-subtlest disabled:opacity-60"
+          />
+          <div className="flex items-center justify-between gap-2 px-2.5 pb-2">
+            {message ? (
+              <span className={cn('font-mono text-ui-xs tabular-nums', subjectTone)} title="Keep the subject line under 72 characters">
+                {subjectLen}/72
+              </span>
+            ) : (
+              <span className="text-ui-xs text-foreground-subtlest">First line is the subject</span>
+            )}
+            <span className="flex shrink-0 items-center gap-1 text-ui-xs text-foreground-subtlest">
+              <KbdGroup>
+                <Kbd>Ctrl</Kbd>+<Kbd>Enter</Kbd>
+              </KbdGroup>
+              <span>to commit</span>
+            </span>
+          </div>
+        </div>
+        {/* Reduced motion keeps the plain button: the drag *is* the gesture,
+            and a slide that snaps straight home reads as broken. */}
+        {reduceMotion ? (
           <button
             type="button"
-            disabled={!!busy}
-            onClick={syncAction.run}
-            className="mt-1.5 flex h-8 w-full items-center justify-center gap-1.5 whitespace-pre rounded-lg border border-border text-ui-sm font-medium text-foreground transition-colors hover:bg-hover disabled:pointer-events-none disabled:opacity-40"
+            disabled={!!busy || !message.trim() || staged.length === 0}
+            onClick={() => void commitNow().catch(() => {})}
+            className="mt-1.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-ui-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
           >
-            {busy === 'push' || busy === 'pull' || busy === 'sync' ? <Loading03 size={12} className="animate-spin" /> : <ArrowUp02 size={12} />}
-            {syncAction.label}
+            {busy === 'commit' ? <Loading03 size={12} className="animate-spin" /> : <GitCommit01 size={12} />}
+            Commit
           </button>
+        ) : (
+          <div className="mt-1.5">
+            <SlideCommit
+              width={304}
+              height={44}
+              label="Slide to commit"
+              doneLabel="Committed"
+              errorLabel="Commit failed"
+              holdMs={1200}
+              disabled={!message.trim() || staged.length === 0 || (!!busy && busy !== 'commit')}
+              onConfirm={commitNow}
+            />
+          </div>
         )}
+        {syncAction &&
+          (reduceMotion ? (
+            <button
+              type="button"
+              disabled={!!busy}
+              title={syncAction.hint}
+              onClick={() => void act(syncAction.busyLabel, syncAction.op)}
+              className="mt-1.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-ui-sm font-medium text-foreground transition-colors hover:bg-hover disabled:pointer-events-none disabled:opacity-40"
+            >
+              {busy === syncAction.busyLabel ? (
+                <Loading03 size={12} className="animate-spin" />
+              ) : syncAction.kind === 'pull' ? (
+                <ArrowDown02 size={12} />
+              ) : syncAction.kind === 'sync' ? (
+                <span className="flex items-center" aria-hidden>
+                  <ArrowDown02 size={12} />
+                  <ArrowUp02 size={12} />
+                </span>
+              ) : (
+                <ArrowUp02 size={12} />
+              )}
+              <span>{syncAction.title}</span>
+              {syncAction.ahead > 0 && (
+                <span className="rounded-full bg-muted px-1.5 py-px font-mono text-ui-xs tabular-nums text-muted-foreground">
+                  ↑{syncAction.ahead}
+                </span>
+              )}
+              {syncAction.behind > 0 && (
+                <span className="rounded-full bg-muted px-1.5 py-px font-mono text-ui-xs tabular-nums text-muted-foreground">
+                  ↓{syncAction.behind}
+                </span>
+              )}
+            </button>
+          ) : (
+            <div className="mt-1.5">
+              <HoldButton
+                label={HOLD_COPY[syncAction.kind].label}
+                pendingLabel={HOLD_COPY[syncAction.kind].pending}
+                doneLabel={HOLD_COPY[syncAction.kind].done}
+                errorLabel={HOLD_COPY[syncAction.kind].error}
+                hint={syncAction.hint}
+                disabled={!!busy}
+                onConfirm={syncNow}
+                icon={
+                  syncAction.kind === 'pull' ? (
+                    <ArrowDown02 size={12} />
+                  ) : syncAction.kind === 'sync' ? (
+                    <span className="flex items-center" aria-hidden>
+                      <ArrowDown02 size={12} />
+                      <ArrowUp02 size={12} />
+                    </span>
+                  ) : (
+                    <ArrowUp02 size={12} />
+                  )
+                }
+                meta={
+                  <>
+                    {syncAction.ahead > 0 && (
+                      <span className="rounded-full bg-muted px-1.5 py-px font-mono text-ui-xs tabular-nums text-muted-foreground">
+                        ↑{syncAction.ahead}
+                      </span>
+                    )}
+                    {syncAction.behind > 0 && (
+                      <span className="rounded-full bg-muted px-1.5 py-px font-mono text-ui-xs tabular-nums text-muted-foreground">
+                        ↓{syncAction.behind}
+                      </span>
+                    )}
+                  </>
+                }
+              />
+            </div>
+          ))}
       </div>
     </div>
     </CwdContext.Provider>

@@ -1,0 +1,189 @@
+/*
+ * Slide-to-confirm pill. Ported from React Bits' SlideCommit.css.
+ *
+ * Every colour below resolves from the app's own anchors, so the control
+ * follows the named theme and the light/dark mode — the same contract
+ * JellyRadio.css keeps. The block is also the fallback set for the `--sc-*`
+ * variables the component writes onto its root element.
+ *
+ * Motion note: nothing here animates a `filter`. The ported original blurred
+ * the instruction in and out, which re-rasterises on every frame and is the
+ * most expensive thing a compositor can be asked to do inside this window; the
+ * labels cross-fade on opacity instead and the motion-driven fades on the
+ * handle do the rest.
+ */
+
+.slide-commit {
+  --sc-track: var(--muted);
+  --sc-ink: var(--primary);
+  --sc-ok: var(--success);
+  --sc-no: var(--destructive);
+  --sc-on-ink: var(--primary-foreground);
+  --sc-on-ok: #ffffff;
+  --sc-on-no: #ffffff;
+  --sc-radius: 28px;
+  --sc-grip-r: 24px;
+  --sc-pad: 4px;
+  --sc-font: 14px;
+
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  font-family: inherit;
+}
+
+/* A disabled pill still has to swallow its own input, but it only dims while
+   idle: dimming a pending or confirmed pill would wash out the spinner and the
+   confirmation, and the caller has usually emptied its own form by then. */
+.slide-commit[data-disabled] {
+  pointer-events: none;
+}
+
+.slide-commit[data-disabled][data-phase='idle'] {
+  opacity: 0.55;
+}
+
+.slide-commit__track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--sc-radius);
+  background: var(--sc-track);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.slide-commit[data-held] .slide-commit__track {
+  cursor: grabbing;
+}
+
+.slide-commit[data-phase='pending'] .slide-commit__track,
+.slide-commit[data-phase='done'] .slide-commit__track {
+  cursor: default;
+}
+
+/* The instruction. Both texts share one grid cell so they swap in place. */
+.slide-commit__label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  font-size: var(--sc-font);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.006em;
+  white-space: nowrap;
+}
+
+.slide-commit__text {
+  grid-area: 1 / 1;
+  color: var(--muted-foreground);
+  transition: opacity 200ms ease;
+}
+
+.slide-commit__text--error {
+  color: var(--sc-no);
+  opacity: 0;
+}
+
+.slide-commit[data-phase='error'] .slide-commit__text--plain {
+  opacity: 0;
+}
+
+.slide-commit[data-phase='error'] .slide-commit__text--error {
+  opacity: 1;
+}
+
+/* The handle. Its corners come from the clip-path the component drives, which
+   is also what cuts it back down to a thumb at rest. */
+.slide-commit__capsule {
+  position: absolute;
+  top: var(--sc-pad);
+  left: var(--sc-pad);
+  width: calc(100% - var(--sc-pad) * 2);
+  height: calc(100% - var(--sc-pad) * 2);
+  background: var(--sc-ink);
+  color: var(--sc-on-ink);
+  outline: none;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+.slide-commit[data-phase='done'] .slide-commit__capsule {
+  background: var(--sc-ok);
+  color: var(--sc-on-ok);
+}
+
+.slide-commit[data-phase='error'] .slide-commit__capsule {
+  background: var(--sc-no);
+  color: var(--sc-on-no);
+}
+
+/* Inset, because the capsule's own clip-path would otherwise erase an outer
+   ring. In the handle's own text colour, so it inverts with the fill. */
+.slide-commit__capsule:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--sc-on-ink);
+}
+
+.slide-commit__content {
+  position: absolute;
+  inset: 0;
+}
+
+.slide-commit__arrow,
+.slide-commit__spin,
+.slide-commit__done {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: none;
+  font-size: var(--sc-font);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.006em;
+  white-space: nowrap;
+}
+
+.slide-commit__arrow svg,
+.slide-commit__spin svg,
+.slide-commit__done svg {
+  display: block;
+}
+
+/* Only ever running while a confirmation is actually in flight: a paused
+   animation costs nothing, and a still spinner would imply a hung commit. */
+.slide-commit__spin {
+  animation: slide-commit-spin 1s linear infinite;
+  animation-play-state: paused;
+}
+
+.slide-commit[data-phase='pending'] .slide-commit__spin {
+  animation-play-state: running;
+}
+
+@keyframes slide-commit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.slide-commit__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
