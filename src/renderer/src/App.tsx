@@ -789,8 +789,11 @@ export default function App(): JSX.Element {
         />
         </div>
 
+        {/* One shared column: with both panels open they stack (Git over
+            Subagents) instead of sitting side by side, so the pair costs the
+            transcript 320px rather than 640px. */}
         <AnimatePresence initial={false}>
-          {gitOpen && (
+          {(gitOpen || subagentsOpen) && (
             <motion.aside
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: 320, opacity: 1 }}
@@ -803,44 +806,35 @@ export default function App(): JSX.Element {
                     the panel starts below the title-bar strip or its header
                     buttons would sit under them and swallow the clicks. */}
                 <div className="drag-region h-9 shrink-0" />
-                <div className="min-h-0 flex-1">
-                  {/* Keyed on cwd so switching to a different project remounts
-                      the panel: fresh status, fresh poll timer, and no chance of
-                      the previous repo's in-flight reply landing here. */}
-                  <GitPanel
-                    key={chat?.cwd ?? 'none'}
-                    cwd={chat?.cwd ?? null}
-                    onClose={() => setGitOpen(false)}
-                  />
-                </div>
-              </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence initial={false}>
-          {subagentsOpen && (
-            <motion.aside
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-              className="shrink-0 overflow-hidden border-l border-border/60 bg-card/40"
-            >
-              <div className="flex h-full w-[320px] flex-col">
-                {/* Same reason as the git panel above: the window controls are
-                    fixed over the top-right corner. */}
-                <div className="drag-region h-9 shrink-0" />
-                <div className="min-h-0 flex-1">
-                  {/* Keyed on the session so switching tabs remounts and drops
-                      the previous expansion state. */}
-                  <SubagentPanel
-                    key={chat?.sessionId ?? 'none'}
-                    tasks={subagentTasks}
-                    onClose={() => setSubagentsOpen(false)}
-                    onOpen={openSubagent}
-                  />
-                </div>
+                {gitOpen && (
+                  <div className={cn('min-h-0', subagentsOpen ? 'flex-[3]' : 'flex-1')}>
+                    {/* Keyed on cwd so switching to a different project remounts
+                        the panel: fresh status, fresh poll timer, and no chance of
+                        the previous repo's in-flight reply landing here. */}
+                    <GitPanel
+                      key={chat?.cwd ?? 'none'}
+                      cwd={chat?.cwd ?? null}
+                      onClose={() => setGitOpen(false)}
+                    />
+                  </div>
+                )}
+                {subagentsOpen && (
+                  <div
+                    className={cn(
+                      'min-h-0 flex-[2]',
+                      gitOpen && 'border-t border-border/60 shadow-[0_-1px_0_0_var(--background)]'
+                    )}
+                  >
+                    {/* Keyed on the session so switching tabs remounts and drops
+                        the previous expansion state. */}
+                    <SubagentPanel
+                      key={chat?.sessionId ?? 'none'}
+                      tasks={subagentTasks}
+                      onClose={() => setSubagentsOpen(false)}
+                      onOpen={openSubagent}
+                    />
+                  </div>
+                )}
               </div>
             </motion.aside>
           )}
