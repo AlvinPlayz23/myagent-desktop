@@ -41,7 +41,8 @@ function SubagentNotice({ task, onOpen }: { task: SubagentTask; onOpen(task: Sub
       data-subagent-task={task.key}
     >
       <button
-        className="-mx-2 flex min-h-11 items-center gap-3 rounded-lg px-2 py-1.5 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+        type="button"
+        className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl px-3 py-2 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => onOpen(task)}
         aria-haspopup="dialog"
         title={meta}
