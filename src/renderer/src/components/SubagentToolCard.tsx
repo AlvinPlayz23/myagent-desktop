@@ -24,9 +24,9 @@ function ackText(run: ToolRun): string {
  * "a command that ran" — it reads as work that was *handed off*, and it keeps
  * ticking until the report lands.
  *
- * Clicking the row opens the detail modal (prompt, trajectory, final answer)
- * rather than expanding inline: the report is far too large for the timeline,
- * and the modal is where the trajectory lives.
+ * Clicking the row drills the subagents side panel into the detail (prompt,
+ * trajectory, final answer) rather than expanding inline: the report is far too
+ * large for the timeline, and the panel is where the trajectory lives.
  *
  * Shares the row anatomy of ToolCard (button, left edge, chevron) so adding a
  * distinct glyph and meta slot does not reshape the timeline.
@@ -39,7 +39,7 @@ function SubagentToolCard({
   run: ToolRun
   task: SubagentTask
   /**
-   * Opens the detail modal. Receives the launch acknowledgement text when the
+   * Opens the detail view. Receives the launch acknowledgement text when the
    * task never started — only this card holds the tool run, so only it can
    * supply that error.
    */
@@ -60,7 +60,6 @@ function SubagentToolCard({
       <button
         className="-mx-1.5 flex min-h-8 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => onOpen(task, task.launchFailed ? ackText(run).trim() || undefined : undefined)}
-        aria-haspopup="dialog"
       >
         <span className="relative grid size-4 shrink-0 place-items-center">
           <Robot01

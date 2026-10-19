@@ -1,5 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { ArrowExpand01Icon } from '@hugeicons/core-free-icons'
 import {
   Archive01,
   ArrowShrink01,
@@ -34,6 +36,8 @@ interface Props {
   debugOpen: boolean
   onToggleGit(): void
   gitOpen: boolean
+  /** Open the full-window source-control screen. */
+  onOpenGitWindow(): void
   onToggleSubagents(): void
   subagentsOpen: boolean
   /** Background subagents still running in this session. */
@@ -120,7 +124,7 @@ function Popover({
 function TopBar(props: Props): JSX.Element {
   const {
     chat, title, onCompact, onRename, onArchive,
-    onToggleDebug, debugOpen, onToggleGit, gitOpen,
+    onToggleDebug, debugOpen, onToggleGit, gitOpen, onOpenGitWindow,
     onToggleSubagents, subagentsOpen, runningSubagents,
     onSettings, onHelp
   } = props
@@ -214,6 +218,12 @@ function TopBar(props: Props): JSX.Element {
                       <div className="mt-0.5 truncate text-ui-sm text-muted-foreground">{project}</div>
                     )}
                   </div>
+                  <MenuItem
+                    icon={<HugeiconsIcon icon={ArrowExpand01Icon} size={15} strokeWidth={1.5} className="shrink-0 text-muted-foreground" aria-hidden />}
+                    label="Source control window"
+                    title="Pull requests, commit history and diffs"
+                    onClick={() => { onOpenGitWindow(); setMenuOpen(false) }}
+                  />
                   <MenuItem
                     icon={<Edit01 size={15} strokeWidth={1.5} className="shrink-0 text-muted-foreground" />}
                     label="Rename"

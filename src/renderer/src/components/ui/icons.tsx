@@ -27,6 +27,7 @@ import {
   Edit01Icon,
   Download04Icon,
   GitBranchIcon,
+  GitCommitHorizontalIcon,
   GitCommitIcon,
   GitPullRequestIcon,
   Globe02Icon,
@@ -104,6 +105,8 @@ export const Globe02 = makeIcon(Globe02Icon)
 export const Keyboard01 = makeIcon(KeyboardIcon)
 export const GitBranch01 = makeIcon(GitBranchIcon)
 export const GitCommit01 = makeIcon(GitCommitIcon)
+/** Horizontal commit node: the source-control window's commit marker. */
+export const GitCommitHorizontal = makeIcon(GitCommitHorizontalIcon)
 export const GitPullRequest01 = makeIcon(GitPullRequestIcon)
 export const Refresh01 = makeIcon(RefreshIcon)
 export const Robot01 = makeIcon(Robot01Icon)

@@ -20,8 +20,9 @@ import { cn } from '../util'
  * and a standalone row rather than a slot inside the folded work divider,
  * because a result buried under "Worked for 38s" is a result nobody reads.
  *
- * Clicking the row opens the detail modal (trajectory, final answer) instead of
- * expanding inline: the report is far too large for the timeline.
+ * Clicking the row drills the subagents side panel into the detail (trajectory,
+ * final answer) instead of expanding inline: the report is far too large for
+ * the timeline.
  *
  * A finished task's duration is fixed by its report, so unlike the tool card
  * this row never re-renders on a clock.
@@ -44,7 +45,6 @@ function SubagentNotice({ task, onOpen }: { task: SubagentTask; onOpen(task: Sub
         type="button"
         className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl px-3 py-2 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => onOpen(task)}
-        aria-haspopup="dialog"
         title={meta}
       >
         <Robot01 size={16} strokeWidth={1.5} className="shrink-0 text-foreground-subtle" aria-hidden />

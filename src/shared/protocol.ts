@@ -397,6 +397,127 @@ export interface GitApi {
   init(cwd: string): Promise<RpcResult<void>>
 }
 
+// ---------------------------------------------------------------------------
+// GitHub (via the `gh` CLI)
+// ---------------------------------------------------------------------------
+
+/** Which of the three list buckets a query asks for. */
+export type PullFilter = 'authored' | 'reviewing' | 'all'
+
+/**
+ * Which lifecycle states the list includes. Kept separate from `PullFilter`
+ * because they are independent axes: "PRs I authored, including the merged
+ * ones" is a question people actually ask.
+ */
+export type PullStateFilter = 'open' | 'closed' | 'merged' | 'all'
+
+export type PullState = 'OPEN' | 'CLOSED' | 'MERGED'
+
+export type ReviewDecision = '' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED'
+
+/**
+ * Rolled-up CI state for a pull request. `conflict` is not a check result but
+ * rides the same slot because it is the other thing that blocks a merge, and
+ * the list shows the two in one column.
+ */
+export type ChecksStatus = 'passing' | 'failing' | 'pending' | 'skipped' | 'conflict' | 'none'
+
+export interface PullLabel {
+  name: string
+  /** Hex color from GitHub, without the leading `#`. */
+  color: string
+}
+
+/** One row in the pull-request list: `gh pr list --json` plus our rollups. */
+export interface PullRequestSummary {
+  number: number
+  title: string
+  url: string
+  author: string
+  headRefName: string
+  baseRefName: string
+  isDraft: boolean
+  state: PullState
+  additions: number
+  deletions: number
+  changedFiles: number
+  createdAt: string
+  updatedAt: string
+  commentCount: number
+  reviewDecision: ReviewDecision
+  /** True when the viewer is in the PR's review-requested list. */
+  reviewRequested: boolean
+  checks: ChecksStatus
+  /** Check name or run id shown beside the CI state, e.g. `7260369`. */
+  checksDetail?: string
+  /** True when the PR cannot merge cleanly into its base branch. */
+  conflicts: boolean
+  labels: PullLabel[]
+}
+
+export interface PullRequestCommit {
+  oid: string
+  shortOid: string
+  messageHeadline: string
+  messageBody: string
+  author: string
+  date: string
+}
+
+export interface PullRequestFileChange {
+  path: string
+  /** Pre-rename path, present only for renames. */
+  oldPath?: string
+  additions: number
+  deletions: number
+}
+
+/** One entry in the PR timeline: a comment or a review verdict. */
+export interface PullRequestComment {
+  id: string
+  kind: 'comment' | 'review'
+  author: string
+  body: string
+  createdAt: string
+  /** Only set on reviews. */
+  decision?: ReviewDecision
+}
+
+/** `gh pr view` plus the commit and file lists the detail pages render. */
+export interface PullRequestDetail extends PullRequestSummary {
+  body: string
+  headRepo: string | null
+  baseRepo: string | null
+  additions: number
+  deletions: number
+  changedFiles: number
+  commits: PullRequestCommit[]
+  files: PullRequestFileChange[]
+  comments: PullRequestComment[]
+}
+
+/** Result of probing `gh` for the window's selected repository. */
+export interface GithubStatus {
+  /** `gh` was found on PATH. */
+  available: boolean
+  authenticated: boolean
+  /** The authenticated login, when known. */
+  user: string | null
+  /** `owner/name` for the selected cwd, or null when it has no GitHub remote. */
+  repo: string | null
+  /** Why `gh` is unusable, verbatim — the UI shows this next to the demo notice. */
+  error: string | null
+}
+
+export interface GithubApi {
+  status(cwd: string): Promise<RpcResult<GithubStatus>>
+  pulls(cwd: string, filter: PullFilter, state: PullStateFilter): Promise<RpcResult<PullRequestSummary[]>>
+  pull(cwd: string, number: number): Promise<RpcResult<PullRequestDetail>>
+  /** Raw unified patch, split per file by the renderer. */
+  diff(cwd: string, number: number): Promise<RpcResult<string>>
+  comment(cwd: string, number: number, body: string): Promise<RpcResult<void>>
+}
+
 // API exposed on window.myagent by the preload script.
 export interface MyagentApi {
   connect(): Promise<RpcResult<{ name: string; version: string }>>
@@ -413,4 +534,5 @@ export interface MyagentApi {
   onWindowMaximized(cb: (maximized: boolean) => void): () => void
   onPush(cb: (push: ServerPush) => void): () => void
   git: GitApi
+  github: GithubApi
 }

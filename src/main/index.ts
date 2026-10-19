@@ -5,8 +5,16 @@ import { join } from 'path'
 import { release } from 'os'
 import { startServer, SpawnedServer } from './server'
 import { RpcClient } from './rpc'
-import type { AgentEvent, BackdropMode, RpcResult, ServerPush } from '../shared/protocol'
+import type {
+  AgentEvent,
+  BackdropMode,
+  PullFilter,
+  PullStateFilter,
+  RpcResult,
+  ServerPush
+} from '../shared/protocol'
 import * as git from './git'
+import * as gh from './gh'
 
 let win: BrowserWindow | null = null
 let server: SpawnedServer | null = null
@@ -378,6 +386,18 @@ app.whenReady().then(() => {
   gitHandle('myagent:git:createBranch', (cwd: string, name: string) => git.createBranch(cwd, name))
   gitHandle('myagent:git:init', (cwd: string) => git.init(cwd))
 
+  // GitHub rides the same wrapper as git: gh's own stderr is the message the
+  // window shows when it has to fall back to demo data.
+  gitHandle('myagent:github:status', (cwd: string) => gh.status(cwd))
+  gitHandle('myagent:github:pulls', (cwd: string, filter: PullFilter, state: PullStateFilter) =>
+    gh.pulls(cwd, filter, state)
+  )
+  gitHandle('myagent:github:pull', (cwd: string, number: number) => gh.pull(cwd, number))
+  gitHandle('myagent:github:diff', (cwd: string, number: number) => gh.diff(cwd, number))
+  gitHandle('myagent:github:comment', (cwd: string, number: number, body: string) =>
+    gh.comment(cwd, number, body)
+  )
+
   ipcMain.handle('myagent:window:minimize', () => win?.minimize())
   ipcMain.handle('myagent:window:toggleMaximize', () => {
     if (!win) return false
@@ -400,7 +420,14 @@ app.whenReady().then(() => {
       if (target === 'vscode') {
         const launched = await new Promise<boolean>((resolve) => {
           const exe = process.platform === 'win32' ? 'code.cmd' : 'code'
-          execFile(exe, ['-n', dir], { shell: process.platform === 'win32' }, (err) => resolve(!err))
+          // windowsHide: with shell:true Node spawns cmd.exe (a console app),
+          // which would flash a console window from this console-less parent.
+          execFile(
+            exe,
+            ['-n', dir],
+            { shell: process.platform === 'win32', windowsHide: true },
+            (err) => resolve(!err)
+          )
         })
         if (launched) return true
       }

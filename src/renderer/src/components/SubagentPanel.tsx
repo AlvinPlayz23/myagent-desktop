@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { ChevronRight, Loading03, Robot01 } from './ui/icons'
+import SubagentDetail from './SubagentDetail'
 import {
   SUBAGENT_STATUS,
   subagentElapsedLabel,
@@ -43,7 +44,7 @@ function TaskRow({
 }: {
   task: SubagentTask
   now: number
-  /** Opens the full detail modal for this task. */
+  /** Drills the panel into this task's detail. */
   onOpen(task: SubagentTask): void
 }): JSX.Element {
   const status = SUBAGENT_STATUS[task.state]
@@ -99,20 +100,49 @@ function TaskRow({
  * "what is the agent actually doing right now" — which matters most for
  * running children, since the parent turn has usually ended by the time a
  * report is still outstanding.
+ *
+ * It is also where a task's detail lives: selecting a row (here or from either
+ * transcript row) drills the same column into the full report instead of
+ * opening a dialog over the app. `detailTask` is resolved by key in App, so a
+ * detail left open on a running child fills in when its report lands.
  */
 function SubagentPanel({
   tasks,
   onClose,
-  onOpen
+  onOpen,
+  detailTask,
+  detailLaunchError,
+  onBack,
+  onShowInConversation
 }: {
   tasks: SubagentTask[]
   onClose(): void
-  /** Opens the full detail modal for a task. */
+  /** Drills the panel into a task's detail. */
   onOpen(task: SubagentTask): void
+  /** The task to show in detail, or undefined for the list. */
+  detailTask?: SubagentTask
+  detailLaunchError?: string
+  /** Returns the panel to its task list. */
+  onBack(): void
+  /** Returns to the list and scrolls the transcript to this task's row. */
+  onShowInConversation(task: SubagentTask): void
 }): JSX.Element {
   const running = tasks.filter((t) => t.state === 'running')
   const finished = tasks.filter((t) => t.state !== 'running')
   const now = useNow(running.length > 0)
+
+  // Kept below the hook on purpose: an early return above `useNow` would make
+  // the clock conditional and break the hook order between list and detail.
+  if (detailTask) {
+    return (
+      <SubagentDetail
+        task={detailTask}
+        launchError={detailLaunchError}
+        onBack={onBack}
+        onShowInConversation={onShowInConversation}
+      />
+    )
+  }
 
   const section = (title: string, rows: SubagentTask[]): JSX.Element | null => {
     if (rows.length === 0) return null

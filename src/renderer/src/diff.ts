@@ -163,6 +163,10 @@ export function buildToolDiff(run: Pick<ToolRun, 'name' | 'args'>): ToolDiff | n
 // buildToolDiff, line numbers come from the @@ hunk headers and are real
 // file offsets. Returns null when the patch contains no hunks (binary files,
 // pure mode changes).
+//
+// Each block's header is the hunk line verbatim (`@@ -436,6 +436,7 @@ fn send(`),
+// which is how a unified diff is meant to read: the range tells you where you
+// are, and the trailing context tells you what the change sits in.
 export function parseUnifiedDiff(patch: string): ToolDiff | null {
   const blocks: DiffBlock[] = []
   let lines: DiffLine[] = []
@@ -186,7 +190,7 @@ export function parseUnifiedDiff(patch: string): ToolDiff | null {
       flush(pendingHeader)
       oldNo = Number(hunk[1])
       newNo = Number(hunk[2])
-      pendingHeader = hunk[3].trim() || undefined
+      pendingHeader = raw.trim() || undefined
       continue
     }
 
@@ -209,4 +213,61 @@ export function parseUnifiedDiff(patch: string): ToolDiff | null {
 
   if (blocks.length === 0) return null
   return { additions, deletions, blocks }
+}
+
+export interface PatchFile {
+  path: string
+  oldPath?: string
+  /** The per-file slice of the patch, including its `diff --git` header. */
+  patch: string
+}
+
+/** Drop git's `a/`/`b/` prefix and unquote a path git escaped. */
+function stripGitPrefix(value: string): string {
+  if (value === '/dev/null') return ''
+  let out = value
+  if (/^[ab]\//.test(out)) out = out.slice(2)
+  if (out.startsWith('"') && out.endsWith('"')) out = out.slice(1, -1).replace(/\\(.)/g, '$1')
+  return out
+}
+
+/**
+ * Split a multi-file unified patch into one entry per file, so the diff viewer
+ * can give each file its own card, tree row and diff stat. Paths come from the
+ * `---`/`+++` lines rather than the `diff --git` header, which is the only
+ * source that survives paths containing spaces or quotes.
+ */
+export function splitUnifiedPatch(patch: string): PatchFile[] {
+  const files: PatchFile[] = []
+  let current: PatchFile | null = null
+
+  for (const raw of patch.split('\n')) {
+    if (raw.startsWith('diff --git ')) {
+      const guessed = /^diff --git (?:a\/)?(.*?) (?:b\/)?(.*)$/.exec(raw)
+      if (current) files.push(current)
+      current = { path: stripGitPrefix(guessed?.[2] ?? ''), patch: '' }
+      continue
+    }
+    if (!current) continue
+    current.patch += raw + '\n'
+
+    if (raw.startsWith('+++ ')) {
+      const next = stripGitPrefix(raw.slice(4).trim())
+      if (next) current.path = next
+      continue
+    }
+    if (raw.startsWith('--- ')) {
+      const previous = stripGitPrefix(raw.slice(4).trim())
+      if (previous && previous !== current.path) current.oldPath = previous
+      continue
+    }
+    // A binary file has no ---/+++ pair to read the path from.
+    const binary = /^Binary files (.+?) and (.+?) differ$/.exec(raw)
+    if (binary) {
+      current.oldPath = stripGitPrefix(binary[1] ?? '')
+      current.path = stripGitPrefix(binary[2] ?? '') || current.path
+    }
+  }
+  if (current) files.push(current)
+  return files.filter((file) => file.path)
 }

@@ -48,7 +48,7 @@ export default function Chat({
   toolActivityDisplay?: ToolActivityDisplay
   compactSummary?: boolean
   workingOrb?: OrbVariant
-  /** Opens the detail modal for a subagent task. */
+  /** Drills the subagents panel into the detail for a task. */
   onOpenSubagent(task: SubagentTask, launchError?: string): void
 }): JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)

@@ -75,7 +75,7 @@ function ToolGroup({
    */
   live?: boolean
   compactSummary?: boolean
-  /** Opens the detail modal for a subagent task. */
+  /** Drills the subagents panel into the detail for a task. */
   onOpenSubagent(task: SubagentTask, launchError?: string): void
 }): JSX.Element | null {
   const [open, setOpen] = useState(false)

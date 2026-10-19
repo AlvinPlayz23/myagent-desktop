@@ -18,6 +18,7 @@ export type ShortcutId =
   | 'modelPicker'
   | 'toggleDebug'
   | 'toggleSubagents'
+  | 'toggleGitWindow'
   | 'commands'
   | 'closeTab'
   | 'switchTab1' | 'switchTab2' | 'switchTab3' | 'switchTab4' | 'switchTab5'
@@ -56,6 +57,7 @@ export const shortcuts: Shortcut[] = [
   { id: 'modelPicker', description: 'Open the model picker', combo: 'mod+m', category: 'Agent', global: true },
   { id: 'toggleDebug', description: 'Toggle the LLM debug panel', combo: 'mod+j', category: 'Panels', global: true },
   { id: 'toggleSubagents', description: 'Toggle the subagents panel', combo: 'mod+shift+a', category: 'Panels', global: true },
+  { id: 'toggleGitWindow', description: 'Open the source-control window', combo: 'mod+shift+g', category: 'Panels', global: true },
   { id: 'commands', description: 'Open the commands reference', combo: 'mod+/', category: 'Panels', global: true },
   { id: 'closeTab', description: 'Close the current tab', combo: 'mod+w', category: 'Navigation', global: true },
   { id: 'switchTab1', description: 'Switch to tab 1', combo: 'mod+1', category: 'Navigation', global: true },

@@ -18,6 +18,7 @@ import WindowControls from './components/WindowControls'
 import TabBar from './components/TabBar'
 import OpenWith from './components/OpenWith'
 import GitPanel from './components/GitPanel'
+import GitWindow from './git/GitWindow'
 import SubagentPanel from './components/SubagentPanel'
 import { useDiffStats } from './hooks/use-diff-stats'
 import { subagentTaskIndex, subagentTaskList, revealSubagentInTranscript, type SubagentTask } from './subagents'
@@ -29,7 +30,6 @@ import type { CommandName } from './commands'
 import CommandModal from './components/CommandModal'
 import RenameSessionModal from './components/RenameSessionModal'
 import ToolsModal from './components/ToolsModal'
-import SubagentModal from './components/SubagentModal'
 import { matchShortcut, composerFocus, composerModelPicker, type ShortcutId } from './shortcuts'
 import type { ContentBlock, ReasoningEffort } from '../../shared/protocol'
 
@@ -42,6 +42,10 @@ export default function App(): JSX.Element {
   // debug-panel: drawer open/closed state
   const [debugOpen, setDebugOpen] = useState(false)
   const [gitOpen, setGitOpen] = useState(false)
+  // The full-window source-control screen. Separate from `gitOpen` (the 320px
+  // staging panel): they answer different questions and are used at different
+  // moments, so neither replaces the other.
+  const [gitWindowOpen, setGitWindowOpen] = useState(false)
   const [subagentsOpen, setSubagentsOpen] = useState(false)
   const [preferences, setPreferences] = useState<Preferences>(loadPreferences)
   const [queuedFollowUps, setQueuedFollowUps] = useState<{ id: string; sessionId: string; content: ContentBlock[]; label: string }[]>([])
@@ -49,11 +53,12 @@ export default function App(): JSX.Element {
   const [sessionPreferences, setSessionPreferences] = useState<SessionPreferences>(loadSessionPreferences)
   const [modal, setModal] = useState<'help' | 'tools' | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
-  // The open subagent detail modal, by task key. Resolved against the live
-  // index on every render (not stored as an object) so a modal left open on a
-  // running child fills in when its report lands. launchError rides along
-  // because only the transcript card holds the tool run that produced it.
-  const [subagentModal, setSubagentModal] = useState<{ key: string; launchError?: string } | null>(null)
+  // The subagent shown in the side panel's detail view, by task key. Resolved
+  // against the live index on every render (not stored as an object) so a
+  // detail left open on a running child fills in when its report lands.
+  // launchError rides along because only the transcript card holds the tool run
+  // that produced it. Null means the panel shows its list.
+  const [subagentDetail, setSubagentDetail] = useState<{ key: string; launchError?: string } | null>(null)
   const chat = activeChat(state)
   const activeSession = useRef<string | null>(null)
   const conn = useRef(state.conn)
@@ -148,6 +153,12 @@ export default function App(): JSX.Element {
   useEffect(() => {
     saveSessionPreferences(sessionPreferences)
   }, [sessionPreferences])
+
+  // Switching tabs drops any open subagent detail with it: the panel remounts
+  // on the new session, and a key resolved against the old chat is meaningless.
+  useEffect(() => {
+    setSubagentDetail(null)
+  }, [chat?.sessionId])
 
   // Settled (non-retry) notices auto-dismiss after a few seconds so they don't
   // linger in the composer. Live retry notices persist until the run resolves.
@@ -322,19 +333,25 @@ export default function App(): JSX.Element {
     startChromeAnimation(200)
     setGitOpen((value) => !value)
   }, [])
+  // Closing the panel also drops the detail: reopening should land on the list,
+  // not on whatever task was last inspected.
   const toggleSubagents = useCallback(() => {
     startChromeAnimation(200)
     setSubagentsOpen((value) => !value)
+    setSubagentDetail(null)
   }, [])
   // Clicking any subagent row (transcript card, completion notice, side-panel
-  // row) opens the detail modal. Stored by key so the modal always reads the
-  // latest task object — including a report that lands while it is open.
+  // row) drills the side panel into that task's detail, opening the panel if it
+  // is closed. Stored by key so the detail always reads the latest task object —
+  // including a report that lands while it is open.
   const openSubagent = useCallback((task: SubagentTask, launchError?: string) => {
-    setSubagentModal({ key: task.key, launchError })
+    setSubagentsOpen(true)
+    setSubagentDetail({ key: task.key, launchError })
   }, [])
+  const closeSubagentDetail = useCallback(() => setSubagentDetail(null), [])
   const showSubagentInConversation = useCallback((task: SubagentTask) => {
-    setSubagentModal(null)
-    // Let the modal's exit fade out before the transcript jumps underneath it.
+    setSubagentDetail(null)
+    // Let the detail swap out of the panel before the transcript jumps.
     window.setTimeout(() => revealSubagentInTranscript(task.key), 60)
   }, [])
   const toggleSettings = useCallback(() => setView((v) => (v === 'settings' ? 'content' : 'settings')), [])
@@ -571,9 +588,10 @@ export default function App(): JSX.Element {
     [state.tabOrder, state.chats]
   )
   const diffStats = useDiffStats(tabCwds, preferences.tabDiffCounts, runningKey)
-  // The modal's task, resolved live by key. A null here (tab closed, session
-  // switched) unmounts the modal rather than showing a stale snapshot.
-  const subagentModalTask = subagentModal && chat ? subagentTaskIndex(chat).get(subagentModal.key) : undefined
+  // The detail's task, resolved live by key. Undefined (tab closed, session
+  // switched) falls the panel back to its list rather than a stale snapshot.
+  const subagentDetailTask =
+    subagentDetail && chat ? subagentTaskIndex(chat).get(subagentDetail.key) : undefined
 
   // Map each global shortcut id to the callback that should run. Held in a ref
   // so the keydown listener (subscribed once) always calls the latest closures
@@ -588,6 +606,7 @@ export default function App(): JSX.Element {
     compact: () => { if (chat && !chat.running) compact() },
     modelPicker: () => composerModelPicker.current?.(),
     toggleDebug: () => setDebugOpen((value) => !value),
+    toggleGitWindow: () => setGitWindowOpen((value) => !value),
     toggleSubagents: () => { if (chat) toggleSubagents() },
     closeTab: () => { if (chat) dispatch({ type: 'closeTab', sessionId: chat.sessionId }) },
     switchTab1: () => { const id = state.tabOrder[0]; if (id) dispatch({ type: 'focusChat', sessionId: id }) },
@@ -705,6 +724,7 @@ export default function App(): JSX.Element {
             debugOpen={debugOpen}
             onToggleGit={toggleGit}
             gitOpen={gitOpen}
+            onOpenGitWindow={() => setGitWindowOpen(true)}
             onToggleSubagents={toggleSubagents}
             subagentsOpen={subagentsOpen}
             runningSubagents={runningSubagents}
@@ -817,6 +837,7 @@ export default function App(): JSX.Element {
                       key={chat?.cwd ?? 'none'}
                       cwd={chat?.cwd ?? null}
                       onClose={() => setGitOpen(false)}
+                      onExpand={() => setGitWindowOpen(true)}
                     />
                   </div>
                 )}
@@ -832,8 +853,12 @@ export default function App(): JSX.Element {
                     <SubagentPanel
                       key={chat?.sessionId ?? 'none'}
                       tasks={subagentTasks}
-                      onClose={() => setSubagentsOpen(false)}
+                      onClose={() => { setSubagentsOpen(false); setSubagentDetail(null) }}
                       onOpen={openSubagent}
+                      detailTask={subagentDetailTask}
+                      detailLaunchError={subagentDetail?.launchError}
+                      onBack={closeSubagentDetail}
+                      onShowInConversation={showSubagentInConversation}
                     />
                   </div>
                 )}
@@ -842,7 +867,19 @@ export default function App(): JSX.Element {
           )}
         </AnimatePresence>
       </main>
-      <WindowControls />
+      {/* The window controls move into the source-control window while it is
+          open, so exactly one set exists and it stays above whatever is on top. */}
+      {!gitWindowOpen && <WindowControls />}
+      <AnimatePresence>
+        {gitWindowOpen && (
+          <GitWindow
+            key="git-window"
+            projects={projectList}
+            initialCwd={chat?.cwd ?? state.homeCwd ?? null}
+            onClose={() => setGitWindowOpen(false)}
+          />
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {view === 'settings' && (
           <Settings
@@ -875,17 +912,6 @@ export default function App(): JSX.Element {
       </AnimatePresence>
       <AnimatePresence>
         {renameTarget && <RenameSessionModal key="rename" initialTitle={renameTarget.title} onClose={() => setRenameTarget(null)} onSave={saveSessionRename} />}
-      </AnimatePresence>
-      <AnimatePresence>
-        {subagentModalTask && (
-          <SubagentModal
-            key={subagentModalTask.key}
-            task={subagentModalTask}
-            launchError={subagentModal?.launchError}
-            onClose={() => setSubagentModal(null)}
-            onShowInConversation={showSubagentInConversation}
-          />
-        )}
       </AnimatePresence>
     </div>
     </MotionConfig>

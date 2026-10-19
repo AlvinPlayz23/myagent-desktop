@@ -281,7 +281,7 @@ export function subagentFinishedTime(task: SubagentTask): string {
 /**
  * Brings the transcript row for a task into view. Rows carry
  * `data-subagent-task` with the task key (see SubagentToolCard/SubagentNotice),
- * so the side panel and the detail modal can both jump to the conversation.
+ * so the side panel and its detail view can both jump to the conversation.
  */
 export function revealSubagentInTranscript(key: string): void {
   const el = document.querySelector(`[data-subagent-task="${CSS.escape(key)}"]`)

@@ -1,7 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Cancel01Icon, FolderTreeIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons'
+import {
+  ArrowExpand01Icon,
+  Cancel01Icon,
+  FolderTreeIcon,
+  LeftToRightListBulletIcon
+} from '@hugeicons/core-free-icons'
 import {
   ArrowDown02,
   ArrowUp02,
@@ -273,9 +278,45 @@ function FileRow({
 interface Props {
   cwd: string | null
   onClose(): void
+  /** Open the full-window source-control screen on this project. */
+  onExpand(): void
 }
 
-export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
+/**
+ * Header for the states with nothing to act on yet (no session, or a folder
+ * that is not a repository). Without it those states offered no way to close
+ * the panel, because every button lived in the full header below.
+ */
+function PanelChrome({ onClose, onExpand }: { onClose(): void; onExpand(): void }): JSX.Element {
+  return (
+    <div className="flex shrink-0 items-center gap-1 border-b border-border/60 px-2 py-1.5">
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 pl-1.5">
+        <GitBranch01 size={13} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
+        <span className="truncate text-ui-sm font-medium text-muted-foreground">Source control</span>
+      </span>
+      <button
+        type="button"
+        title="Open in the source-control window"
+        aria-label="Open in the source-control window"
+        onClick={onExpand}
+        className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+      >
+        <HugeiconsIcon icon={ArrowExpand01Icon} size={14} strokeWidth={1.8} aria-hidden />
+      </button>
+      <button
+        type="button"
+        title="Close git panel"
+        aria-label="Close git panel"
+        onClick={onClose}
+        className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+      >
+        <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.8} aria-hidden />
+      </button>
+    </div>
+  )
+}
+
+export default function GitPanel({ cwd, onClose, onExpand }: Props): JSX.Element {
   const [status, setStatus] = useState<GitStatus | null>(null)
   const [branches, setBranches] = useState<GitBranch[]>([])
   const [commits, setCommits] = useState<GitCommit[]>([])
@@ -603,23 +644,29 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
 
   if (!cwd) {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-center text-ui-sm text-foreground-subtlest">
-        Open a session to see its repository.
+      <div className="flex h-full min-h-0 flex-col">
+        <PanelChrome onClose={onClose} onExpand={onExpand} />
+        <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-ui-sm text-foreground-subtlest">
+          Open a session to see its repository.
+        </div>
       </div>
     )
   }
 
   if (status && !status.isRepo) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="text-ui-sm text-foreground-subtlest">This folder is not a git repository.</p>
-        <button
-          type="button"
-          onClick={() => act('init', () => window.myagent.git.init(cwd))}
-          className="h-8 rounded-lg border border-border bg-background px-3 text-ui-sm font-medium text-foreground transition-colors hover:bg-hover"
-        >
-          Initialize repository
-        </button>
+      <div className="flex h-full min-h-0 flex-col">
+        <PanelChrome onClose={onClose} onExpand={onExpand} />
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+          <p className="text-ui-sm text-foreground-subtlest">This folder is not a git repository.</p>
+          <button
+            type="button"
+            onClick={() => act('init', () => window.myagent.git.init(cwd))}
+            className="h-8 rounded-lg border border-border bg-background px-3 text-ui-sm font-medium text-foreground transition-colors hover:bg-hover"
+          >
+            Initialize repository
+          </button>
+        </div>
       </div>
     )
   }
@@ -712,7 +759,17 @@ export default function GitPanel({ cwd, onClose }: Props): JSX.Element {
         </button>
         <button
           type="button"
+          title="Open in the source-control window"
+          aria-label="Open in the source-control window"
+          onClick={onExpand}
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+        >
+          <HugeiconsIcon icon={ArrowExpand01Icon} size={14} strokeWidth={1.8} aria-hidden />
+        </button>
+        <button
+          type="button"
           title="Close git panel"
+          aria-label="Close git panel"
           onClick={onClose}
           className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
         >

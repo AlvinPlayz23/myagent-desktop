@@ -93,23 +93,41 @@ function Block({
   )
 }
 
-/** `compact` is for narrow hosts (the git panel): slim gutter, no wrapping, horizontal scroll. */
-export default function DiffView({ diff, compact }: { diff: ToolDiff; compact?: boolean }): JSX.Element {
+/**
+ * `compact` is for narrow hosts (the git panel): slim gutter, no wrapping,
+ * horizontal scroll. `maxLines` and `viewportClassName` are for the reader
+ * hosts (the pull-request diff viewer), which render a whole file and scroll
+ * the page instead of folding after twenty lines. `bare` drops the wrapper's
+ * own border for hosts that already sit inside a card.
+ */
+export default function DiffView({
+  diff,
+  compact,
+  maxLines = MAX_LINES,
+  viewportClassName,
+  bare
+}: {
+  diff: ToolDiff
+  compact?: boolean
+  maxLines?: number
+  viewportClassName?: string
+  bare?: boolean
+}): JSX.Element {
   const [full, setFull] = useState(false)
   const total = diff.blocks.reduce((n, b) => n + b.lines.length, 0)
-  const truncated = !full && total > MAX_LINES
+  const truncated = !full && total > maxLines
 
   // Distribute the visible-line budget across blocks in order. The
-  // first MAX_LINES stay mounted; the remainder lives in the
+  // first maxLines stay mounted; the remainder lives in the
   // collapsible t-acc panel so "show more" grows via grid-rows.
-  let budget = MAX_LINES
+  let budget = maxLines
   const rendered = diff.blocks.map((block, i) => {
     if (budget <= 0) return null
     const el = <Block key={i} block={block} budget={budget} compact={compact} />
     budget -= block.lines.length
     return el
   })
-  let skip = MAX_LINES
+  let skip = maxLines
   const rest = diff.blocks.flatMap((block, i) => {
     if (skip >= block.lines.length) {
       skip -= block.lines.length
@@ -120,14 +138,20 @@ export default function DiffView({ diff, compact }: { diff: ToolDiff; compact?: 
     return [el]
   })
 
+  const viewport = cn(
+    'overflow-auto font-mono leading-[1.7]',
+    compact ? 'max-h-[360px] text-ui-xs' : 'max-h-[420px] text-ui-sm',
+    viewportClassName
+  )
+
   return (
-    <div className="t-acc overflow-hidden rounded-md border border-border/60" data-open={String(full)}>
-      <div className={cn('overflow-auto font-mono leading-[1.7]', compact ? 'max-h-[360px] text-ui-xs' : 'max-h-[420px] text-ui-sm')}>
+    <div className={cn('t-acc overflow-hidden', !bare && 'rounded-md border border-border/60')} data-open={String(full)}>
+      <div className={viewport}>
         <div className={cn(compact && 'w-max min-w-full')}>{rendered}</div>
       </div>
       <div className="t-acc-panel">
         <div className="t-acc-panel-inner">
-          <div className={cn('overflow-auto font-mono leading-[1.7]', compact ? 'max-h-[360px] text-ui-xs' : 'max-h-[420px] text-ui-sm')}>
+          <div className={viewport}>
             <div className={cn(compact && 'w-max min-w-full')}>{rest}</div>
           </div>
         </div>
@@ -139,7 +163,7 @@ export default function DiffView({ diff, compact }: { diff: ToolDiff; compact?: 
           onClick={() => setFull(true)}
         >
           <span className="inline-flex items-center gap-1.5">
-            show {total - MAX_LINES} more lines
+            show {total - maxLines} more lines
             <span className="t-acc-chevron" aria-hidden>
               <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={1.75} aria-hidden />
             </span>

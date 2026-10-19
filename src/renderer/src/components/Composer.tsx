@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, KeyboardEvent, Clipb
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Add01Icon, ArrowDown01Icon, ArrowUp02Icon, AudioWave01Icon, Cancel01Icon, Mic01Icon, StopIcon as StopIconGlyph } from '@hugeicons/core-free-icons'
+import { Add01Icon, ArrowDown01Icon, ArrowUp02Icon, Attachment01Icon, AudioWave01Icon, Cancel01Icon, Mic01Icon, StopIcon as StopIconGlyph } from '@hugeicons/core-free-icons'
 import { AddToList, ChevronRight, MouseLeftClick05, MouseRightClick05, Robot01, Search01, Tick01 } from './ui/icons'
 import JellyRadio from './ui/JellyRadio'
 import EffortSlider from './EffortSlider'
@@ -77,6 +77,10 @@ function ChevronDownIcon(): JSX.Element {
 
 function PlusIcon(): JSX.Element {
   return <HugeiconsIcon icon={Add01Icon} size={15} strokeWidth={1.75} aria-hidden />
+}
+
+function ClipIcon(): JSX.Element {
+  return <HugeiconsIcon icon={Attachment01Icon} size={15} strokeWidth={1.75} aria-hidden />
 }
 
 function CloseIcon(): JSX.Element {
@@ -375,6 +379,15 @@ interface Props {
 type HoverStyle = { opacity: number; transform: string; transition: string }
 const HOVER_HIDDEN: HoverStyle = { opacity: 0, transform: 'translateY(0px) scale(0.95)', transition: 'none' }
 
+/** Draft height caps. The compact pill reuses the same cap as its textarea so
+ *  the shell can never clip the content it is wrapping. */
+const COMPACT_MAX_HEIGHT = 120
+const CARD_MAX_HEIGHT = 220
+/** Line box of the compact textarea (`leading-[24px]`, `p-0`). The draft is
+ *  "wrapped" the moment it measures taller than one line; that is what docks
+ *  the controls onto their own row and swaps the pill radius for the card one. */
+const COMPACT_LINE_HEIGHT = 24
+
 export default function Composer({
   running,
   onSend,
@@ -401,6 +414,8 @@ export default function Composer({
   effortSelectorVariant = 'slider'
 }: Props): JSX.Element {
   const [text, setText] = useState('')
+  // 0 = not measured yet; the shell's min-h keeps the row height meanwhile.
+  const [pillHeight, setPillHeight] = useState(0)
   const [modelsOpen, setModelsOpen] = useState(false)
   const [modelQuery, setModelQuery] = useState('')
   const [activeProvider, setActiveProvider] = useState<string | null>(null)
@@ -561,22 +576,30 @@ export default function Composer({
     }
   }
 
-  const grow = (): void => {
+  // One source of truth for draft height: the textarea measures itself and the
+  // shell follows via `pillHeight`. The compact pill used to be pinned at
+  // h-[52px], so a wrapped draft grew inside the textarea but painted outside
+  // the rounded border.
+  const grow = useCallback((): void => {
     const el = area.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, compact ? 120 : 220)}px`
-  }
-
-  // Keep the textarea height in sync when morphing between card and pill.
-  useEffect(() => {
-    const el = area.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, compact ? 120 : 220)}px`
+    const next = Math.min(el.scrollHeight, compact ? COMPACT_MAX_HEIGHT : CARD_MAX_HEIGHT)
+    el.style.height = `${next}px`
+    setPillHeight((current) => (current === next ? current : next))
   }, [compact])
 
+  // Re-measure on every text/mode change, not only on keystrokes: dictation,
+  // slash-command autocomplete and clear-on-submit all mutate `text` without
+  // an input event, and the pill has to morph back down for those as well.
+  useEffect(() => {
+    grow()
+  }, [grow, text])
+
   const hasText = text.trim().length > 0
+  // `compact` clamps to COMPACT_MAX_HEIGHT, so the compact branch measures the
+  // pill; the card branch keeps its own 220px cap and never docks.
+  const pillTall = compact && pillHeight > COMPACT_LINE_HEIGHT
   const activeProviderLabel = model?.includes('/') ? model.split('/', 1)[0] : null
   // Never render a stale rail: if the selected provider vanished from the
   // list (deleted / renamed), fall back to the current model's provider,
@@ -1052,7 +1075,12 @@ export default function Composer({
               area.current?.focus()
             }
           }}
-          className="flex h-[52px] items-center gap-1 overflow-visible rounded-full border border-border bg-card py-2 pl-2 pr-2 shadow-sm transition-[border-color,box-shadow,height,border-radius] duration-[var(--resize-dur)] ease-[var(--resize-ease)] hover:border-border/80"
+          className={cn(
+            'flex min-h-[52px] flex-wrap items-center gap-1 overflow-visible border border-border bg-card py-2 pl-2 pr-2 shadow-sm transition-[border-color,box-shadow,border-radius] duration-[var(--resize-dur)] ease-[var(--resize-ease)] hover:border-border/80',
+            // One row -> a true pill. Wrapped -> the card radius, so the grown
+            // box reads as a rounded rectangle instead of a stretched capsule.
+            pillTall ? 'rounded-[26px]' : 'rounded-full'
+          )}
         >
           {/* Attach */}
           <button
@@ -1064,11 +1092,14 @@ export default function Composer({
             title="Attach images"
             aria-label="Attach images"
           >
-            <PlusIcon />
+            <ClipIcon />
           </button>
 
-          {/* Input */}
-          <div className="min-w-0 flex-1">
+          {/* Input. Once the draft wraps this claims the whole first row
+              (`order-first w-full`), which is what pushes every control below
+              it — the same reflow the reference does. Inline it just takes the
+              leftover space between attach and the right-hand tools. */}
+          <div className={cn(pillTall ? 'order-first w-full pl-4 pr-2' : 'min-w-0 flex-1')}>
             <textarea
               ref={area}
               value={text}
@@ -1082,7 +1113,7 @@ export default function Composer({
               }}
               onKeyDown={onKey}
               onPaste={onPaste}
-              className="block max-h-[120px] min-h-[24px] w-full resize-none border-0 bg-transparent p-0 text-ui-lg leading-[24px] text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground disabled:opacity-70"
+              className="block min-h-[24px] w-full resize-none overflow-y-auto border-0 bg-transparent p-0 text-ui-lg leading-[24px] text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground disabled:opacity-70"
             />
           </div>
 
@@ -1293,6 +1324,10 @@ export default function Composer({
           )}
 
           {contextSessionId && <ContextViewer key={contextSessionId} sessionId={contextSessionId} running={running} revision={contextRevision} model={model} />}
+
+          {/* Docked row only: pushes the send button to the far right while the
+              rest of the controls stay grouped on the left. Absent inline. */}
+          {pillTall && <div className="flex-1" aria-hidden />}
 
           {/* Primary action: wave (idle) / arrow (ready) / stop (busy) */}
           <button

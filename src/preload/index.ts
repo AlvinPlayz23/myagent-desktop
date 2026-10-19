@@ -38,6 +38,13 @@ const api: MyagentApi = {
     checkout: (cwd, branch) => ipcRenderer.invoke('myagent:git:checkout', cwd, branch),
     createBranch: (cwd, name) => ipcRenderer.invoke('myagent:git:createBranch', cwd, name),
     init: (cwd) => ipcRenderer.invoke('myagent:git:init', cwd)
+  },
+  github: {
+    status: (cwd) => ipcRenderer.invoke('myagent:github:status', cwd),
+    pulls: (cwd, filter, state) => ipcRenderer.invoke('myagent:github:pulls', cwd, filter, state),
+    pull: (cwd, number) => ipcRenderer.invoke('myagent:github:pull', cwd, number),
+    diff: (cwd, number) => ipcRenderer.invoke('myagent:github:diff', cwd, number),
+    comment: (cwd, number, body) => ipcRenderer.invoke('myagent:github:comment', cwd, number, body)
   }
 }
 
