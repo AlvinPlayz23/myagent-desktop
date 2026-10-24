@@ -509,6 +509,18 @@ export interface GithubStatus {
   error: string | null
 }
 
+export interface WorkspaceFile {
+  /** Path relative to the project root, with POSIX separators. */
+  path: string
+  /** Base name, used as the label on the mention chip. */
+  name: string
+}
+
+/** Local file search behind the composer's @ picker. */
+export interface FileApi {
+  search(cwd: string, query: string): Promise<RpcResult<WorkspaceFile[]>>
+}
+
 export interface GithubApi {
   status(cwd: string): Promise<RpcResult<GithubStatus>>
   pulls(cwd: string, filter: PullFilter, state: PullStateFilter): Promise<RpcResult<PullRequestSummary[]>>
@@ -532,7 +544,8 @@ export interface MyagentApi {
   windowMaximized(): Promise<boolean>
   openWith(target: 'explorer' | 'vscode', dir: string): Promise<boolean>
   onWindowMaximized(cb: (maximized: boolean) => void): () => void
-  onPush(cb: (push: ServerPush) => void): () => void
+  onPush(cb: (push: ServerPush[]) => void): () => void
   git: GitApi
   github: GithubApi
+  files: FileApi
 }

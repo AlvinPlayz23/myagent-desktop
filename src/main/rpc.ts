@@ -24,7 +24,7 @@ export class RpcClient {
 
   connect(url: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const ws = new WebSocket(url, { maxPayload: 64 * 1024 * 1024 })
+      const ws = new WebSocket(url, { maxPayload: 64 * 1024 * 1024, perMessageDeflate: false })
       let opened = false
       ws.on('open', () => {
         opened = true

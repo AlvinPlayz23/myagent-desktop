@@ -11,7 +11,8 @@ import type {
   SessionMeta,
   SessionTool,
   SessionTools,
-  ServerPush
+  ServerPush,
+  WorkspaceFile
 } from '../../shared/protocol'
 
 declare global {
@@ -43,7 +44,12 @@ export const api = {
   providers: (): Promise<ProvidersInfo> => call('provider.list'),
   pickFolder: (): Promise<string | null> => window.myagent.pickFolder(),
   openWith: (target: 'explorer' | 'vscode', dir: string): Promise<boolean> => window.myagent.openWith(target, dir),
-  onPush: (cb: (push: ServerPush) => void): (() => void) => window.myagent.onPush(cb),
+  /** Local project files for the composer's @ picker; empty on any failure. */
+  searchFiles: async (cwd: string, query: string): Promise<WorkspaceFile[]> => {
+    const res = await window.myagent.files.search(cwd, query)
+    return res.ok ? res.result : []
+  },
+  onPush: (cb: (push: ServerPush[]) => void): (() => void) => window.myagent.onPush(cb),
 
   createSession: (cwd?: string, provider?: string, model?: string, effort?: ReasoningEffort): Promise<SessionInfo> =>
     call('session.create', { cwd, provider, model, effort }),

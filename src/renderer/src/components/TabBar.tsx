@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowDown01Icon, Cancel01Icon, Loading03Icon, Message01Icon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, Cancel01Icon, Loading03Icon } from '@hugeicons/core-free-icons'
 import { cn } from '../util'
 import { BLOOM_FAST, EASE_OUT, bloomDown } from '../motion'
 import type { SessionMeta } from '../../../shared/protocol'
@@ -33,10 +33,11 @@ interface TabProps {
 }
 
 /**
- * One session tab. The leading glyph is the session's status (idle message
- * icon, or a spinner while a run is live) and trades places with the close
- * button on hover/focus, so the label keeps its full width and the close
- * target never sits next to the label's truncation edge.
+ * One session tab. The leading glyph is the session's status (a pin, or a
+ * spinner while a run is live) and trades places with the close button on
+ * hover/focus, so the label keeps its full width and the close target never
+ * sits next to the label's truncation edge. Idle, unpinned tabs show no
+ * glyph at all, so their label sits flush left.
  */
 function Tab({ id, label, active, running, pinned, diff, runIndicator, runIndicatorColor, focusable, onSelect, onClose, onKeyDown }: TabProps): JSX.Element {
   return (
@@ -75,21 +76,23 @@ function Tab({ id, label, active, running, pinned, diff, runIndicator, runIndica
         onKeyDown={onKeyDown}
         className="relative flex h-full min-w-0 flex-1 select-none items-center gap-2 rounded-lg pl-2.5 pr-7 text-left text-ui-caption font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="relative grid size-4 shrink-0 place-items-center">
-          {running ? (
-            <>
-              <RunIndicator variant={runIndicator} color={runIndicatorColor} />
-              <span className="sr-only">Running. </span>
-            </>
-          ) : pinned ? (
-            <>
-              <Pin02 size={13} strokeWidth={1.7} aria-hidden />
-              <span className="sr-only">Pinned. </span>
-            </>
-          ) : (
-            <HugeiconsIcon icon={Message01Icon} size={14} strokeWidth={1.5} aria-hidden />
-          )}
-        </span>
+        {/* Rendered only when there is something to show, so an idle tab's
+            label starts flush left and shifts over once a run begins. */}
+        {(running || pinned) && (
+          <span className="relative grid size-4 shrink-0 place-items-center">
+            {running ? (
+              <>
+                <RunIndicator variant={runIndicator} color={runIndicatorColor} />
+                <span className="sr-only">Running. </span>
+              </>
+            ) : (
+              <>
+                <Pin02 size={13} strokeWidth={1.7} aria-hidden />
+                <span className="sr-only">Pinned. </span>
+              </>
+            )}
+          </span>
+        )}
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {diff && (diff.insertions > 0 || diff.deletions > 0) && (
           <span className="flex shrink-0 items-center gap-1 font-mono text-ui-xs tabular-nums" title="Uncommitted changes">
@@ -227,7 +230,7 @@ function OverflowMenu({ hiddenIds, labelFor, runningIds, onSelect, onClose }: Ov
                       {running ? (
                         <HugeiconsIcon icon={Loading03Icon} size={13} strokeWidth={1.75} className="shrink-0 animate-spin text-[color:var(--busy)]" aria-hidden />
                       ) : (
-                        <HugeiconsIcon icon={Message01Icon} size={13} strokeWidth={1.5} className="shrink-0 text-foreground-subtlest" aria-hidden />
+                        <span className="size-[13px] shrink-0" aria-hidden />
                       )}
                       <span className="min-w-0 flex-1 truncate">{label}</span>
                     </button>

@@ -1,7 +1,9 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import '@fontsource-variable/inter'
-import '@fontsource-variable/geist-mono'
+// Inter for every piece of interface and prose text; IBM Plex Mono for code,
+// diffs, terminal output and shortcuts. Both are pinned to the subsets this UI
+// can actually display — the default imports pull cyrillic/greek/vietnamese and
+// spend ~120 KB on glyph ranges that never render here.
 import './styles.css'
 import App from './App'
 

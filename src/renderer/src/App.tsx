@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { bloomPanel } from './motion'
 import { api, ApiError } from './api'
-import { activeChat, contentMatches, contentText, initialState, loadHistory, newChat, reducer } from './state'
+import { activeChat, contentMatches, contentText, initialState, loadHistory, newChat, reducer, type ChatState } from './state'
 import { createStreamCoalescer, type StreamCoalescer } from './streamCoalescer'
 import { baseName, cn } from './util'
 import { startChromeAnimation } from './chromeAnimation'
@@ -13,12 +13,9 @@ import Composer from './components/Composer'
 import StatusBar from './components/StatusBar'
 import Home from './components/Home'
 import TopBar from './components/TopBar'
-import Settings from './components/Settings'
 import WindowControls from './components/WindowControls'
 import TabBar from './components/TabBar'
 import OpenWith from './components/OpenWith'
-import GitPanel from './components/GitPanel'
-import GitWindow from './git/GitWindow'
 import SubagentPanel from './components/SubagentPanel'
 import { useDiffStats } from './hooks/use-diff-stats'
 import { subagentTaskIndex, subagentTaskList, revealSubagentInTranscript, type SubagentTask } from './subagents'
@@ -27,13 +24,37 @@ import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
 import DebugPanel from './debug-panel/DebugPanel'
 import type { CommandName } from './commands'
-import CommandModal from './components/CommandModal'
-import RenameSessionModal from './components/RenameSessionModal'
-import ToolsModal from './components/ToolsModal'
 import { matchShortcut, composerFocus, composerModelPicker, type ShortcutId } from './shortcuts'
 import type { ContentBlock, ReasoningEffort } from '../../shared/protocol'
 
+// Surfaces the user has to ask for. They are large (Settings alone drags in
+// ProviderManager; GitWindow pulls the whole PR/pull-request screen) and at any
+// moment at most one is open, so shipping them in the entry chunk meant every
+// cold start parsed ~4k lines of code that mostly never runs. Splitting them
+// out is the single biggest win on first paint; each chunk is read from disk
+// the first time its surface opens.
+const Settings = lazy(() => import('./components/Settings'))
+const GitWindow = lazy(() => import('./git/GitWindow'))
+const GitPanel = lazy(() => import('./components/GitPanel'))
+const CommandModal = lazy(() => import('./components/CommandModal'))
+const RenameSessionModal = lazy(() => import('./components/RenameSessionModal'))
+const ToolsModal = lazy(() => import('./components/ToolsModal'))
+
+// Chunk loads resolve off local disk in single-digit milliseconds, so these
+// fallbacks are deliberately near-invisible: a spinner that flashes once is
+// worse than a moment of empty panel. They exist to avoid a layout jump, not
+// to announce progress.
+function PanelFallback(): JSX.Element {
+  return <div className="h-full w-full" aria-hidden />
+}
+
+function ScreenFallback(): JSX.Element {
+  return <div className="fixed inset-0 z-50 bg-background/80" aria-hidden />
+}
+
 const NO_SUBAGENTS: SubagentTask[] = []
+const NO_CWDS: string[] = []
+const NO_LABELS: string[] = []
 
 export default function App(): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -61,6 +82,16 @@ export default function App(): JSX.Element {
   const [subagentDetail, setSubagentDetail] = useState<{ key: string; launchError?: string } | null>(null)
   const chat = activeChat(state)
   const activeSession = useRef<string | null>(null)
+  // Streaming deltas replace the active ChatState object on every frame. The
+  // callbacks passed down to Composer/TopBar read it through this ref instead
+  // of closing over it, so their identity survives a whole run and memoised
+  // children can actually bail out mid-stream.
+  const chatRef = useRef<ChatState | null>(chat)
+  chatRef.current = chat
+  // Same idea for the session list: title lookups happen at click time, so the
+  // handlers that need them never change identity.
+  const sessionsRef = useRef(state.sessions)
+  sessionsRef.current = state.sessions
   const conn = useRef(state.conn)
   const chats = useRef(state.chats)
   activeSession.current = chat?.sessionId ?? null
@@ -208,49 +239,55 @@ export default function App(): JSX.Element {
   }, [chat?.sessionId, coalescer])
 
   useEffect(() => {
-    const off = api.onPush((push) => {
-      switch (push.kind) {
-        case 'hello':
-          dispatch({ type: 'hello', version: push.version })
-          break
-        case 'status': {
-          const prev = conn.current
-          conn.current = push.state
-          dispatch({ type: 'conn', state: push.state, detail: push.detail })
-          // Ownership is dropped server-side on disconnect; re-claim the open
-          // session after a successful reconnect.
-          if (push.state === 'connected' && prev !== 'connected' && activeSession.current) {
-            const id = activeSession.current
-            api
-              .resumeSession(id)
-              .then((info) =>
-                dispatch({
-                  type: 'openChat',
-                  chat: loadHistory(newChat(info.sessionId, info.cwd, info.model, info.effort ?? ''), info.messages)
-                })
-              )
-              .catch(() => {})
+    // Pushes arrive batched: the main process coalesces per-event server
+    // notifications into one IPC message per tick. The whole batch is handled
+    // inside one listener call, so React 18 folds the resulting dispatches
+    // into a single render pass — one wake-up per tick instead of per token.
+    const off = api.onPush((batch) => {
+      for (const push of batch) {
+        switch (push.kind) {
+          case 'hello':
+            dispatch({ type: 'hello', version: push.version })
+            break
+          case 'status': {
+            const prev = conn.current
+            conn.current = push.state
+            dispatch({ type: 'conn', state: push.state, detail: push.detail })
+            // Ownership is dropped server-side on disconnect; re-claim the open
+            // session after a successful reconnect.
+            if (push.state === 'connected' && prev !== 'connected' && activeSession.current) {
+              const id = activeSession.current
+              api
+                .resumeSession(id)
+                .then((info) =>
+                  dispatch({
+                    type: 'openChat',
+                    chat: loadHistory(newChat(info.sessionId, info.cwd, info.model, info.effort ?? ''), info.messages)
+                  })
+                )
+                .catch(() => {})
+            }
+            break
           }
-          break
+          case 'event':
+            if (push.event.type === 'message_end' && push.event.message?.role === 'user') {
+              setQueuedFollowUps((current) => {
+                const index = current.findIndex(
+                  (pending) => pending.sessionId === push.sessionId && contentMatches(pending.content, push.event.message!.content)
+                )
+                const next = index < 0 ? current : current.filter((_, itemIndex) => itemIndex !== index)
+                return next
+              })
+            }
+            coalescer.push(push.sessionId, push.event)
+            break
+          case 'done':
+            setQueuedFollowUps((current) => current.filter((pending) => pending.sessionId !== push.sessionId))
+            coalescer.drop(push.sessionId)
+            dispatch({ type: 'done', sessionId: push.sessionId, error: push.error })
+            refreshSessions()
+            break
         }
-        case 'event':
-          if (push.event.type === 'message_end' && push.event.message?.role === 'user') {
-            setQueuedFollowUps((current) => {
-              const index = current.findIndex(
-                (pending) => pending.sessionId === push.sessionId && contentMatches(pending.content, push.event.message!.content)
-              )
-              const next = index < 0 ? current : current.filter((_, itemIndex) => itemIndex !== index)
-              return next
-            })
-          }
-          coalescer.push(push.sessionId, push.event)
-          break
-        case 'done':
-          setQueuedFollowUps((current) => current.filter((pending) => pending.sessionId !== push.sessionId))
-          coalescer.drop(push.sessionId)
-          dispatch({ type: 'done', sessionId: push.sessionId, error: push.error })
-          refreshSessions()
-          break
       }
     })
     bootstrap()
@@ -390,6 +427,10 @@ export default function App(): JSX.Element {
 
   const send = useCallback(
     async (content: ContentBlock[], queue: boolean) => {
+      // Read through the ref: the callback then keeps one identity for the
+      // whole session, and `running` is evaluated at call time — the more
+      // correct reading if the turn started while the user was still typing.
+      const chat = chatRef.current
       if (!chat) return
       const sessionId = chat.sessionId
       const localId = crypto.randomUUID()
@@ -426,22 +467,25 @@ export default function App(): JSX.Element {
         throw err
       }
     },
-    [chat]
+    []
   )
 
   const stop = useCallback(() => {
+    const chat = chatRef.current
     if (chat) api.abort(chat.sessionId).catch(() => {})
-  }, [chat])
+  }, [])
 
   const compact = useCallback(() => {
+    const chat = chatRef.current
     if (!chat) return
     api.compact(chat.sessionId).catch((err) => {
       dispatch({ type: 'notice', text: err instanceof Error ? err.message : String(err) })
     })
-  }, [chat])
+  }, [])
 
   const changeModel = useCallback(
     async (provider: string, model: string) => {
+      const chat = chatRef.current
       if (!chat) return
       try {
         const result = await api.setModel(chat.sessionId, provider, model)
@@ -451,7 +495,7 @@ export default function App(): JSX.Element {
         dispatch({ type: 'notice', text: err instanceof Error ? err.message : String(err) })
       }
     },
-    [chat]
+    []
   )
 
   // Live-refreshes one provider's model list from its /v1/models endpoint and
@@ -466,6 +510,7 @@ export default function App(): JSX.Element {
 
   const changeEffort = useCallback(
     async (effort: ReasoningEffort) => {
+      const chat = chatRef.current
       if (!chat) return
       const previous = chat.effort
       dispatch({ type: 'effort', sessionId: chat.sessionId, effort })
@@ -477,22 +522,65 @@ export default function App(): JSX.Element {
         dispatch({ type: 'chatNotice', sessionId: chat.sessionId, text: err instanceof Error ? err.message : String(err) })
       }
     },
-    [chat]
+    []
   )
+
+  // Stable wrappers so the memoised composer is never handed a fresh arrow on
+  // a streaming delta.
+  const setEffort = useCallback((effort: ReasoningEffort) => void changeEffort(effort), [changeEffort])
+  const dismissChatNotice = useCallback(() => dispatch({ type: 'notice', text: null }), [])
+
+  // Every handler below is a stable reference: they are re-created only when
+  // their real dependencies move, never when a streaming delta lands. Without
+  // this the memoised Composer/TopBar/TabBar receive fresh arrows every frame
+  // and re-render anyway, which is what made the old `memo()` calls no-ops.
+  const toggleDebug = useCallback(() => setDebugOpen((value) => !value), [])
+  const closeDebug = useCallback(() => setDebugOpen(false), [])
+  const openGitWindow = useCallback(() => setGitWindowOpen(true), [])
+  const closeGitWindow = useCallback(() => setGitWindowOpen(false), [])
+  const openHelp = useCallback(() => setModal('help'), [])
+  const closeModal = useCallback(() => setModal(null), [])
+  const closeGit = useCallback(() => setGitOpen(false), [])
+  const closeSubagents = useCallback(() => {
+    setSubagentsOpen(false)
+    setSubagentDetail(null)
+  }, [])
+  const closeSettings = useCallback(() => setView('content'), [])
+  const dismissHomeNotice = useCallback(() => setHomeNotice(null), [])
+  const focusTab = useCallback((id: string) => dispatch({ type: 'focusChat', sessionId: id }), [])
+  const closeTab = useCallback((id: string) => dispatch({ type: 'closeTab', sessionId: id }), [])
+
+  // Title/rename read the session list at call time (via sessionsRef) instead
+  // of being rebuilt from `state.sessions` on every render.
+  const topBarTitle = useMemo(() => {
+    const id = chat?.sessionId
+    if (!id) return undefined
+    const session = state.sessions.find((s) => s.id === id)
+    return session?.title || session?.preview
+  }, [state.sessions, chat?.sessionId])
+
+  const renameActiveSession = useCallback(() => {
+    const id = chatRef.current?.sessionId
+    if (!id) return
+    const session = sessionsRef.current.find((s) => s.id === id)
+    setRenameTarget({ id, title: session?.title || session?.preview || '' })
+  }, [])
 
   // The server rejects a tools change with ErrBusy while a run is in flight
   // (the registry swap must not land mid-turn), so refuse it here too rather
   // than letting the user stage toggles that cannot be saved.
   const applyTools = useCallback((disabled: string[]) => {
+    const chat = chatRef.current
     if (!chat) return
     dispatch({
       type: 'chatNotice',
       sessionId: chat.sessionId,
       text: disabled.length === 0 ? 'All tools enabled.' : `Tools updated globally: ${disabled.length} disabled.`
     })
-  }, [chat])
+  }, [])
 
   const handleCommand = useCallback(async (name: CommandName, argument: string) => {
+    const chat = chatRef.current
     if (name === 'help') {
       if (argument) dispatch({ type: 'notice', text: argument })
       setModal('help')
@@ -518,7 +606,7 @@ export default function App(): JSX.Element {
       if (chat.running) dispatch({ type: 'notice', text: 'Stop the active run before compacting context.' })
       else compact()
     }
-  }, [compact, chat])
+  }, [compact])
 
   const renameSession = useCallback((id: string, currentTitle: string) => {
     setRenameTarget({ id, title: currentTitle })
@@ -532,8 +620,13 @@ export default function App(): JSX.Element {
 
   const archiveSession = useCallback((id: string) => {
     setSessionPreferences((current) => ({ ...current, [id]: { ...current[id], archived: true } }))
-    if (chat?.sessionId === id) dispatch({ type: 'home' })
-  }, [chat?.sessionId])
+    if (chatRef.current?.sessionId === id) dispatch({ type: 'home' })
+  }, [])
+
+  const archiveActiveSession = useCallback(() => {
+    const id = chatRef.current?.sessionId
+    if (id) archiveSession(id)
+  }, [archiveSession])
 
   const restoreSession = useCallback((id: string) => {
     setSessionPreferences((current) => ({ ...current, [id]: { ...current[id], archived: false } }))
@@ -583,11 +676,29 @@ export default function App(): JSX.Element {
   // subagentTaskList is memoized on chat identity, so this is free per token.
   const subagentTasks = chat ? subagentTaskList(chat) : NO_SUBAGENTS
   const runningSubagents = subagentTasks.reduce((n, t) => (t.state === 'running' ? n + 1 : n), 0)
-  const tabCwds = useMemo(
-    () => state.tabOrder.map((id) => state.chats[id]?.cwd).filter((cwd): cwd is string => !!cwd),
+  // Same string-key trick for the folder list: `chats` churns on every delta,
+  // but which folders the tabs point at only changes when a tab moves, so the
+  // array handed to useDiffStats keeps its identity mid-stream.
+  const tabCwdKey = useMemo(
+    () => state.tabOrder.map((id) => state.chats[id]?.cwd).filter((cwd): cwd is string => !!cwd).join('\n'),
     [state.tabOrder, state.chats]
   )
+  const tabCwds = useMemo(() => (tabCwdKey ? tabCwdKey.split('\n') : NO_CWDS), [tabCwdKey])
   const diffStats = useDiffStats(tabCwds, preferences.tabDiffCounts, runningKey)
+  // Projections handed to memoised children. Each is rebuilt only when its
+  // inputs really change, so a streaming delta leaves their identity alone.
+  const queuedFollowUpLabels = useMemo(
+    () =>
+      chat
+        ? queuedFollowUps.filter((pending) => pending.sessionId === chat.sessionId).map((pending) => pending.label)
+        : NO_LABELS,
+    [queuedFollowUps, chat?.sessionId]
+  )
+  const recentSessions = useMemo(
+    () => state.sessions.filter((session) => !archivedSessionIds.has(session.id)).slice(0, 6),
+    [state.sessions, archivedSessionIds]
+  )
+
   // The detail's task, resolved live by key. Undefined (tab closed, session
   // switched) falls the panel back to its list rather than a stale snapshot.
   const subagentDetailTask =
@@ -668,14 +779,17 @@ export default function App(): JSX.Element {
         runIndicator={preferences.runIndicator}
         sidebarRunColor={preferences.sidebarRunColor}
       />
-      <main className="main-panel surface-grain relative flex min-w-0 flex-1 overflow-hidden">
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* The tab strip rides the window shell, not the chat panel: the panel
+            below is its own rounded surface, so the strip reads as chrome
+            sitting on top of it rather than as part of the transcript. */}
         <div
           className={cn(
-            'drag-region relative flex h-9 shrink-0 items-center gap-2 overflow-visible pl-2 transition-[padding] duration-[160ms] ease-[var(--ease-smooth-out)]',
-            // With a side panel open the window controls sit over that panel's
-            // title strip, so the top bar no longer has to clear them.
-            gitOpen || subagentsOpen ? 'pr-2' : 'pr-[140px]'
+            'drag-region relative flex h-9 shrink-0 items-center gap-2 overflow-visible pl-2',
+            // The window controls are fixed over the top-right corner, and the
+            // strip now spans the full width whether or not a side panel is
+            // open, so it always has to clear them.
+            'pr-[140px]'
           )}
           onDoubleClick={(e) => {
             // Tabs, buttons and inputs own their double-clicks — only empty
@@ -700,8 +814,8 @@ export default function App(): JSX.Element {
             runIndicatorColor={runIndicatorColorValue(preferences.sidebarRunColor)}
             pinnedIds={pinnedSessionIds}
             diffStats={preferences.tabDiffCounts ? diffStats : undefined}
-            onSelect={(id) => dispatch({ type: 'focusChat', sessionId: id })}
-            onClose={(id) => dispatch({ type: 'closeTab', sessionId: id })}
+            onSelect={focusTab}
+            onClose={closeTab}
             onNew={goHome}
           />
           {chat && (
@@ -712,27 +826,26 @@ export default function App(): JSX.Element {
           )}
           <TopBar
             chat={chat}
-            title={chat ? (() => { const s = state.sessions.find((s) => s.id === chat.sessionId); return s?.title || s?.preview })() : undefined}
+            title={topBarTitle}
             onCompact={compact}
-            onRename={() => {
-              if (!chat) return
-              const s = state.sessions.find((s) => s.id === chat.sessionId)
-              renameSession(chat.sessionId, s?.title || s?.preview || '')
-            }}
-            onArchive={() => { if (chat) archiveSession(chat.sessionId) }}
-            onToggleDebug={() => setDebugOpen((v) => !v)}
+            onRename={renameActiveSession}
+            onArchive={archiveActiveSession}
+            onToggleDebug={toggleDebug}
             debugOpen={debugOpen}
             onToggleGit={toggleGit}
             gitOpen={gitOpen}
-            onOpenGitWindow={() => setGitWindowOpen(true)}
+            onOpenGitWindow={openGitWindow}
             onToggleSubagents={toggleSubagents}
             subagentsOpen={subagentsOpen}
             runningSubagents={runningSubagents}
             onSettings={toggleSettings}
             settingsOpen={view === 'settings'}
-            onHelp={() => setModal('help')}
+            onHelp={openHelp}
           />
         </div>
+        <div className="flex min-h-0 min-w-0 flex-1 gap-2 px-2 pb-2">
+        <div className="main-panel surface-grain relative flex min-w-0 flex-1 overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <AnimatePresence mode="popLayout">
         <motion.div
           key={chat ? `chat-${chat.sessionId}` : 'home'}
@@ -757,24 +870,25 @@ export default function App(): JSX.Element {
                 onModel={changeModel}
                 onDiscoverModels={discoverModels}
                 effort={chat.effort}
-                onSetEffort={(effort) => void changeEffort(effort)}
+                onSetEffort={setEffort}
                 sendOnEnter={preferences.sendOnEnter}
                 modelSelectorVariant={preferences.modelSelectorVariant}
                 effortSelectorVariant={preferences.effortSelectorVariant}
-                queuedFollowUps={queuedFollowUps.filter((pending) => pending.sessionId === chat.sessionId).map((pending) => pending.label)}
+                queuedFollowUps={queuedFollowUpLabels}
                 notice={chat.notice}
-                onDismissNotice={() => dispatch({ type: 'notice', text: null })}
+                onDismissNotice={dismissChatNotice}
                 onCommand={handleCommand}
                 contextSessionId={chat.sessionId}
                 contextRevision={chat.items.length + chat.lastTokens}
                 subagentRunning={preferences.subagentsChip && runningSubagents > 0}
                 subagentsOpen={subagentsOpen}
                 onToggleSubagents={toggleSubagents}
+                cwd={chat.cwd}
                 compact={chat.items.length > 0 || chat.streaming != null || chat.running || chat.awaitingStart}
               />
             </div>
             {/* debug-panel: LLM request/retry timeline drawer */}
-            <DebugPanel sessionId={chat.sessionId} open={debugOpen} onClose={() => setDebugOpen(false)} />
+            <DebugPanel sessionId={chat.sessionId} open={debugOpen} onClose={closeDebug} />
           </>
         ) : (
           <Home
@@ -790,12 +904,12 @@ export default function App(): JSX.Element {
             providers={state.providers}
             onDiscoverModels={discoverModels}
             notice={homeNotice}
-            onDismissNotice={() => setHomeNotice(null)}
+            onDismissNotice={dismissHomeNotice}
             sendOnEnter={preferences.sendOnEnter}
             modelSelectorVariant={preferences.modelSelectorVariant}
             effortSelectorVariant={preferences.effortSelectorVariant}
             onCommand={handleCommand}
-            recentSessions={state.sessions.filter((s) => !archivedSessionIds.has(s.id)).slice(0, 6)}
+            recentSessions={recentSessions}
             onOpenSession={openSession}
             onSettings={toggleSettings}
           />
@@ -821,31 +935,33 @@ export default function App(): JSX.Element {
               animate={{ width: 320, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-              className="shrink-0 overflow-hidden border-l border-border/60 bg-card/40"
+              className="shrink-0 overflow-hidden rounded-xl border border-border/60 bg-card/40"
             >
               <div className="flex h-full w-[320px] flex-col">
-                {/* The window controls are fixed over the top-right corner, so
-                    the panel starts below the title-bar strip or its header
-                    buttons would sit under them and swallow the clicks. */}
-                <div className="drag-region h-9 shrink-0" />
+                {/* No title-bar spacer: the window controls live over the tab
+                    strip above this panel, never over the panel itself. */}
                 {gitOpen && (
                   <div className={cn('min-h-0', subagentsOpen ? 'flex-[3]' : 'flex-1')}>
                     {/* Keyed on cwd so switching to a different project remounts
                         the panel: fresh status, fresh poll timer, and no chance of
                         the previous repo's in-flight reply landing here. */}
-                    <GitPanel
-                      key={chat?.cwd ?? 'none'}
-                      cwd={chat?.cwd ?? null}
-                      onClose={() => setGitOpen(false)}
-                      onExpand={() => setGitWindowOpen(true)}
-                    />
+                    <Suspense fallback={<PanelFallback />}>
+                      <GitPanel
+                        key={chat?.cwd ?? 'none'}
+                        cwd={chat?.cwd ?? null}
+                        onClose={closeGit}
+                        onExpand={openGitWindow}
+                      />
+                    </Suspense>
                   </div>
                 )}
                 {subagentsOpen && (
                   <div
                     className={cn(
                       'min-h-0 flex-[2]',
-                      gitOpen && 'border-t border-border/60 shadow-[0_-1px_0_0_var(--background)]'
+                      // Two panels sharing one card: the rule separates them
+                      // inside the surface, so it stays a hairline divider.
+                      gitOpen && 'border-t border-border/60'
                     )}
                   >
                     {/* Keyed on the session so switching tabs remounts and drops
@@ -853,7 +969,7 @@ export default function App(): JSX.Element {
                     <SubagentPanel
                       key={chat?.sessionId ?? 'none'}
                       tasks={subagentTasks}
-                      onClose={() => { setSubagentsOpen(false); setSubagentDetail(null) }}
+                      onClose={closeSubagents}
                       onOpen={openSubagent}
                       detailTask={subagentDetailTask}
                       detailLaunchError={subagentDetail?.launchError}
@@ -866,22 +982,27 @@ export default function App(): JSX.Element {
             </motion.aside>
           )}
         </AnimatePresence>
+        </div>
+        </div>
       </main>
       {/* The window controls move into the source-control window while it is
           open, so exactly one set exists and it stays above whatever is on top. */}
       {!gitWindowOpen && <WindowControls />}
       <AnimatePresence>
         {gitWindowOpen && (
-          <GitWindow
-            key="git-window"
-            projects={projectList}
-            initialCwd={chat?.cwd ?? state.homeCwd ?? null}
-            onClose={() => setGitWindowOpen(false)}
-          />
+          <Suspense fallback={<ScreenFallback />}>
+            <GitWindow
+              key="git-window"
+              projects={projectList}
+              initialCwd={chat?.cwd ?? state.homeCwd ?? null}
+              onClose={closeGitWindow}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
       <AnimatePresence>
         {view === 'settings' && (
+          <Suspense fallback={<ScreenFallback />}>
           <Settings
             key="settings-modal"
             preferences={preferences}
@@ -898,20 +1019,31 @@ export default function App(): JSX.Element {
             onDeleteProvider={async (name) => { const providers = await api.deleteProvider(name); dispatch({ type: 'providers', providers }) }}
             onDefaultProvider={async (name, model) => { const providers = await api.setDefaultProvider(name, model); dispatch({ type: 'providers', providers }) }}
             onDiscoverProvider={async (name, apiKey) => { const models = await api.discoverProviderModels(name, apiKey); const providers = await api.providers(); dispatch({ type: 'providers', providers }); return models }}
-            onClose={() => setView('content')}
+            onClose={closeSettings}
           />
+          </Suspense>
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {modal === 'help' && <CommandModal key="help" onClose={() => setModal(null)} />}
+        {modal === 'help' && (
+          <Suspense fallback={null}>
+            <CommandModal key="help" onClose={closeModal} />
+          </Suspense>
+        )}
       </AnimatePresence>
       <AnimatePresence>
         {modal === 'tools' && chat && (
-          <ToolsModal key="tools" sessionId={chat.sessionId} onClose={() => setModal(null)} onSaved={applyTools} />
+          <Suspense fallback={null}>
+            <ToolsModal key="tools" sessionId={chat.sessionId} onClose={closeModal} onSaved={applyTools} />
+          </Suspense>
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {renameTarget && <RenameSessionModal key="rename" initialTitle={renameTarget.title} onClose={() => setRenameTarget(null)} onSave={saveSessionRename} />}
+        {renameTarget && (
+          <Suspense fallback={null}>
+            <RenameSessionModal key="rename" initialTitle={renameTarget.title} onClose={() => setRenameTarget(null)} onSave={saveSessionRename} />
+          </Suspense>
+        )}
       </AnimatePresence>
     </div>
     </MotionConfig>

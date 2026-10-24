@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ChevronDown, CodeSimple, Folder01 } from './ui/icons'
 import { api } from '../api'
@@ -15,7 +15,7 @@ const TARGETS: { id: Target; label: string; Icon: typeof Folder01 }[] = [
 // in an external app. It lives in the title bar left of the frameless
 // window's caption controls (3 x 46px = 138px, fixed top-right) — App.tsx
 // offsets it by right-[148px] so it never covers minimize/maximize/close.
-export default function OpenWith({ cwd, disabled }: { cwd: string; disabled?: boolean }): JSX.Element {
+function OpenWith({ cwd, disabled }: { cwd: string; disabled?: boolean }): JSX.Element {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<Target | null>(null)
   const [failed, setFailed] = useState(false)
@@ -120,3 +120,6 @@ export default function OpenWith({ cwd, disabled }: { cwd: string; disabled?: bo
     </div>
   )
 }
+
+// Rendered from the drag strip, which sits in App's per-delta render path.
+export default memo(OpenWith)

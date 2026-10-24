@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Cancel01Icon, MinusSignIcon } from '@hugeicons/core-free-icons'
 import { Copy01, Square } from './ui/icons'
 
-export default function WindowControls(): JSX.Element {
+function WindowControls(): JSX.Element {
   const [maximized, setMaximized] = useState(false)
 
   useEffect(() => {
@@ -58,3 +58,8 @@ export default function WindowControls(): JSX.Element {
     </div>
   )
 }
+
+// Takes no props and never changes, but it is rendered from App — which still
+// re-renders on every streaming delta — so memo keeps the caption buttons out
+// of that path.
+export default memo(WindowControls)

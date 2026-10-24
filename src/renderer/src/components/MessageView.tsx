@@ -1,6 +1,6 @@
 import { memo, useState } from 'react'
 import type { Message } from '../../../shared/protocol'
-import Markdown from './Markdown'
+import Markdown from './LazyMarkdown'
 import Thinking from './Thinking'
 import MessageActions from './MessageActions'
 import { Alert02, Check, Copy01 } from './ui/icons'

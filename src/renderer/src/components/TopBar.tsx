@@ -293,5 +293,27 @@ function TopBar(props: Props): JSX.Element {
   )
 }
 
-export default memo(TopBar)
+// `chat` gets a new identity on every streaming delta, which defeats the
+// default shallow compare and repainted this strip dozens of times a second.
+// It only ever reads the session id, the folder name and the running flag —
+// all of which move on turn boundaries, not per token — so compare those by
+// value and everything else by reference.
+function propsEqual(prev: Props, next: Props): boolean {
+  if (prev.chat !== next.chat) {
+    if (
+      prev.chat?.sessionId !== next.chat?.sessionId ||
+      prev.chat?.cwd !== next.chat?.cwd ||
+      prev.chat?.running !== next.chat?.running
+    ) {
+      return false
+    }
+  }
+  for (const key of Object.keys(prev) as (keyof Props)[]) {
+    if (key === 'chat') continue
+    if (prev[key] !== next[key]) return false
+  }
+  return true
+}
+
+export default memo(TopBar, propsEqual)
 

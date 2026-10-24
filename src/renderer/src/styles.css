@@ -1,18 +1,49 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Inter, latin subset only. `@fontsource-variable/inter` ships one CSS file per
+   weight axis covering all seven subsets, and importing it would pull cyrillic,
+   greek and vietnamese into the bundle; the interface and all prose here is
+   latin, so the single relevant face is declared directly. The unicode-range
+   lets Chromium skip this file entirely if a page never needs those glyphs. */
 @font-face {
-  font-family: "Geist Variable";
+  font-family: "Inter Variable";
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url("../../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+  src: url("../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* IBM Plex Mono for code, diffs and terminal output. Declared here rather than
+   imported from @fontsource/ibm-plex-mono so only woff2 is emitted: those
+   packages also ship a legacy .woff per weight, which Chromium 130 never
+   requests, but which still costs 26 KB in the bundle and a hashed filename.
+   400 (body) and 500 (interactive/labels) are the only weights this UI uses. */
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../../../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2")
+    format("woff2");
 }
 
 @custom-variant dark (&:is(.dark, .dark *));
 
 /* ── design tokens ─────────────────────────────────────────────────────────
-   Restrained neutral surfaces, Inter / Geist Mono, and a 0.625rem base
+   Restrained neutral surfaces, Inter / IBM Plex Mono, and a 0.625rem base
    radius. Light is default;
    the `.dark` class (toggled from prefers-color-scheme in main.tsx) flips it.
 
@@ -25,9 +56,12 @@
 
 @theme inline {
   --font-sans:
-    "Geist Variable", "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  /* IBM Plex Mono ships as static weights (400/500 are the only ones this UI
+     uses), so there is no variable axis to declare here. The fallbacks after it
+     cover CJK and symbol ranges Plex omits. */
   --font-mono:
-    "Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Consolas,
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Consolas,
     "Liberation Mono", "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", monospace;
 
   /* ── UI type scale ────────────────────────────────────────────────────────
@@ -547,8 +581,6 @@
   }
   code, kbd, samp, pre {
     font-family: var(--font-mono);}
-  html {
-    @apply font-sans font-mono;}
 }
 
 /* App-chrome grain, baked into surfaces that opt in. */
@@ -1730,12 +1762,15 @@
 
 /* Comet-inspired translucent sidebar: give the rail its own frosted tint
    when the window has a compositor blur. Otherwise the 5% hover wash is
-   invisible over a sharp wallpaper. */
+   invisible over a sharp wallpaper.
+
+   No divider here. The chat panel is a separated card inset from the rail, so
+   a second vertical rule right next to it read as a stray line — and on a
+   transparent window the rounded card already supplies the edge. */
 [data-backdrop]:not([data-backdrop='none']) .app-sidebar {
   background: color-mix(in srgb, var(--shell) 58%, transparent);
   backdrop-filter: blur(20px) saturate(1.2);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  border-right: 1px solid var(--border);
 }
 [data-backdrop]:not([data-backdrop='none']):not(.dark) .app-sidebar {
   background: color-mix(in srgb, var(--shell) 72%, transparent);
@@ -1792,19 +1827,20 @@
 /* The chat panel. Opaque by definition; the grain lives here now that the body
    no longer paints (film grain over acrylic reads as dirt).
 
-   It runs flush to the window's bottom and right edges, so only the two edges
-   that actually face the shell get a border and a rounded corner. The window's
-   own corner rounding is handled by `.app-shell`, which clips this. */
+   It is a separated card floating inside the window: the tab strip above rides
+   the shell, and the panel is inset from the sidebar, the strip, the bottom
+   edge and the side panels, so all four edges round together. The window's own
+   corner rounding still belongs to `.app-shell`, which clips the whole thing.
+
+   Separation is tonal plus a soft lift, deliberately *not* a hairline border.
+   A 1px CSS border lands on a fractional device pixel at the common 125%/150%
+   Windows scale factors, and Chromium then anti-aliases it into a faint line
+   that reads as a stray rule next to the rail — the panel is already lighter
+   than the shell, so the edge does not need drawing. */
 @utility main-panel {
   background: var(--background);
-  border-top: 1px solid var(--border);
-  border-left: 1px solid var(--border);
-  border-top-left-radius: 0.875rem;
-  border-top-right-radius: 0.875rem;
-}
-.window-maximized .main-panel {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
 }
 
 /* A dim band sweeping through the text, marking "the agent is working on this".
@@ -1912,6 +1948,28 @@
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Composer draft: a contenteditable so `@file` mentions can sit inline as
+   chips. Its placeholder is a sibling span driven by the draft state, not a
+   `:empty` rule: the browser leaves an empty node or <br> behind after the last
+   character is deleted, which would keep `:empty` from ever matching again. */
+.draft-input {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* Inline (not inline-block) on purpose: the chip then shares the draft's line
+   box and baseline, so it can never sit off the caret's baseline or push the
+   line taller. The vertical padding paints the pill without affecting layout. */
+.draft-chip {
+  padding: 0.14em 0.4em;
+  border-radius: 5px;
+  background: var(--accent);
+  color: var(--foreground);
+  white-space: nowrap;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  user-select: none;
 }
 
 /* Clipboard/file attachment previews need a neutral edge so light images do

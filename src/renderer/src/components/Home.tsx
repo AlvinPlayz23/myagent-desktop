@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Message01Icon } from '@hugeicons/core-free-icons'
@@ -45,7 +45,7 @@ const rise = {
   initial: { opacity: 0, y: 6 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.24, ease: EASE_OUT } }
 }
-export default function Home(props: Props): JSX.Element {
+function Home(props: Props): JSX.Element {
   const {
     loading, fatal, projects, selected, appName,
     onSelect, onAddProject, onSend, onRetry,
@@ -201,6 +201,7 @@ export default function Home(props: Props): JSX.Element {
                   return onSend(content, model || undefined, effectiveEffort)
                 }}
                 onStop={() => {}}
+                cwd={current?.cwd ?? null}
                 placeholder={`Start a session in ${current?.name ?? 'this project'}…`}
                 model={model || providers.defaultModel}
                 providers={providers}
@@ -284,3 +285,8 @@ export default function Home(props: Props): JSX.Element {
     </div>
   )
 }
+
+// The home screen stays mounted while a background session streams, and App
+// re-renders on every delta. Its props are all identity-stable, so memo keeps
+// the project picker and recent-session list out of that path.
+export default memo(Home)

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -316,7 +316,7 @@ function PanelChrome({ onClose, onExpand }: { onClose(): void; onExpand(): void 
   )
 }
 
-export default function GitPanel({ cwd, onClose, onExpand }: Props): JSX.Element {
+function GitPanel({ cwd, onClose, onExpand }: Props): JSX.Element {
   const [status, setStatus] = useState<GitStatus | null>(null)
   const [branches, setBranches] = useState<GitBranch[]>([])
   const [commits, setCommits] = useState<GitCommit[]>([])
@@ -1019,3 +1019,9 @@ export default function GitPanel({ cwd, onClose, onExpand }: Props): JSX.Element
     </CwdContext.Provider>
   )
 }
+
+// The panel is mounted for as long as the side column is open, so without this
+// every streaming delta in App re-rendered the whole source-control surface
+// (and re-ran its status/diff derivations). Its props are folder and callbacks
+// only — all identity-stable now — so a shallow compare is enough.
+export default memo(GitPanel)

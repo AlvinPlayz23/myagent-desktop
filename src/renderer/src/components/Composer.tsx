@@ -1,21 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState, KeyboardEvent, ClipboardEvent } from 'react'
+import { memo, useCallback, useEffect, useRef, useState, KeyboardEvent, ClipboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Add01Icon, ArrowDown01Icon, ArrowUp02Icon, Attachment01Icon, AudioWave01Icon, Cancel01Icon, Mic01Icon, StopIcon as StopIconGlyph } from '@hugeicons/core-free-icons'
-import { AddToList, ChevronRight, MouseLeftClick05, MouseRightClick05, Robot01, Search01, Tick01 } from './ui/icons'
-import JellyRadio from './ui/JellyRadio'
-import EffortSlider from './EffortSlider'
+import { AddToList, Robot01 } from './ui/icons'
 import ContextViewer from './ContextViewer'
-import HoverTooltip from './ui/HoverTooltip'
-import type { ContentBlock, ProvidersInfo, ReasoningEffort } from '../../../shared/protocol'
+import FileMentionPopup from './FileMentionPopup'
+import { api } from '../api'
+import type { ContentBlock, ProvidersInfo, ReasoningEffort, WorkspaceFile } from '../../../shared/protocol'
 import type { EffortSelectorVariant, ModelSelectorVariant } from '../preferences'
 import { cn } from '../util'
 import { commandMatches, parseCommand, type CommandName } from '../commands'
-import { composerFocus, composerModelPicker } from '../shortcuts'
-import { BLOOM_FAST, bloomUp } from '../motion'
-import ProviderLogo from './ProviderLogo'
-import ModelSelectorGallery, { ModelIcon } from './ModelSelectorGallery'
+import { composerFocus } from '../shortcuts'
+import ModelEffortPicker from './ModelEffortPicker'
 
 // ----------------------------------------------------------------------
 // Physics & Colors
@@ -26,34 +23,6 @@ const EASE_EXPAND = "cubic-bezier(0.22, 1, 0.36, 1)"
 // ----------------------------------------------------------------------
 // Sub-components requested by USER
 // ----------------------------------------------------------------------
-
-function MorphingText({ text }: { text: string }): JSX.Element {
-  const [width, setWidth] = useState<number | "auto">("auto")
-  const spanRef = useRef<HTMLSpanElement>(null)
-
-  useEffect(() => {
-    if (spanRef.current) {
-      setWidth(spanRef.current.offsetWidth)
-    }
-  }, [text])
-
-  return (
-    <span
-      className="relative inline-flex items-center justify-center overflow-hidden transition-[width] duration-[var(--resize-dur)] ease-[var(--resize-ease)]"
-      style={{ width }}
-    >
-      <span ref={spanRef} className="invisible whitespace-nowrap px-1">
-        {text}
-      </span>
-      <span
-        key={text}
-        className="absolute inset-0 flex items-center justify-center whitespace-nowrap animate-in fade-in zoom-in-95 duration-[var(--duration-quick)]"
-      >
-        {text}
-      </span>
-    </span>
-  )
-}
 
 function ArrowUpIcon(): JSX.Element {
   return <HugeiconsIcon icon={ArrowUp02Icon} size={14} strokeWidth={2} aria-hidden />
@@ -85,51 +54,6 @@ function ClipIcon(): JSX.Element {
 
 function CloseIcon(): JSX.Element {
   return <HugeiconsIcon icon={Cancel01Icon} size={11} strokeWidth={2} aria-hidden />
-}
-
-// Four arc segments of a ring, filled clockwise from 12 o'clock as effort rises.
-const ARC_PATHS = ((): string[] => {
-  const C = 7
-  const R = 4.6
-  const SPAN = 68
-  const GAP = 22
-  const point = (deg: number): string => {
-    const rad = ((deg - 90) * Math.PI) / 180
-    return `${(C + R * Math.cos(rad)).toFixed(3)} ${(C + R * Math.sin(rad)).toFixed(3)}`
-  }
-  return [0, 1, 2, 3].map((i) => {
-    const start = i * (SPAN + GAP) + GAP / 2
-    return `M ${point(start)} A ${R} ${R} 0 0 1 ${point(start + SPAN)}`
-  })
-})()
-
-const EFFORT_ARCS: Record<string, number> = {
-  Low: 1,
-  Medium: 2,
-  High: 3,
-  XHigh: 4,
-  Max: 4
-}
-
-function DynamicBarsIcon({ level }: { level: string }): JSX.Element {
-  const filled = EFFORT_ARCS[level] ?? 0
-  const isMax = level === 'Max'
-
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      {ARC_PATHS.map((d, i) => (
-        <path
-          key={d}
-          d={d}
-          stroke={isMax ? '#3b82f6' : 'currentColor'}
-          strokeWidth="1.9"
-          strokeLinecap="round"
-          className="transition-[opacity,stroke] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]"
-          opacity={i < filled ? 1 : 0.28}
-        />
-      ))}
-    </svg>
-  )
 }
 
 // ----------------------------------------------------------------------
@@ -337,15 +261,6 @@ function AttachmentGalleryModal({
 // Main Props & Component
 // ----------------------------------------------------------------------
 
-const EFFORTS: { label: string; value: ReasoningEffort }[] = [
-  { label: 'Default', value: '' },
-  { label: 'Low', value: 'low' },
-  { label: 'Medium', value: 'medium' },
-  { label: 'High', value: 'high' },
-  { label: 'XHigh', value: 'xhigh' },
-  { label: 'Max', value: 'max' }
-]
-
 interface Props {
   running: boolean
   onSend(content: ContentBlock[], queue: boolean): Promise<void>
@@ -374,21 +289,60 @@ interface Props {
   modelSelectorVariant?: ModelSelectorVariant
   /** Effort picker presentation: slider rail (default) or the original chip row. */
   effortSelectorVariant?: EffortSelectorVariant
+  /** Project root the `@` picker searches; the picker is off without one. */
+  cwd?: string | null
 }
 
-type HoverStyle = { opacity: number; transform: string; transition: string }
-const HOVER_HIDDEN: HoverStyle = { opacity: 0, transform: 'translateY(0px) scale(0.95)', transition: 'none' }
-
-/** Draft height caps. The compact pill reuses the same cap as its textarea so
- *  the shell can never clip the content it is wrapping. */
+/** Draft height caps. The compact pill reuses the same cap as its draft so the
+ *  shell can never clip the content it is wrapping. */
 const COMPACT_MAX_HEIGHT = 120
 const CARD_MAX_HEIGHT = 220
-/** Line box of the compact textarea (`leading-[24px]`, `p-0`). The draft is
+/** Line box of the compact draft (`leading-[24px]`, `p-0`). The draft is
  *  "wrapped" the moment it measures taller than one line; that is what docks
  *  the controls onto their own row and swaps the pill radius for the card one. */
 const COMPACT_LINE_HEIGHT = 24
+const NEWLINE = String.fromCharCode(10)
 
-export default function Composer({
+/** Draft text, with every inline mention chip serialized back to `@path`. */
+function draftText(root: HTMLElement): string {
+  let out = ''
+  const walk = (node: Node): void => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      out += node.textContent ?? ''
+      return
+    }
+    if (!(node instanceof HTMLElement)) return
+    if (node.dataset.mention) {
+      out += `@${node.dataset.mention}`
+      return
+    }
+    if (node.tagName === 'BR') {
+      out += NEWLINE
+      return
+    }
+    node.childNodes.forEach(walk)
+  }
+  root.childNodes.forEach(walk)
+  return out
+}
+
+/** The `@token` being typed, if the caret sits inside one. */
+function mentionAtCaret(): { query: string } | null {
+  const sel = window.getSelection()
+  if (!sel || !sel.isCollapsed || sel.rangeCount === 0) return null
+  const node = sel.anchorNode
+  if (!node || node.nodeType !== Node.TEXT_NODE) return null
+  const before = (node.textContent ?? '').slice(0, sel.anchorOffset)
+  const at = before.lastIndexOf('@')
+  if (at < 0) return null
+  // Mid-word `@` is an address, not a mention.
+  if (at > 0 && !/\s/.test(before[at - 1])) return null
+  const query = before.slice(at + 1)
+  if (query.length > 80 || /[\s@]/.test(query)) return null
+  return { query }
+}
+
+function Composer({
   running,
   onSend,
   onStop,
@@ -411,23 +365,22 @@ export default function Composer({
   onToggleSubagents,
   compact = false,
   modelSelectorVariant = 'compact',
-  effortSelectorVariant = 'slider'
+  effortSelectorVariant = 'slider',
+  cwd = null
 }: Props): JSX.Element {
   const [text, setText] = useState('')
-  // 0 = not measured yet; the shell's min-h keeps the row height meanwhile.
-  const [pillHeight, setPillHeight] = useState(0)
-  const [modelsOpen, setModelsOpen] = useState(false)
-  const [modelQuery, setModelQuery] = useState('')
-  const [activeProvider, setActiveProvider] = useState<string | null>(null)
+  const [docked, setDocked] = useState(false)
   const [commandIndex, setCommandIndex] = useState(0)
-  const [hoverStyle, setHoverStyle] = useState<HoverStyle>(HOVER_HIDDEN)
+  // `@file` mentions: the token under the caret drives the picker, and a picked
+  // file becomes an inline chip in the draft (see `insertMention`).
+  const [mention, setMention] = useState<{ query: string } | null>(null)
+  const [mentionFiles, setMentionFiles] = useState<WorkspaceFile[]>([])
+  const [mentionIndex, setMentionIndex] = useState(0)
+  const [mentionLoading, setMentionLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [readingAttachments, setReadingAttachments] = useState(false)
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
 
-  const [effortMenuOpen, setEffortMenuOpen] = useState(false)
-  const [effortPreview, setEffortPreview] = useState<number | null>(null)
-  const effortMenuRef = useRef<HTMLDivElement>(null)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [activeAttachment, setActiveAttachment] = useState<{ attachment: Attachment; rect: DOMRect } | null>(null)
 
@@ -441,11 +394,10 @@ export default function Composer({
   const recognitionRef = useRef<any>(null)
   const demoIntervalRef = useRef<number | null>(null)
 
-  const area = useRef<HTMLTextAreaElement>(null)
-  const discoveryFired = useRef('')
-  const openedRef = useRef(false)
-  const initModelRef = useRef<string | undefined>(undefined)
-  const modelMenu = useRef<HTMLDivElement>(null)
+  const area = useRef<HTMLDivElement>(null)
+  const dockedRef = useRef(false)
+  /** Width of the input while the controls are still beside it. */
+  const inlineWidth = useRef(0)
   const fileInput = useRef<HTMLInputElement>(null)
   const submittingRef = useRef(false)
   const attachmentReads = useRef(0)
@@ -453,60 +405,39 @@ export default function Composer({
   const attachmentsRef = useRef<Attachment[]>([])
 
   useEffect(() => {
-    const close = (event: MouseEvent): void => {
-      if (modelMenu.current && !modelMenu.current.contains(event.target as Node)) setModelsOpen(false)
-      if (effortMenuRef.current && !effortMenuRef.current.contains(event.target as Node)) setEffortMenuOpen(false)
-    }
-    // Selecting a level never dismisses the panel on its own — dismissing is
-    // the user's call: click elsewhere, or press Escape.
-    const onKey = (event: globalThis.KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
-      setModelsOpen(false)
-      setEffortMenuOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [])
-
-  useEffect(() => {
     composerFocus.current = () => area.current?.focus()
-    composerModelPicker.current = () => setModelsOpen(true)
     return () => {
       composerFocus.current = null
-      composerModelPicker.current = null
     }
   }, [])
 
+  const commandSuggestions = commandMatches(text)
+  const mentionQuery = mention?.query ?? null
+
+  // Search the project for the token under the caret. Debounced so a typed
+  // path costs one walk, and results that arrive after the token changed are
+  // dropped rather than flashing into the list.
   useEffect(() => {
-    if (!modelsOpen) {
-      openedRef.current = false
-      discoveryFired.current = ''
-      setHoverStyle(HOVER_HIDDEN)
+    if (!cwd || mentionQuery === null) {
+      setMentionFiles([])
+      setMentionLoading(false)
       return
     }
-    // A providers refresh (live discovery landing) must not reset the rail
-    // or wipe the search query — init only on fresh open or model change.
-    if (openedRef.current && initModelRef.current === model) return
-    openedRef.current = true
-    initModelRef.current = model
-    const fromModel = model?.includes('/') ? model.split('/', 1)[0] : null
-    const initial =
-      fromModel && providers?.providers.some((p) => p.name === fromModel) ? fromModel : providers?.providers[0]?.name ?? null
-    setActiveProvider(initial)
-    setModelQuery('')
-    // Kick off a live /v1/models refresh for the active provider once per
-    // open; merged results arrive through the providers update.
-    if (initial && discoveryFired.current !== initial) {
-      discoveryFired.current = initial
-      onDiscoverModels?.(initial)
+    let active = true
+    setMentionLoading(true)
+    const timer = setTimeout(() => {
+      void api.searchFiles(cwd, mentionQuery).then((files) => {
+        if (!active) return
+        setMentionFiles(files)
+        setMentionIndex(0)
+        setMentionLoading(false)
+      })
+    }, 90)
+    return () => {
+      active = false
+      clearTimeout(timer)
     }
-  }, [modelsOpen, model, providers, onDiscoverModels])
-
-  const commandSuggestions = commandMatches(text)
+  }, [cwd, mentionQuery])
 
   const executeCommand = (value: string): boolean => {
     const parsed = parseCommand(value)
@@ -516,8 +447,7 @@ export default function Composer({
       return true
     }
     onCommand?.(parsed.command.name, parsed.argument)
-    setText('')
-    if (area.current) area.current.style.height = 'auto'
+    clearDraft()
     return true
   }
 
@@ -533,11 +463,11 @@ export default function Composer({
     setSubmitting(true)
     try {
       await onSend(content, queue)
-      setText('')
+      clearDraft()
+      setMention(null)
       attachmentsRef.current = []
       setAttachments([])
       setAttachmentError(null)
-      if (area.current) area.current.style.height = 'auto'
     } catch {
       // Retain draft on error
     } finally {
@@ -546,7 +476,27 @@ export default function Composer({
     }
   }
 
-  const onKey = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
+  const onKey = (e: KeyboardEvent<HTMLDivElement>): void => {
+    // Mid-composition Enter confirms the IME candidate, it does not send.
+    if (e.nativeEvent.isComposing) return
+    // The mention list owns the arrows and Enter while it is open.
+    if (mention && mentionFiles.length > 0) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        setMentionIndex((current) => (current + (e.key === 'ArrowDown' ? 1 : -1) + mentionFiles.length) % mentionFiles.length)
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        insertMention(mentionFiles[mentionIndex] ?? mentionFiles[0])
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setMention(null)
+        return
+      }
+    }
     if (commandSuggestions.length > 0) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault()
@@ -555,17 +505,25 @@ export default function Composer({
       }
       if (e.key === 'Escape') {
         e.preventDefault()
-        setText('')
+        clearDraft()
         return
       }
       if (e.key === 'Tab') {
         e.preventDefault()
         const command = commandSuggestions[commandIndex] ?? commandSuggestions[0]
-        setText(command.slash)
+        writeDraft(command.slash)
         return
       }
     }
-    if (e.key === 'Enter' && sendOnEnter && !e.shiftKey) {
+    if (e.key === 'Enter') {
+      // Shift+Enter (and Enter when send-on-Enter is off) is a line break. The
+      // browser's own paragraph insert would fork the draft into <div>s, so the
+      // break goes in as plain text instead.
+      if (e.shiftKey || !sendOnEnter) {
+        e.preventDefault()
+        insertPlainText(NEWLINE)
+        return
+      }
       e.preventDefault()
       if (commandSuggestions.length > 0 && !text.includes(' ')) {
         const command = commandSuggestions[commandIndex] ?? commandSuggestions[0]
@@ -576,18 +534,154 @@ export default function Composer({
     }
   }
 
-  // One source of truth for draft height: the textarea measures itself and the
-  // shell follows via `pillHeight`. The compact pill used to be pinned at
-  // h-[52px], so a wrapped draft grew inside the textarea but painted outside
-  // the rounded border.
+  // One source of truth for draft height: the editable node measures itself and
+  // the compact shell follows via `docked`.
   const grow = useCallback((): void => {
     const el = area.current
     if (!el) return
+
+    // Remember the width the input has while the controls sit beside it.
+    // The dock decision is always measured at THAT width: docking hands the
+    // input the whole row, so measuring at the displayed width would un-wrap
+    // the very line that caused the dock, and the layout would flip back and
+    // forth right where the text reaches the model picker.
+    if (compact && !dockedRef.current && el.clientWidth > 0) inlineWidth.current = el.clientWidth
+
+    let decisionHeight = 0
+    if (compact && inlineWidth.current > 0) {
+      // Synchronous measure-and-restore, so nothing paints mid-way.
+      el.style.width = `${inlineWidth.current}px`
+      el.style.height = 'auto'
+      decisionHeight = el.scrollHeight
+      el.style.width = ''
+    }
+
     el.style.height = 'auto'
     const next = Math.min(el.scrollHeight, compact ? COMPACT_MAX_HEIGHT : CARD_MAX_HEIGHT)
     el.style.height = `${next}px`
-    setPillHeight((current) => (current === next ? current : next))
+
+    const nextDocked = compact && (decisionHeight > COMPACT_LINE_HEIGHT || draftText(el).includes(NEWLINE))
+    dockedRef.current = nextDocked
+    setDocked(nextDocked)
   }, [compact])
+
+  /** Read the draft out of the editable node after any manual edit. */
+  const commitDraft = (): void => {
+    const el = area.current
+    if (!el) return
+    setText(draftText(el))
+    setMention(cwd ? mentionAtCaret() : null)
+    grow()
+  }
+
+  /** Replace the whole draft (slash autocomplete): chips do not survive it. */
+  const writeDraft = (next: string): void => {
+    const el = area.current
+    if (el) {
+      el.textContent = next
+      if (next) {
+        const range = document.createRange()
+        range.selectNodeContents(el)
+        range.collapse(false)
+        const sel = window.getSelection()
+        sel?.removeAllRanges()
+        sel?.addRange(range)
+      }
+    }
+    setText(next)
+    grow()
+  }
+
+  /** Append at the end while keeping existing chips (dictation). */
+  const appendToDraft = (chunk: string): void => {
+    const el = area.current
+    if (!el) {
+      setText((prev) => (prev ? `${prev} ` : '') + chunk)
+      return
+    }
+    el.append(document.createTextNode(`${draftText(el) ? ' ' : ''}${chunk}`))
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    range.collapse(false)
+    const sel = window.getSelection()
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+    commitDraft()
+  }
+
+  const clearDraft = (): void => {
+    const el = area.current
+    if (el) {
+      el.innerHTML = ''
+      el.style.height = 'auto'
+    }
+    setText('')
+  }
+
+  /** Newlines and pasted text go in as plain text, never as web markup. */
+  const insertPlainText = (plain: string): void => {
+    const el = area.current
+    const sel = window.getSelection()
+    if (!el || !sel || sel.rangeCount === 0) return
+    const range = sel.getRangeAt(0)
+    range.deleteContents()
+    const node = document.createTextNode(plain)
+    range.insertNode(node)
+    range.setStartAfter(node)
+    range.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(range)
+    commitDraft()
+  }
+
+  /** Turn the `@token` under the caret into an inline chip for `file`. */
+  const insertMention = (file: WorkspaceFile): void => {
+    const el = area.current
+    if (!el) return
+    // Focus first: the caret we replace is the one inside this node.
+    el.focus()
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+    const range = sel.getRangeAt(0)
+    const drop = (mention?.query.length ?? 0) + 1
+    const node = range.startContainer
+    if (node.nodeType === Node.TEXT_NODE && range.startOffset >= drop) {
+      range.setStart(node, range.startOffset - drop)
+    }
+    range.deleteContents()
+    const chip = document.createElement('span')
+    chip.dataset.mention = file.path
+    chip.contentEditable = 'false'
+    chip.className = 'draft-chip'
+    chip.title = file.path
+    chip.textContent = file.name
+    const space = document.createTextNode(' ')
+    const fragment = document.createDocumentFragment()
+    fragment.append(chip, space)
+    range.insertNode(fragment)
+    const caret = document.createRange()
+    caret.setStartAfter(space)
+    caret.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(caret)
+    setMention(null)
+    commitDraft()
+  }
+
+  const onDraftInput = (el: HTMLDivElement): void => {
+    let next = draftText(el)
+    // Deleting the last character leaves an empty text node or a placeholder
+    // <br> behind. That would read as "\n" and keep the draft non-empty, so
+    // the placeholder could never come back; normalise it to truly empty.
+    if (next === '' || next === NEWLINE) {
+      if (el.childNodes.length > 0) el.replaceChildren()
+      next = ''
+    }
+    setText(next)
+    setCommandIndex(0)
+    setMention(cwd ? mentionAtCaret() : null)
+    grow()
+  }
 
   // Re-measure on every text/mode change, not only on keystrokes: dictation,
   // slash-command autocomplete and clear-on-submit all mutate `text` without
@@ -596,75 +690,18 @@ export default function Composer({
     grow()
   }, [grow, text])
 
+  // Pill <-> card is a different subtree, so a swap mounts a fresh editable
+  // node. Restore the draft into it (chips degrade to their `@path` text).
+  useEffect(() => {
+    const el = area.current
+    if (!el || draftText(el) === text) return
+    el.textContent = text
+    grow()
+  }, [compact])
+
   const hasText = text.trim().length > 0
-  // `compact` clamps to COMPACT_MAX_HEIGHT, so the compact branch measures the
-  // pill; the card branch keeps its own 220px cap and never docks.
-  const pillTall = compact && pillHeight > COMPACT_LINE_HEIGHT
-  const activeProviderLabel = model?.includes('/') ? model.split('/', 1)[0] : null
-  // Never render a stale rail: if the selected provider vanished from the
-  // list (deleted / renamed), fall back to the current model's provider,
-  // then the first provider — without touching state.
-  const providerList = providers?.providers ?? []
-  const effectiveActiveProvider =
-    activeProvider && providerList.some((p) => p.name === activeProvider)
-      ? activeProvider
-      : activeProviderLabel && providerList.some((p) => p.name === activeProviderLabel)
-        ? activeProviderLabel
-        : providerList[0]?.name ?? null
-  const provider = providerList.find((entry) => entry.name === effectiveActiveProvider)
-  const query = modelQuery.trim().toLowerCase()
-  const visibleModels = provider?.models.filter((m) => !query || m.toLowerCase().includes(query)) ?? []
-
-  const pickModel = (ref: string): void => {
-    const index = ref.indexOf('/')
-    if (index <= 0 || index === ref.length - 1 || !onModel) return
-    onModel(ref.slice(0, index), ref.slice(index + 1))
-    setModelsOpen(false)
-  }
-
-  const shortModel = model?.includes('/') ? model.slice(model.indexOf('/') + 1) : model
-
-  const effortUnsupported = useMemo(() => {
-    const entry = providers?.providers.find((p) => p.name === activeProviderLabel)
-    const detail = entry?.modelDetails?.find((d) => d.id === shortModel)
-    return detail != null && detail.reasoningKnown && !detail.reasoning
-  }, [providers, activeProviderLabel, shortModel])
-  const currentEffort = effortUnsupported ? '' : effort
-  const currentEffortLabel = EFFORTS.find((item) => item.value === currentEffort)?.label ?? 'Default'
-
-  // Every level the backend accepts stays reachable from the EffortSlider.
-  const effortIndex = Math.max(0, EFFORTS.findIndex((item) => item.value === currentEffort))
-  const setEffortAt = (index: number): void => {
-    const next = EFFORTS[Math.max(0, Math.min(EFFORTS.length - 1, index))]
-    if (!next || next.value === currentEffort) return
-    onSetEffort?.(next.value)
-  }
-
-  const cycleProvider = (step: number): void => {
-    const list = providers?.providers ?? []
-    if (list.length === 0) return
-    const at = Math.max(0, list.findIndex((p) => p.name === effectiveActiveProvider))
-    setActiveProvider(list[(at + step + list.length) % list.length].name)
-    setHoverStyle(HOVER_HIDDEN)
-  }
-
-  const selectProvider = (name: string): void => {
-    setActiveProvider(name)
-    setHoverStyle(HOVER_HIDDEN)
-    if (discoveryFired.current !== name) {
-      discoveryFired.current = name
-      onDiscoverModels?.(name)
-    }
-  }
-
-  const pickFirstVisible = (): void => {
-    if (visibleModels.length > 0 && provider) pickModel(`${provider.name}/${visibleModels[0]}`)
-  }
-
-  const galleryEmptyHint =
-    provider && provider.models.length > 0 ? `No models match “${modelQuery}”.` : 'No models discovered yet.'
-  const isGallery = modelSelectorVariant === 'gallery'
-  const effortSlider = effortSelectorVariant !== 'chips'
+  const placeholderText = placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything')
+  const pillTall = docked
 
   // --- Voice Recording Logic ---
   const stopRecording = useCallback(() => {
@@ -747,8 +784,7 @@ export default function Composer({
             }
           }
           if (finalTranscript) {
-            setText((prev) => (prev ? prev + " " : "") + finalTranscript)
-            grow()
+            appendToDraft(finalTranscript)
           }
         }
 
@@ -836,14 +872,22 @@ export default function Composer({
     addFiles(files)
   }
 
-  const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>): void => {
+  const onPaste = (event: ClipboardEvent<HTMLDivElement>): void => {
     const files = Array.from(event.clipboardData.items)
       .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
       .map((item) => item.getAsFile())
       .filter((file): file is File => file !== null)
-    if (files.length === 0) return
+    if (files.length > 0) {
+      event.preventDefault()
+      addFiles(files)
+      return
+    }
+    // Paste is plain text only: the browser would otherwise drop the source's
+    // HTML into the editable node.
+    const plain = event.clipboardData.getData('text/plain')
+    if (!plain) return
     event.preventDefault()
-    addFiles(files)
+    insertPlainText(plain)
   }
 
   const hasAttachments = attachments.length > 0
@@ -853,8 +897,13 @@ export default function Composer({
   // Visible heights of the merged tray's sections; the tray's last 8px hide
   // behind the composer, so each section carries its own bottom breathing room.
   const ATTACH_ROW = 64
-  const cmdRows = cmdCount > 0 ? cmdCount * 30 + (cmdCount - 1) * 2 + 12 + (hasAttachments ? 1 : 0) : 0
-  const trayHeight = (hasAttachments ? ATTACH_ROW : 0) + cmdRows
+  // The `@` list is a tab of this same tray, so it is a fixed height like the
+  // command list — up to six rows and the tray's bottom breathing.
+  const mentionVisible =
+    mention && cwd ? Math.min(Math.max(mentionFiles.length, 1), 6) : 0
+  const mentionRows = mentionVisible > 0 ? 18 + mentionVisible * 30 + (mentionVisible - 1) * 2 : 0
+  const cmdRows = cmdCount > 0 ? cmdCount * 30 + (cmdCount - 1) * 2 + 12 + (hasAttachments || mentionRows > 0 ? 1 : 0) : 0
+  const trayHeight = mentionRows + (hasAttachments ? ATTACH_ROW : 0) + cmdRows
 
   const showArrow = canSubmit && !isRecording && !running
   const showStop = running || isRecording
@@ -894,8 +943,9 @@ export default function Composer({
         )}
       </AnimatePresence>
 
-      {/* Attachment + slash-command tab: one tray so both can be open at once.
-          Thumbnails sit on top, a hairline separates the command list below. */}
+      {/* One tray for the `@` file list, attachment thumbnails and the `/`
+          command list, so any of them can be open without a floating panel:
+          the tray tucks its last 8px behind the composer to read as attached. */}
       <div
         aria-hidden={trayHeight === 0}
         style={{ height: trayHeight, transition: `height 0.14s ${EASE_EXPAND}` }}
@@ -915,6 +965,20 @@ export default function Composer({
           }}
           className="flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted"
         >
+          {mentionRows > 0 && (
+            <div
+              style={{ height: mentionRows }}
+              className={cn('shrink-0', (hasAttachments || cmdCount > 0) && 'border-b border-border/60')}
+            >
+              <FileMentionPopup
+                files={mentionFiles}
+                activeIndex={mentionIndex}
+                loading={mentionLoading}
+                onHover={setMentionIndex}
+                onPick={insertMention}
+              />
+            </div>
+          )}
           {hasAttachments && (
             <div
               style={{ height: ATTACH_ROW }}
@@ -1054,17 +1118,12 @@ export default function Composer({
       )}
 
       {/* Main Input: expanded card, or compact pill once a session has started.
-          `layout` owns this swap: the two branches are different subtrees, so
-          there is nothing for a CSS transition to interpolate between, and the
-          wrapper's own height is content-driven (`height: auto` does not
-          animate). Motion's layout projection animates the delta as a transform,
-          which composites. The class list therefore only transitions the two
-          properties that belong to this same node — radius and fill — and the
-          `t-resize` snippet is gone with them, since its width/height transition
-          never had anything to fire on. */}
-      <motion.div
-        layout
-        transition={{ type: 'spring', duration: 0.22, bounce: 0 }}
+          The two branches are different subtrees, so the class list only
+          transitions the properties of this same node — radius and fill — and
+          the draft carries its own `transition-[height]`. The draft itself is a
+          contenteditable rather than a textarea so `@file` mentions can sit
+          inline as chips. */}
+      <div
         className={cn('relative z-10 transition-[border-radius,background-color] duration-[var(--resize-dur)] ease-[var(--resize-ease)]', compact ? 'rounded-full' : 'rounded-[26px] p-px', running && !compact ? 'bg-input' : 'bg-transparent')}
       >
         {compact ? (
@@ -1076,10 +1135,13 @@ export default function Composer({
             }
           }}
           className={cn(
-            'flex min-h-[52px] flex-wrap items-center gap-1 overflow-visible border border-border bg-card py-2 pl-2 pr-2 shadow-sm transition-[border-color,box-shadow,border-radius] duration-[var(--resize-dur)] ease-[var(--resize-ease)] hover:border-border/80',
-            // One row -> a true pill. Wrapped -> the card radius, so the grown
-            // box reads as a rounded rectangle instead of a stretched capsule.
-            pillTall ? 'rounded-[26px]' : 'rounded-full'
+            'flex min-h-[52px] items-center gap-1 overflow-visible border border-border bg-card py-2 pl-2 pr-2 shadow-sm transition-[border-color,box-shadow,border-radius,height] duration-[var(--resize-dur)] ease-[var(--resize-ease)] hover:border-border/80',
+            // One row -> a true pill, and nothing may wrap: the draft just
+            // shrinks against the fixed-width controls to its right instead of
+            // shoving them onto a second row. Wrapped -> the card radius, and
+            // `flex-wrap` is what lets the input take row one with the controls
+            // beneath it.
+            pillTall ? 'flex-wrap rounded-[26px]' : 'flex-nowrap rounded-full'
           )}
         >
           {/* Attach */}
@@ -1099,186 +1161,52 @@ export default function Composer({
               (`order-first w-full`), which is what pushes every control below
               it — the same reflow the reference does. Inline it just takes the
               leftover space between attach and the right-hand tools. */}
-          <div className={cn(pillTall ? 'order-first w-full pl-4 pr-2' : 'min-w-0 flex-1')}>
-            <textarea
+          <div className={cn('relative', pillTall ? 'order-first w-full pl-4 pr-2' : 'min-w-0 flex-1')}>
+            {!text && (
+              <span
+                aria-hidden
+                className={cn(
+                  'pointer-events-none absolute top-0 right-0 truncate text-ui-base font-normal leading-[24px] text-muted-foreground select-none',
+                  pillTall ? 'left-4' : 'left-0'
+                )}
+              >
+                {placeholderText}
+              </span>
+            )}
+            <div
               ref={area}
-              value={text}
-              rows={1}
-              disabled={isRecording || submitting}
-              placeholder={placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything')}
-              onChange={(e) => {
-                setText(e.target.value)
-                setCommandIndex(0)
-                grow()
-              }}
+              contentEditable={!isRecording && !submitting}
+              suppressContentEditableWarning
+              role="textbox"
+              aria-multiline="true"
+              aria-label="Message"
+              onInput={(e) => onDraftInput(e.currentTarget)}
+              onBlur={() => setMention(null)}
               onKeyDown={onKey}
               onPaste={onPaste}
-              className="block min-h-[24px] w-full resize-none overflow-y-auto border-0 bg-transparent p-0 text-ui-lg leading-[24px] text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground disabled:opacity-70"
+              className={cn(
+                'draft-input block min-h-[24px] w-full overflow-hidden break-words border-0 bg-transparent p-0 text-ui-base leading-[24px] text-foreground outline-none transition-[height] duration-[var(--resize-dur)] ease-[var(--resize-ease)]',
+                (isRecording || submitting) && 'opacity-70'
+              )}
             />
           </div>
 
-          {/* Model picker (text-only, right side like reference) */}
+          <div className="flex items-center gap-1">
+          {/* Model + effort, behind one control. The popup carries both
+              pickers plus a reset row; see ModelEffortPicker. */}
           {providers && onModel && (
-            <div className="relative shrink-0" ref={modelMenu}>
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setModelsOpen((v) => !v)
-                }}
-                className={cn(
-                  'flex h-8 max-w-[160px] items-center gap-1 rounded-full px-2 text-ui-caption font-medium text-muted-foreground outline-none transition-colors hover:bg-hover hover:text-foreground',
-                  modelsOpen && 'bg-selected text-foreground'
-                )}
-                disabled={running}
-                aria-label={`Select model. Current: ${model || 'none'}`}
-                title={model || 'Select model'}
-              >
-                <span className="truncate select-none">
-                  <MorphingText text={shortModel || 'Select Model'} />
-                </span>
-                <span className="shrink-0 opacity-70"><ChevronDownIcon /></span>
-              </button>
-
-              <AnimatePresence>
-                {modelsOpen && providers && isGallery ? (
-                  <ModelSelectorGallery
-                    align="right"
-                    providers={providers}
-                    activeProvider={effectiveActiveProvider}
-                    onSelectProvider={selectProvider}
-                    visibleModels={visibleModels}
-                    model={model}
-                    onPick={pickModel}
-                    modelQuery={modelQuery}
-                    onQueryChange={(v) => {
-                      setModelQuery(v)
-                      setHoverStyle(HOVER_HIDDEN)
-                    }}
-                    onPickFirst={pickFirstVisible}
-                    emptyHint={galleryEmptyHint}
-                  />
-                ) : (
-                  modelsOpen && (
-                  <motion.div
-                    style={{ transformOrigin: 'bottom right' }}
-                    className="absolute bottom-full right-0 z-50 mb-2.5 w-60 max-w-[calc(100vw-3rem)] overflow-hidden rounded-lg border border-border bg-menu p-1 shadow-md"
-                    variants={bloomUp}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    transition={BLOOM_FAST}
-                  >
-                    <div className="relative mb-1 flex items-center">
-                      <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground" strokeWidth={1.8} />
-                      <input
-                        autoFocus
-                        value={modelQuery}
-                        onChange={(e) => {
-                          setModelQuery(e.target.value)
-                          setHoverStyle(HOVER_HIDDEN)
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && visibleModels.length > 0 && provider) {
-                            e.preventDefault()
-                            pickModel(`${provider.name}/${visibleModels[0]}`)
-                          }
-                          if (e.key === 'Escape') {
-                            if (modelQuery) {
-                              e.stopPropagation()
-                              setModelQuery('')
-                            }
-                          }
-                        }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        placeholder="Search models…"
-                        aria-label="Search models"
-                        className="h-8 w-full rounded-lg border border-border bg-muted/60 pl-8 pr-2 text-ui-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-input"
-                      />
-                    </div>
-
-                    <div
-                      className="relative flex max-h-52 flex-col gap-0.5 overflow-y-auto px-0.5"
-                      onMouseLeave={() => setHoverStyle((prev) => ({ ...prev, opacity: 0, transition: 'opacity 0.2s ease-in' }))}
-                    >
-                      <div style={hoverStyle} className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-8 rounded-xl bg-accent" />
-                      {visibleModels.length > 0 ? (
-                        visibleModels.map((modelID, idx) => {
-                          const ref = `${provider!.name}/${modelID}`
-                          const active = ref === model
-                          return (
-                            <button
-                              key={modelID}
-                              type="button"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onMouseEnter={() =>
-                                setHoverStyle((prev) => ({
-                                  opacity: 1,
-                                  transform: `translateY(${idx * 34}px) scale(1)`,
-                                  transition: prev.opacity === 0 ? 'opacity 0.15s ease-out' : `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease`
-                                }))
-                              }
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                pickModel(ref)
-                              }}
-                              className="group relative flex h-8 w-full shrink-0 items-center justify-between rounded-xl px-2.5 text-left text-ui-sm font-medium text-muted-foreground outline-none active:scale-[0.98]"
-                            >
-                              <span className="flex items-center gap-2 min-w-0 truncate">
-                                <ModelIcon model={modelID} className="size-3.5 opacity-85 group-hover:opacity-100 transition-opacity shrink-0" />
-                                <span className="truncate">{modelID}</span>
-                              </span>
-                              {active && <Tick01 size={12} className="ml-2 shrink-0 text-muted-foreground" />}
-                            </button>
-                          )
-                        })
-                      ) : (
-                        <div className="px-3 py-4 text-center text-ui-sm text-foreground-subtlest">
-                          {provider && provider.models.length > 0 ? `No models match “${modelQuery}”.` : 'No models discovered yet.'}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mx-1 mb-1 mt-1 border-t border-border" />
-
-                    <div className="flex items-center justify-between gap-1 px-0.5 pb-0.5 pt-0.5">
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          cycleProvider(-1)
-                        }}
-                        disabled={providers.providers.length <= 1}
-                        className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-                        aria-label="Previous provider"
-                      >
-                        <ChevronRight size={14} className="rotate-180" />
-                      </button>
-                      <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-ui-sm font-semibold text-foreground">
-                        {effectiveActiveProvider && <ProviderLogo providerId={effectiveActiveProvider} size={14} />}
-                        <MorphingText text={effectiveActiveProvider ?? 'provider'} />
-                      </span>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          cycleProvider(1)
-                        }}
-                        disabled={providers.providers.length <= 1}
-                        className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-                        aria-label="Next provider"
-                      >
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  </motion.div>
-                      )
-                    )}
-              </AnimatePresence>
-            </div>
+            <ModelEffortPicker
+              model={model}
+              providers={providers}
+              effort={effort}
+              onModel={onModel}
+              onSetEffort={onSetEffort}
+              onDiscoverModels={onDiscoverModels}
+              modelSelectorVariant={modelSelectorVariant}
+              effortSelectorVariant={effortSelectorVariant}
+              align="right"
+              disabled={running}
+            />
           )}
 
           {/* Grey mic (idle empty state, like reference) */}
@@ -1324,6 +1252,7 @@ export default function Composer({
           )}
 
           {contextSessionId && <ContextViewer key={contextSessionId} sessionId={contextSessionId} running={running} revision={contextRevision} model={model} />}
+          </div>
 
           {/* Docked row only: pushes the send button to the far right while the
               rest of the controls stay grouped on the left. Absent inline. */}
@@ -1362,321 +1291,46 @@ export default function Composer({
           }}
           className="relative overflow-visible rounded-[24px] border border-border bg-card shadow-sm transition-[border-color,box-shadow] focus-within:border-ring/40 focus-within:ring-1 focus-within:ring-ring/20 hover:border-border/80"
         >
-          <div className="px-4 pb-[54px] pt-4">
-            <textarea
+          <div className="relative px-4 pb-[54px] pt-4">
+            {!text && (
+              <span aria-hidden className="pointer-events-none absolute inset-x-4 top-4 truncate text-ui-base font-medium leading-relaxed text-foreground-subtlest select-none">
+                {placeholderText}
+              </span>
+            )}
+            <div
               ref={area}
-              value={text}
-              rows={1}
-              disabled={isRecording || submitting}
-              placeholder={placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything')}
-              onChange={(e) => {
-                setText(e.target.value)
-                setCommandIndex(0)
-                grow()
-              }}
+              contentEditable={!isRecording && !submitting}
+              suppressContentEditableWarning
+              role="textbox"
+              aria-multiline="true"
+              aria-label="Message"
+              onInput={(e) => onDraftInput(e.currentTarget)}
+              onBlur={() => setMention(null)}
               onKeyDown={onKey}
               onPaste={onPaste}
-              className="min-h-[64px] max-h-[220px] w-full resize-none border-0 bg-transparent p-0 text-ui-base leading-relaxed text-foreground outline-none placeholder:font-medium placeholder:text-foreground-subtlest disabled:opacity-70"
+              className={cn(
+                'draft-input min-h-[64px] max-h-[220px] w-full overflow-hidden break-words border-0 bg-transparent p-0 text-ui-base leading-relaxed text-foreground outline-none',
+                (isRecording || submitting) && 'opacity-70'
+              )}
             />
           </div>
 
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-2.5 pb-2.5">
-            {/* Left controls: model picker · effort · attach */}
+            {/* Left controls: model + effort · attach */}
             <div className="flex min-w-0 items-center gap-1">
               {providers && onModel && (
-                <div className="relative" ref={modelMenu}>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setModelsOpen((v) => !v)
-                    }}
-                    className={cn(
-                      'chip group h-8 max-w-[220px] px-2.5 flex items-center gap-1.5',
-                      modelsOpen && 'chip-active'
-                    )}
-                    disabled={running}
-                    aria-label={`Select model. Current: ${model || 'none'}`}
-                    title={model || 'Select model'}
-                  >
-                    <ModelIcon model={shortModel || 'GPT 5.5'} className="size-3.5 opacity-80 group-hover:opacity-100 transition-opacity" />
-                    <span className="truncate select-none text-ui-sm font-medium">
-                      <MorphingText text={shortModel || 'Select Model'} />
-                    </span>
-                  </button>
-
-                  <AnimatePresence>
-                    {modelsOpen && providers && isGallery ? (
-                      <ModelSelectorGallery
-                        align="left"
-                        providers={providers}
-                        activeProvider={effectiveActiveProvider}
-                        onSelectProvider={selectProvider}
-                        visibleModels={visibleModels}
-                        model={model}
-                        onPick={pickModel}
-                        modelQuery={modelQuery}
-                        onQueryChange={(v) => {
-                          setModelQuery(v)
-                          setHoverStyle(HOVER_HIDDEN)
-                        }}
-                        onPickFirst={pickFirstVisible}
-                        emptyHint={galleryEmptyHint}
-                      />
-                    ) : (
-                      modelsOpen && (
-                      <motion.div
-                        style={{ transformOrigin: 'bottom left' }}
-                        className="absolute bottom-full left-0 z-50 mb-2.5 w-60 max-w-[calc(100vw-3rem)] overflow-hidden rounded-lg border border-border bg-menu p-1 shadow-md"
-                        variants={bloomUp}
-                        initial="initial"
-                        animate="animate"
-                        exit="exit"
-                        transition={BLOOM_FAST}
-                      >
-                        <div className="relative mb-1 flex items-center">
-                          <Search01 size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground" strokeWidth={1.8} />
-                          <input
-                            autoFocus
-                            value={modelQuery}
-                            onChange={(e) => {
-                              setModelQuery(e.target.value)
-                              setHoverStyle(HOVER_HIDDEN)
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && visibleModels.length > 0 && provider) {
-                                e.preventDefault()
-                                pickModel(`${provider.name}/${visibleModels[0]}`)
-                              }
-                              if (e.key === 'Escape') {
-                                if (modelQuery) {
-                                  e.stopPropagation()
-                                  setModelQuery('')
-                                }
-                              }
-                            }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            placeholder="Search models…"
-                            aria-label="Search models"
-                            className="h-8 w-full rounded-lg border border-border bg-muted/60 pl-8 pr-2 text-ui-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-input focus:ring-1 focus:ring-input"
-                          />
-                        </div>
-
-                        <div
-                          className="relative flex max-h-52 flex-col gap-0.5 overflow-y-auto px-0.5"
-                          onMouseLeave={() => setHoverStyle((prev) => ({ ...prev, opacity: 0, transition: 'opacity 0.2s ease-in' }))}
-                        >
-                          <div style={hoverStyle} className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-8 rounded-xl bg-accent" />
-                          {visibleModels.length > 0 ? (
-                            visibleModels.map((modelID, idx) => {
-                              const ref = `${provider!.name}/${modelID}`
-                              const active = ref === model
-                              return (
-                                <button
-                                  key={modelID}
-                                  type="button"
-                                  onMouseDown={(e) => e.preventDefault()}
-                                  onMouseEnter={() =>
-                                    setHoverStyle((prev) => ({
-                                      opacity: 1,
-                                      transform: `translateY(${idx * 34}px) scale(1)`,
-                                      transition: prev.opacity === 0 ? 'opacity 0.15s ease-out' : `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease`
-                                    }))
-                                  }
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    pickModel(ref)
-                                  }}
-                                  className="group relative flex h-8 w-full shrink-0 items-center justify-between rounded-xl px-2.5 text-left text-ui-sm font-medium text-muted-foreground outline-none active:scale-[0.98]"
-                                >
-                                  <span className="flex items-center gap-2 min-w-0 truncate">
-                                    <ModelIcon model={modelID} className="size-3.5 opacity-85 group-hover:opacity-100 transition-opacity shrink-0" />
-                                    <span className="truncate">{modelID}</span>
-                                  </span>
-                                  {active && <Tick01 size={12} className="ml-2 shrink-0 text-muted-foreground" />}
-                                </button>
-                              )
-                            })
-                          ) : (
-                            <div className="px-3 py-4 text-center text-ui-sm text-foreground-subtlest">
-                              {provider && provider.models.length > 0 ? `No models match “${modelQuery}”.` : 'No models discovered yet.'}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="mx-1 mb-1 mt-1 border-t border-border" />
-
-                        <div className="flex items-center justify-between gap-1 px-0.5 pb-0.5 pt-0.5">
-                          <button
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              cycleProvider(-1)
-                            }}
-                            disabled={providers.providers.length <= 1}
-                            className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-                            aria-label="Previous provider"
-                          >
-                            <ChevronRight size={14} className="rotate-180" />
-                          </button>
-                          <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-ui-sm font-semibold text-foreground">
-                            {effectiveActiveProvider && <ProviderLogo providerId={effectiveActiveProvider} size={14} />}
-                            <MorphingText text={effectiveActiveProvider ?? 'provider'} />
-                          </span>
-                          <button
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              cycleProvider(1)
-                            }}
-                            disabled={providers.providers.length <= 1}
-                            className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-                            aria-label="Next provider"
-                          >
-                            <ChevronRight size={14} />
-                          </button>
-                        </div>
-                      </motion.div>
-                          )
-                        )}
-                  </AnimatePresence>
-                </div>
+                <ModelEffortPicker
+                  model={model}
+                  providers={providers}
+                  effort={effort}
+                  onModel={onModel}
+                  onSetEffort={onSetEffort}
+                  onDiscoverModels={onDiscoverModels}
+                  modelSelectorVariant={modelSelectorVariant}
+                  effortSelectorVariant={effortSelectorVariant}
+                  disabled={running}
+                />
               )}
-
-              {/* Reasoning effort: the slider variant opens its rail panel on
-                  click; the chips variant cycles levels on click and only
-                  right-click expands the JellyRadio popup. */}
-              <div className="relative" ref={effortMenuRef}>
-                {(() => {
-                  const trigger = (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      disabled={effortUnsupported || !onSetEffort}
-                      onClick={() => {
-                        if (effortSlider) {
-                          setEffortMenuOpen((v) => !v)
-                          return
-                        }
-                        // Chips variant: left-click steps through the levels;
-                        // the JellyRadio popup only opens on right-click.
-                        setEffortAt((effortIndex + 1) % EFFORTS.length)
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault()
-                        setEffortMenuOpen((v) => !v)
-                      }}
-                      className={cn(
-                        'chip group h-8 px-2.5 flex items-center gap-1.5',
-                        effortMenuOpen && 'chip-active'
-                      )}
-                      title={
-                        effortUnsupported
-                          ? 'This model does not support reasoning'
-                          : effortSlider
-                            ? `Reasoning effort: ${currentEffortLabel}`
-                            : undefined
-                      }
-                      aria-haspopup="dialog"
-                      aria-expanded={effortMenuOpen}
-                    >
-                      <DynamicBarsIcon level={currentEffortLabel} />
-                      <span className="text-ui-sm font-medium select-none transition-colors">
-                        <MorphingText text={currentEffortLabel} />
-                      </span>
-                    </button>
-                  )
-                  // The chips variant advertises both gestures with a real
-                  // tooltip; the mouse icons stand in for "left/right-click".
-                  return effortSlider ? (
-                    trigger
-                  ) : (
-                    <HoverTooltip
-                      label={
-                        <span className="flex flex-col gap-1 py-0.5">
-                          <span className="flex items-center gap-1.5">
-                            <MouseLeftClick05 size={13} strokeWidth={1.8} />
-                            to cycle
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <MouseRightClick05 size={13} strokeWidth={1.8} />
-                            to expand
-                          </span>
-                        </span>
-                      }
-                    >
-                      {trigger}
-                    </HoverTooltip>
-                  )
-                })()}
-
-                <AnimatePresence>
-                  {effortMenuOpen && !effortUnsupported && (
-                    <motion.div
-                      key={effortSlider ? 'effort-slider' : 'effort-chips'}
-                      style={{ transformOrigin: 'bottom left' }}
-                      className={cn(
-                        'absolute bottom-full left-0 z-50 mb-2.5 rounded-lg border border-border bg-menu shadow-md',
-                        effortSlider
-                          ? 'w-[248px] px-3 pb-3 pt-3'
-                          // JellyRadio measures its own padding; the panel just
-                          // frames it. No scrolling: every level is visible.
-                          : 'p-1'
-                      )}
-                      variants={bloomUp}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
-                      transition={BLOOM_FAST}
-                      role={effortSlider ? 'dialog' : 'menu'}
-                      aria-label="Reasoning effort"
-                      onMouseDown={(e) => e.stopPropagation()}
-                    >
-                      {effortSlider ? (
-                      <>
-                      <div className="flex items-center gap-2 text-ui-caption leading-[18px]">
-                        <span className="text-foreground-subtle">Reasoning effort</span>
-                        <span className="ml-auto font-medium text-foreground">{EFFORTS[effortPreview ?? effortIndex]?.label ?? currentEffortLabel}</span>
-                      </div>
-                      <div className="mt-1">
-                        <EffortSlider
-                          stops={EFFORTS.map((item) => item.label)}
-                          value={effortIndex}
-                          onChange={setEffortAt}
-                          onEscape={() => setEffortMenuOpen(false)}
-                          onPreview={setEffortPreview}
-                        />
-                      </div>
-                      <div className="mt-1 flex justify-between text-ui-sm leading-4 text-foreground-subtlest">
-                        <span>Faster</span>
-                        <span>Smarter</span>
-                      </div>
-                      </>
-                      ) : (
-                        // JellyRadio: every level visible at once, springy
-                        // barge/swell motion. Wire values map to the radio's
-                        // keys with '' → 'default' so keys stay non-empty.
-                        <JellyRadio
-                          ariaLabel="Reasoning effort"
-                          size="sm"
-                          gap={6}
-                          radius={14}
-                          items={EFFORTS.map(({ label, value }) => ({ value: value || 'default', label }))}
-                          value={currentEffort || 'default'}
-                          onChange={(next) => {
-                            // Deliberately stays open — the user dismisses the
-                            // panel themselves (outside click or Escape).
-                            onSetEffort?.(next === 'default' ? '' : (next as ReasoningEffort))
-                          }}
-                        />
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
 
               {/* Attach button */}
               <button
@@ -1749,7 +1403,7 @@ export default function Composer({
           </div>
         </div>
         )}
-      </motion.div>
+      </div>
 
       {activeAttachment &&
         createPortal(
@@ -1759,3 +1413,9 @@ export default function Composer({
     </div>
   )
 }
+
+// The composer owns the draft, the model/effort pickers and the voice recorder,
+// none of which change while an answer streams in. Its props are deliberately
+// identity-stable (App hands it ref-backed callbacks), so memoising it keeps
+// the whole 1.7k-line surface out of the per-token render path.
+export default memo(Composer)

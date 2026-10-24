@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Folder01 } from './ui/icons'
 import type { ChatItem, ChatState } from '../state'
@@ -11,6 +11,15 @@ import SubagentNotice from './SubagentNotice'
 import ToolGroup, { type WorkEntry } from './ToolGroup'
 import { ArrowDown02 } from './ui/icons'
 import { ScrollFadeViewport } from './ui/scroll-fade-viewport'
+
+// Opening a session chases the bottom until the transcript stops growing (see
+// the mount effect in Chat). Each frame that reveals and measures fresh rows
+// resets the counter, so this many unchanged frames means every
+// `content-visibility` estimate has resolved. The cap is a guard against a
+// pathological transcript only — a real gesture ends the chase long before it,
+// so this never holds the view hostage.
+const STABLE_FRAMES = 4
+const SETTLE_CAP_MS = 5000
 
 // Rises a timeline entry in as it appends to a live conversation. Rows that
 // are part of the first render (history load / session resume) pass
@@ -68,39 +77,160 @@ export default function Chat({
   // False during the first render only: anything present then is history.
   const liveRegion = useRef(false)
   const glide = useRef<number | null>(null)
+  // A session that has just mounted is still laying itself out. Transcript rows
+  // carry `content-visibility: auto`, so a row that has never been painted
+  // reports its 160px estimate instead of its real height; a long session looks
+  // far shorter than it is on the first frame and grows by thousands of pixels
+  // as rows are measured. Every one of those resizes fires a scroll event, and
+  // reading those as "the user scrolled up" is what unpinned the view and left a
+  // session switch stranded in the middle of the conversation. While `settling`
+  // is true the transcript keeps chasing the bottom and onScroll refuses to
+  // unpin on growth.
+  const settling = useRef(true)
+  // Read inside the mount machinery so toggling the preference mid-session
+  // is respected without restarting the chase.
+  const autoScrollRef = useRef(autoScroll)
+  autoScrollRef.current = autoScroll
+  // The scrollTop this component last wrote. While settling, a scroll event that
+  // lands near it is layout arriving; one that lands above it is the reader
+  // pulling the view up (wheel, scrollbar drag, PageUp) and ends the settle.
+  const lastSnap = useRef(0)
   // Stop a mid-flight glide on unmount so the rAF chain never touches a dead node.
   useEffect(() => stopGlide, [])
   useEffect(() => {
     liveRegion.current = true
   }, [])
 
+  // Follow new content while pinned, and ignore `pinned` for the first moments
+  // of a mount so opening a session always starts at the latest message.
   useEffect(() => {
     const el = scroller.current
-    if (el && autoScroll && pinned.current) el.scrollTop = el.scrollHeight
+    if (!el || !autoScroll) return
+    if (pinned.current || settling.current) {
+      el.scrollTop = el.scrollHeight
+      lastSnap.current = el.scrollTop
+    }
   }, [autoScroll, chat.items, chat.streaming, chat.toolRuns])
 
-  // A freshly opened session (history load / resume) must land on the latest
-  // message. The items effect above runs before the transcript has finished
-  // laying out — markdown measurement, variable-font swap, code blocks — so
-  // the initial snap races content growth and long sessions end up stranded
-  // mid-transcript. Keep snapping while mounted and still pinned until real
-  // height changes settle; the moment the user scrolls up, `pinned` flips in
-  // onScroll and this stops touching their position.
-  useEffect(() => {
+  // Opening a session must always show its latest message, and one snap to
+  // `scrollHeight` cannot do it: reading `scrollHeight` only measures the rows
+  // above the fold, so the first snap reveals another screenful, which resolves
+  // *their* estimates and grows the body again. Chase the bottom frame by frame
+  // until the height stops changing — a handful of frames for even a long
+  // session — with a wall-clock ceiling as the safety net.
+  //
+  // The placement is deliberately unconditional: landing on the latest message
+  // is what opening a session *means*, so it does not consult `autoScroll` (that
+  // preference governs following a live run). A real gesture always wins — see
+  // takeOverScroll and the lastSnap check in onScroll.
+  //
+  // A layout effect, not an effect: the first snap must land before the browser
+  // paints, otherwise a long session flashes its oldest message for a frame
+  // before jumping down.
+  useLayoutEffect(() => {
     const el = scroller.current
     const content = contentRef.current
     if (!el || !content) return
-    el.scrollTop = el.scrollHeight
+    settling.current = true
+    pinned.current = true
+    setAtBottom(true)
+
+    let live = true
+    let frame: number | null = null
+    let deadline: ReturnType<typeof setTimeout> | null = null
+
+    const stop = (): void => {
+      if (frame !== null) {
+        cancelAnimationFrame(frame)
+        frame = null
+      }
+      if (deadline !== null) {
+        clearTimeout(deadline)
+        deadline = null
+      }
+    }
+
+    const end = (): void => {
+      settling.current = false
+      stop()
+    }
+
+    let lastHeight = -1
+    let stable = 0
+    const tick = (): void => {
+      frame = null
+      if (!live) return
+      // The reader took the transcript back; stop placing the view for them.
+      if (!pinned.current) {
+        end()
+        return
+      }
+      el.scrollTop = el.scrollHeight
+      lastSnap.current = el.scrollTop
+      const height = el.scrollHeight
+      stable = height === lastHeight ? stable + 1 : 0
+      lastHeight = height
+      if (stable >= STABLE_FRAMES) {
+        end()
+        return
+      }
+      frame = requestAnimationFrame(tick)
+    }
+
+    const chase = (): void => {
+      if (!live || !settling.current) return
+      stable = 0
+      lastHeight = -1
+      if (frame === null) frame = requestAnimationFrame(tick)
+    }
+
+    // Late layout — a webfont swap, an image, a highlighted code block — restarts
+    // the chase if it arrives mid-settle; after it, growth is ordinary pinned
+    // auto-scroll.
     const ro = new ResizeObserver(() => {
-      if (pinned.current && autoScroll) el.scrollTop = el.scrollHeight
+      if (!live) return
+      if (settling.current) chase()
+      else if (pinned.current && autoScrollRef.current) el.scrollTop = el.scrollHeight
     })
     ro.observe(content)
-    return () => ro.disconnect()
-  }, [autoScroll])
+    // The viewport itself resizes when panels open/close around the chat.
+    ro.observe(el)
+    window.addEventListener('resize', chase)
+    void document.fonts.ready.then(() => chase())
+
+    // Snap before the first paint so nothing flashes at the top of the session.
+    el.scrollTop = el.scrollHeight
+    lastSnap.current = el.scrollTop
+    chase()
+    deadline = setTimeout(() => {
+      el.scrollTop = el.scrollHeight
+      lastSnap.current = el.scrollTop
+      end()
+    }, SETTLE_CAP_MS)
+
+    return () => {
+      live = false
+      settling.current = false
+      ro.disconnect()
+      window.removeEventListener('resize', chase)
+      stop()
+    }
+  }, [])
 
   const onScroll = (): void => {
     const el = scroller.current
     if (!el) return
+    if (settling.current) {
+      // A scroll event during the chase is the transcript measuring itself. It
+      // only counts as the reader if the position moved *above* where we put it.
+      if (el.scrollTop < lastSnap.current - 4) {
+        settling.current = false
+      } else {
+        pinned.current = true
+        setAtBottom(true)
+        return
+      }
+    }
     const distance = el.scrollHeight - el.scrollTop - el.clientHeight
     // Hysteresis: unpin only once clearly away from the bottom, re-pin only
     // once back inside the bottom region. This stops flicker when streamed
@@ -119,26 +249,29 @@ export default function Chat({
     }
   }
 
-  // Wheel/touch intent unpins synchronously, before the next streamed chunk's
+  // Handing the transcript back to the reader. A physical gesture ends the
+  // post-mount chase immediately: you asked to look somewhere, so the automatic
+  // placement must stop moving the view under you.
+  const takeOverScroll = (): void => {
+    settling.current = false
+    pinned.current = false
+    setAtBottom(false)
+  }
+
+  // Wheel intent unpins synchronously, before the next streamed chunk's
   // autoscroll effect runs. Without this, fast token streaming snaps the view
   // back to the bottom between the physical wheel tick and the async scroll
   // event, making it impossible to scroll up mid-run.
   const onUserWheel = (e: { deltaY: number }): void => {
     stopGlide()
-    if (e.deltaY < 0) {
-      pinned.current = false
-      setAtBottom(false)
-    }
+    if (e.deltaY < 0) takeOverScroll()
   }
 
+  // Dragging the scrollbar or finger-dragging is unmistakably inspection;
+  // onScroll re-pins the moment they land back at the bottom.
   const onUserTouch = (): void => {
     stopGlide()
-    // Touch dragging is overwhelmingly inspection; onScroll re-pins the
-    // moment they land back at the bottom.
-    if (pinned.current) {
-      pinned.current = false
-      setAtBottom(false)
-    }
+    takeOverScroll()
   }
 
   const scrollToBottom = (): void => {
@@ -334,7 +467,9 @@ export default function Chat({
     <div className="relative min-h-0 flex-1">
       <ScrollFadeViewport
         ref={scroller}
-        className="h-full"
+        // overflow-anchor off: the browser's scroll anchoring silently rewrites
+        // scrollTop as rows measure, fighting the snap-to-bottom below.
+        className="h-full [overflow-anchor:none]"
         onScroll={onScroll}
         onWheel={onUserWheel}
         onTouchStart={stopGlide}

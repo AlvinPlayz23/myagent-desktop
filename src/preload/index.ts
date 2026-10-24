@@ -18,8 +18,11 @@ const api: MyagentApi = {
     ipcRenderer.on('myagent:window:maximized', listener)
     return () => ipcRenderer.removeListener('myagent:window:maximized', listener)
   },
-  onPush: (cb: (push: ServerPush) => void) => {
-    const listener = (_e: unknown, push: ServerPush): void => cb(push)
+  // Pushes arrive as a batch: the main process coalesces the server's
+  // per-event notifications into one IPC message per tick, so a streaming
+  // answer costs one message per frame instead of one per token.
+  onPush: (cb: (push: ServerPush[]) => void) => {
+    const listener = (_e: unknown, push: ServerPush[]): void => cb(push)
     ipcRenderer.on('myagent:push', listener)
     return () => ipcRenderer.removeListener('myagent:push', listener)
   },
@@ -38,6 +41,9 @@ const api: MyagentApi = {
     checkout: (cwd, branch) => ipcRenderer.invoke('myagent:git:checkout', cwd, branch),
     createBranch: (cwd, name) => ipcRenderer.invoke('myagent:git:createBranch', cwd, name),
     init: (cwd) => ipcRenderer.invoke('myagent:git:init', cwd)
+  },
+  files: {
+    search: (cwd, query) => ipcRenderer.invoke('myagent:files:search', cwd, query)
   },
   github: {
     status: (cwd) => ipcRenderer.invoke('myagent:github:status', cwd),

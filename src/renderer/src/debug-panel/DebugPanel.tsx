@@ -1,6 +1,6 @@
 // Right-side drawer visualizing the LLM provider connection: one row per
 // agent turn, expandable into a request timeline. See ./README.md.
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { useLlmTrace } from './useLlmTrace'
 import type { LlmTurn } from './types'
 import { cn } from '../util'
@@ -182,7 +182,7 @@ function TurnRow({ turn, expanded, onToggle }: { turn: LlmTurn; expanded: boolea
   )
 }
 
-export default function DebugPanel({ sessionId, open, onClose }: Props): JSX.Element {
+function DebugPanel({ sessionId, open, onClose }: Props): JSX.Element {
   const turns = useLlmTrace(sessionId)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const ordered = [...turns].reverse()
@@ -233,3 +233,8 @@ export default function DebugPanel({ sessionId, open, onClose }: Props): JSX.Ele
     </aside>
   )
 }
+
+// Mounted next to the transcript for the whole session, so it sits in App's
+// per-delta render path even while closed. Its props are a session id, a flag
+// and a stable callback.
+export default memo(DebugPanel)

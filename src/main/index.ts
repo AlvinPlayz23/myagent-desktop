@@ -15,6 +15,7 @@ import type {
 } from '../shared/protocol'
 import * as git from './git'
 import * as gh from './gh'
+import * as files from './files'
 
 let win: BrowserWindow | null = null
 let server: SpawnedServer | null = null
@@ -25,29 +26,78 @@ let appTheme: 'light' | 'dark' | null = null
 let transparency = 50
 let transparencyEnabled = true
 
-function push(p: ServerPush): void {
-  win?.webContents.send('myagent:push', p)
+// `moved`/`resized` fire continuously while the window is dragged or snapped,
+// and each one used to cost an IPC message plus a renderer re-render. Only the
+// settled state matters for the caption icon, so coalesce to the trailing
+// edge; maximize/unmaximize still report immediately because they are discrete.
+let maximizedPushTimer: NodeJS.Timeout | null = null
+let lastMaximized: boolean | null = null
+
+function sendWindowMaximized(): void {
+  const maximized = win?.isMaximized() ?? false
+  if (maximized === lastMaximized) return
+  lastMaximized = maximized
+  win?.webContents.send('myagent:window:maximized', maximized)
 }
 
 function pushWindowMaximized(): void {
-  win?.webContents.send('myagent:window:maximized', win.isMaximized())
+  sendWindowMaximized()
+}
+
+function scheduleWindowMaximized(): void {
+  if (maximizedPushTimer !== null) clearTimeout(maximizedPushTimer)
+  maximizedPushTimer = setTimeout(() => {
+    maximizedPushTimer = null
+    sendWindowMaximized()
+  }, 80)
+}
+
+// Server notifications arrive one WebSocket frame per agent event. Batching
+// them into one IPC message per tick cuts ~50x sends during streaming and
+// keeps the main thread off of structured-clone overhead. Low-latency pushes
+// (hello/status/done) bypass the wait by flushing immediately.
+const pushQueue: ServerPush[] = []
+let pushFlushTimer: NodeJS.Timeout | null = null
+const PUSH_FLUSH_MS = 32
+
+function sendPush(batch: ServerPush[]): void {
+  if (batch.length === 0) return
+  win?.webContents.send('myagent:push', batch)
+}
+
+function flushPushQueue(): void {
+  pushFlushTimer = null
+  if (pushQueue.length === 0) return
+  const batch = pushQueue.splice(0, pushQueue.length)
+  sendPush(batch)
+}
+
+function enqueuePush(p: ServerPush, immediate = false): void {
+  pushQueue.push(p)
+  if (immediate) {
+    flushPushQueue()
+    return
+  }
+  if (pushFlushTimer === null) {
+    pushFlushTimer = setTimeout(flushPushQueue, PUSH_FLUSH_MS)
+  }
 }
 
 function wireClient(): void {
   rpc.onNotification = ({ method, params }) => {
     if (method === 'server.hello') {
       hello = params as typeof hello
-      push({ kind: 'hello', ...(hello as NonNullable<typeof hello>) })
+      enqueuePush({ kind: 'hello', ...(hello as NonNullable<typeof hello>) }, true)
     } else if (method === 'session.event') {
       const p = params as { sessionId: string; event: AgentEvent }
-      push({ kind: 'event', sessionId: p.sessionId, event: p.event })
+      enqueuePush({ kind: 'event', sessionId: p.sessionId, event: p.event })
     } else if (method === 'session.done') {
       const p = params as { sessionId: string; error?: string }
-      push({ kind: 'done', sessionId: p.sessionId, error: p.error })
+      enqueuePush({ kind: 'done', sessionId: p.sessionId, error: p.error }, true)
     }
   }
   rpc.onClose = (reason) => {
-    push({ kind: 'status', state: 'disconnected', detail: reason })
+    enqueuePush({ kind: 'status', state: 'disconnected', detail: reason }, true)
     attemptReconnect()
   }
 }
@@ -57,12 +107,12 @@ async function attemptReconnect(): Promise<void> {
   if (!server || rpc.connected) return
   while (server && !rpc.connected && reconnectTries < 5) {
     reconnectTries++
-    push({ kind: 'status', state: 'reconnecting', detail: `attempt ${reconnectTries}` })
+    enqueuePush({ kind: 'status', state: 'reconnecting', detail: `attempt ${reconnectTries}` }, true)
     await new Promise((r) => setTimeout(r, 500 * reconnectTries))
     try {
       await rpc.connect(server.url)
       reconnectTries = 0
-      push({ kind: 'status', state: 'connected' })
+      enqueuePush({ kind: 'status', state: 'connected' }, true)
       return
     } catch {
       // next attempt
@@ -73,7 +123,7 @@ async function attemptReconnect(): Promise<void> {
     server?.stop()
     server = null
     connecting = null
-    push({ kind: 'status', state: 'disconnected', detail: 'server unreachable' })
+    enqueuePush({ kind: 'status', state: 'disconnected', detail: 'server unreachable' }, true)
   }
 }
 
@@ -81,24 +131,24 @@ async function ensureConnected(): Promise<RpcResult<{ name: string; version: str
   if (rpc.connected) {
     // A reloaded renderer boots in 'starting' and only learns state from
     // pushes; re-emit what it missed while the connection stayed up.
-    push({ kind: 'status', state: 'connected' })
-    if (hello) push({ kind: 'hello', ...hello })
+    enqueuePush({ kind: 'status', state: 'connected' }, true)
+    if (hello) enqueuePush({ kind: 'hello', ...hello }, true)
     return { ok: true, result: { name: hello?.name ?? 'myagent', version: hello?.version ?? '' } }
   }
   if (connecting) return connecting
   connecting = (async (): Promise<RpcResult<{ name: string; version: string }>> => {
     try {
-      push({ kind: 'status', state: 'starting' })
+      enqueuePush({ kind: 'status', state: 'starting' }, true)
       if (!server) server = await startServer()
       await rpc.connect(server.url)
       reconnectTries = 0
-      push({ kind: 'status', state: 'connected' })
+      enqueuePush({ kind: 'status', state: 'connected' }, true)
       return { ok: true, result: { name: 'myagent', version: hello?.version ?? '' } }
     } catch (err) {
       server?.stop()
       server = null
       const message = err instanceof Error ? err.message : String(err)
-      push({ kind: 'status', state: 'disconnected', detail: message })
+      enqueuePush({ kind: 'status', state: 'disconnected', detail: message }, true)
       return { ok: false, error: { code: -32000, message } }
     } finally {
       connecting = null
@@ -272,9 +322,10 @@ function createWindow(): void {
   win.on('unmaximize', pushWindowMaximized)
   // Aero-snap / taskbar / keyboard restores don't always pair with the button
   // path: re-push the settled state after moves and resizes so a missed event
-  // can't leave the renderer's caption icon stuck.
-  win.on('moved', pushWindowMaximized)
-  win.on('resized', pushWindowMaximized)
+  // can't leave the renderer's caption icon stuck. Trailing-debounced because
+  // these fire continuously during a drag.
+  win.on('moved', scheduleWindowMaximized)
+  win.on('resized', scheduleWindowMaximized)
   // Frameless windows don't get native Aero-snap: the web drag-region moves
   // the window, but DWM only watches real captions, so dragging to the top
   // edge never maximizes. Emulate that one gesture — while the window is
@@ -300,6 +351,11 @@ function createWindow(): void {
   })
   win.on('closed', () => {
     win = null
+    lastMaximized = null
+    if (maximizedPushTimer !== null) {
+      clearTimeout(maximizedPushTimer)
+      maximizedPushTimer = null
+    }
   })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
@@ -397,6 +453,9 @@ app.whenReady().then(() => {
   gitHandle('myagent:github:comment', (cwd: string, number: number, body: string) =>
     gh.comment(cwd, number, body)
   )
+
+  // Same failure shape as git: an unreadable project comes back as { ok: false }.
+  gitHandle('myagent:files:search', (cwd: string, query: string) => files.search(cwd, query))
 
   ipcMain.handle('myagent:window:minimize', () => win?.minimize())
   ipcMain.handle('myagent:window:toggleMaximize', () => {
