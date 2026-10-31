@@ -43,7 +43,10 @@ const api: MyagentApi = {
     init: (cwd) => ipcRenderer.invoke('myagent:git:init', cwd)
   },
   files: {
-    search: (cwd, query) => ipcRenderer.invoke('myagent:files:search', cwd, query)
+    search: (cwd, query) => ipcRenderer.invoke('myagent:files:search', cwd, query),
+    list: (cwd, path) => ipcRenderer.invoke('myagent:files:list', cwd, path),
+    read: (cwd, path) => ipcRenderer.invoke('myagent:files:read', cwd, path),
+    reveal: (cwd, path) => ipcRenderer.invoke('myagent:files:reveal', cwd, path)
   },
   github: {
     status: (cwd) => ipcRenderer.invoke('myagent:github:status', cwd),

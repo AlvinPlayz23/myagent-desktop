@@ -114,7 +114,7 @@ function ToolGroup({
   // Duration comes from tool-run timestamps so resumed history keeps summaries.
   if (running || toolCount === 0) {
     return (
-      <section className="mt-5 transcript-rise">
+      <section className="mt-5">
         <div className="flex flex-col">{entries.map(renderEntry)}</div>
       </section>
     )
@@ -127,7 +127,7 @@ function ToolGroup({
     ? `${toolCount} tool ${toolCount === 1 ? 'call' : 'calls'}${messageCount > 0 ? ` · ${messageCount} ${messageCount === 1 ? 'message' : 'messages'}` : ''}`
     : `Worked for ${duration(endedAt - startedAt)} and made ${toolCount} tool ${toolCount === 1 ? 'call' : 'calls'}`
   return (
-    <section className="mt-5 transcript-rise">
+    <section className="mt-5">
       <button
         type="button"
         className="group -mx-1.5 flex min-h-7 max-w-full items-center gap-1.5 rounded-lg px-1.5 text-left text-ui-base text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"

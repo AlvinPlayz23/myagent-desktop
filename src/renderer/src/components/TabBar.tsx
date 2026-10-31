@@ -50,7 +50,7 @@ function Tab({ id, label, active, running, pinned, diff, runIndicator, runIndica
         onClose()
       }}
       className={cn(
-        'group/tab no-drag relative flex h-7 min-w-0 shrink items-center rounded-lg',
+        'group/tab no-drag relative flex h-7 min-w-0 shrink items-center rounded-md',
         'basis-[200px] [min-width:var(--tab-min)]',
         'transition-colors duration-[var(--duration-instant)] ease-[var(--ease-smooth-out)]',
         active ? 'text-foreground' : 'text-foreground-subtle hover:bg-hover hover:text-foreground'
@@ -61,7 +61,7 @@ function Tab({ id, label, active, running, pinned, diff, runIndicator, runIndica
         <motion.span
           layoutId="session-tab-active"
           aria-hidden
-          className="absolute inset-0 rounded-lg bg-selected shadow-[inset_0_0_0_1px_var(--border)]"
+          className="absolute inset-0 rounded-md bg-selected"
           transition={{ duration: 0.16, ease: EASE_OUT }}
         />
       )}
@@ -74,7 +74,7 @@ function Tab({ id, label, active, running, pinned, diff, runIndicator, runIndica
         title={label}
         onClick={onSelect}
         onKeyDown={onKeyDown}
-        className="relative flex h-full min-w-0 flex-1 select-none items-center gap-2 rounded-lg pl-2.5 pr-7 text-left text-ui-caption font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="relative flex h-full min-w-0 flex-1 select-none items-center gap-2 rounded-md pl-2.5 pr-7 text-left text-ui-caption font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {/* Rendered only when there is something to show, so an idle tab's
             label starts flush left and shifts over once a run begins. */}
@@ -184,7 +184,7 @@ function OverflowMenu({ hiddenIds, labelFor, runningIds, onSelect, onClose }: Ov
           aria-expanded={open}
           onClick={() => (open ? setOpen(false) : openMenu())}
           className={cn(
-            'relative flex h-7 items-center gap-1 rounded-lg px-2 text-ui-caption font-medium tabular-nums outline-none',
+            'relative flex h-7 items-center gap-1 rounded-md px-2 text-ui-caption font-medium tabular-nums outline-none',
             'transition-colors duration-[var(--duration-instant)] focus-visible:ring-2 focus-visible:ring-ring',
             open ? 'bg-selected text-foreground' : 'text-foreground-subtle hover:bg-hover hover:text-foreground'
           )}
@@ -207,7 +207,7 @@ function OverflowMenu({ hiddenIds, labelFor, runningIds, onSelect, onClose }: Ov
             animate="animate"
             exit="exit"
             transition={BLOOM_FAST}
-            className="no-drag fixed z-[70] w-[260px] origin-top-left overflow-hidden rounded-xl bg-menu p-1 shadow-[var(--shadow-pop)]"
+            className="no-drag fixed z-[70] w-[260px] origin-top-left overflow-hidden rounded-lg border border-popover-border bg-menu p-1 shadow-[var(--shadow-pop)]"
             style={{ left: pos.left, top: pos.top }}
           >
             <div className="px-2.5 pb-1 pt-1.5 text-ui-xs font-medium text-foreground-subtlest">Hidden sessions</div>
@@ -372,7 +372,7 @@ function TabBar({ tabOrder, chats, sessions, activeId, runningIds, runIndicator 
           aria-label="New session"
           title="New session"
           onClick={onNew}
-          className="no-drag grid size-7 shrink-0 place-items-center rounded-lg text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="no-drag grid size-7 shrink-0 place-items-center rounded-md text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <CirclePlus size={18} />
         </button>

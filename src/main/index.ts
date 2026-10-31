@@ -456,6 +456,9 @@ app.whenReady().then(() => {
 
   // Same failure shape as git: an unreadable project comes back as { ok: false }.
   gitHandle('myagent:files:search', (cwd: string, query: string) => files.search(cwd, query))
+  gitHandle('myagent:files:list', (cwd: string, path?: string) => files.listDir(cwd, path))
+  gitHandle('myagent:files:read', (cwd: string, path: string) => files.readFileContent(cwd, path))
+  gitHandle('myagent:files:reveal', (cwd: string, path: string) => files.revealFile(cwd, path))
 
   ipcMain.handle('myagent:window:minimize', () => win?.minimize())
   ipcMain.handle('myagent:window:toggleMaximize', () => {

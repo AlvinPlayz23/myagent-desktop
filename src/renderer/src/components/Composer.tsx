@@ -148,7 +148,7 @@ function AttachmentThumb({
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onClick={(e) => { e.stopPropagation(); onRemove(attachment.id); }}
           className={cn(
-            "m-1 flex size-4 items-center justify-center rounded-full bg-background/90 text-foreground-subtle shadow-sm transition-all duration-200 ease-[var(--ease-smooth-out)] hover:bg-background hover:text-foreground hover:scale-110",
+            "m-1 flex size-4 items-center justify-center rounded bg-background/90 text-foreground-subtle transition-colors duration-200 hover:bg-background hover:text-foreground",
             hovered ? "opacity-100 scale-100" : "opacity-0 scale-50 pointer-events-none"
           )}
           aria-label={`Remove ${attachment.name}`}
@@ -215,7 +215,7 @@ function AttachmentGalleryModal({
 
   const geometry = isOpen && targetRect
     ? targetRect
-    : { top: originRect.top, left: originRect.left, width: originRect.width, height: originRect.height, radius: 12 }
+    : { top: originRect.top, left: originRect.left, width: originRect.width, height: originRect.height, radius: 8 }
 
   // Thumbnail → fullscreen is a spatial morph, so it wants a travel ease rather
   // than a bounce: an overshoot on top/left/width/height visibly wobbles the
@@ -227,7 +227,7 @@ function AttachmentGalleryModal({
 
   return (
     <div className="fixed inset-0 z-[100]" onClick={handleClose} role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-background/70 backdrop-blur-md transition-opacity duration-[var(--duration-medium)]" style={{ opacity: isOpen ? 1 : 0 }} />
+      <div className="absolute inset-0 bg-overlay transition-opacity duration-[var(--duration-medium)]" style={{ opacity: isOpen ? 1 : 0 }} />
       <div
         style={{
           position: 'fixed',
@@ -246,8 +246,8 @@ function AttachmentGalleryModal({
         type="button" onClick={handleClose}
         style={{ opacity: isOpen ? 1 : 0, transform: isOpen ? "scale(1)" : "scale(0.7)" }}
         className={cn(
-          "fixed right-4 top-4 flex size-9 items-center justify-center rounded-full bg-card/90 text-foreground-subtle shadow-md backdrop-blur-sm",
-          "transition-[opacity,transform,background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] hover:bg-card hover:text-foreground",
+          "fixed right-4 top-4 flex size-8 items-center justify-center rounded-lg bg-card text-foreground-subtle shadow-[var(--shadow-pop)]",
+          "transition-[opacity,transform,background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] hover:bg-hover hover:text-foreground",
           !isOpen && "pointer-events-none"
         )}
       >
@@ -929,11 +929,11 @@ function Composer({
       <AnimatePresence initial={false}>
         {attachmentError && (
           <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 3 }}
-            transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
-            className="mb-2 flex min-h-10 items-center justify-between gap-3 rounded-xl bg-destructive/8 px-3 text-ui-sm text-destructive-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--destructive)_20%,transparent)]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            className="mb-2 flex min-h-10 items-center justify-between gap-3 rounded-lg bg-destructive/8 px-3 text-ui-sm text-destructive-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--destructive)_20%,transparent)]"
           >
             <span>{attachmentError}</span>
             <button type="button" onClick={() => setAttachmentError(null)} className="grid size-8 shrink-0 place-items-center rounded-lg text-destructive-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive-foreground" aria-label="Dismiss attachment error">
@@ -963,7 +963,7 @@ function Composer({
             opacity: trayHeight > 0 ? 1 : 0,
             transition: `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease-out`
           }}
-          className="flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted"
+          className="flex flex-col overflow-hidden rounded-t-lg border border-b-0 border-border bg-muted"
         >
           {mentionRows > 0 && (
             <div
@@ -1044,7 +1044,7 @@ function Composer({
             opacity: queuedFollowUps.length > 0 ? 1 : 0,
             transition: `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease-out`
           }}
-          className="flex items-center gap-2 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted px-3"
+          className="flex items-center gap-2 overflow-hidden rounded-t-lg border border-b-0 border-border bg-muted px-3"
         >
           <AddToList size={14} strokeWidth={1.8} className="shrink-0" />
           <span className="whitespace-nowrap font-medium text-foreground">
@@ -1071,7 +1071,7 @@ function Composer({
             opacity: notice ? 1 : 0,
             transition: `transform var(--toast-${notice ? 'open' : 'close'}) var(--toast-ease), opacity var(--toast-${notice ? 'open' : 'close'}) var(--toast-ease)`
           }}
-          className="flex items-center gap-2 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-muted px-3"
+          className="flex items-center gap-2 overflow-hidden rounded-t-lg border border-b-0 border-border bg-muted px-3"
         >
           {retrying ? (
             <span className="size-3 shrink-0 animate-spin rounded-full border-[1.5px] border-warning border-t-transparent" aria-hidden />
@@ -1101,7 +1101,7 @@ function Composer({
         <div className="relative z-0 h-6 w-full overflow-hidden">
           <div
             style={{ position: 'absolute', bottom: -8, left: 20, width: 36, height: 32 }}
-            className="rounded-t-xl border border-b-0 border-border bg-muted"
+            className="rounded-t-lg border border-b-0 border-border bg-muted"
           >
             <button
               type="button"
@@ -1109,7 +1109,7 @@ function Composer({
               aria-label="Open subagents"
               aria-expanded={subagentsOpen}
               title="Subagents"
-              className="grid size-full place-items-center rounded-t-xl text-muted-foreground outline-none transition-colors hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              className="grid size-full place-items-center rounded-t-lg text-muted-foreground outline-none transition-colors hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Robot01 size={14} strokeWidth={1.6} />
             </button>
@@ -1124,7 +1124,7 @@ function Composer({
           contenteditable rather than a textarea so `@file` mentions can sit
           inline as chips. */}
       <div
-        className={cn('relative z-10 transition-[border-radius,background-color] duration-[var(--resize-dur)] ease-[var(--resize-ease)]', compact ? 'rounded-full' : 'rounded-[26px] p-px', running && !compact ? 'bg-input' : 'bg-transparent')}
+        className={cn('relative z-10 rounded-xl transition-[background-color] duration-[var(--resize-dur)] ease-[var(--resize-ease)]', !compact && 'p-px', running && !compact ? 'bg-input' : 'bg-transparent')}
       >
         {compact ? (
         <div
@@ -1135,13 +1135,10 @@ function Composer({
             }
           }}
           className={cn(
-            'flex min-h-[52px] items-center gap-1 overflow-visible border border-border bg-card py-2 pl-2 pr-2 shadow-sm transition-[border-color,box-shadow,border-radius,height] duration-[var(--resize-dur)] ease-[var(--resize-ease)] hover:border-border/80',
-            // One row -> a true pill, and nothing may wrap: the draft just
-            // shrinks against the fixed-width controls to its right instead of
-            // shoving them onto a second row. Wrapped -> the card radius, and
-            // `flex-wrap` is what lets the input take row one with the controls
-            // beneath it.
-            pillTall ? 'flex-wrap rounded-[26px]' : 'flex-nowrap rounded-full'
+            'flex min-h-12 items-center gap-1 overflow-visible rounded-xl border border-border bg-composer py-1.5 pl-1.5 pr-1.5 transition-[border-color,height] duration-[var(--resize-dur)] ease-[var(--resize-ease)] hover:border-input-border-hover',
+            // One row stays compact; a wrapped draft puts the controls beneath
+            // the input without changing the card's silhouette.
+            pillTall ? 'flex-wrap' : 'flex-nowrap'
           )}
         >
           {/* Attach */}
@@ -1150,7 +1147,7 @@ function Composer({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => fileInput.current?.click()}
             disabled={submitting || attachments.length >= MAX_ATTACHMENTS}
-            className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
             title="Attach images"
             aria-label="Attach images"
           >
@@ -1215,7 +1212,7 @@ function Composer({
               type="button"
               onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
               onClick={() => void startRecording()}
-              className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+              className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
               title="Voice input"
               aria-label="Use voice input"
             >
@@ -1242,7 +1239,7 @@ function Composer({
           {running && (
             <button
               type="button"
-              className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
+              className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
               title="Queue as follow-up (Ctrl+Enter)"
               onClick={() => void submit(true)}
               disabled={!canSubmit || submitting}
@@ -1265,8 +1262,7 @@ function Composer({
             onClick={onActionButtonClick}
             disabled={submitting}
             aria-label={showArrow ? "Send prompt" : showStop ? "Stop recording or generation" : "Use voice input"}
-            style={{ borderRadius: 9999 }}
-            className="flex size-9 shrink-0 items-center justify-center bg-primary text-primary-foreground transition-all duration-[var(--duration-quick)] hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-default shadow-sm disabled:opacity-50"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground outline-none transition-all duration-[var(--duration-quick)] hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring cursor-default disabled:opacity-50"
           >
             <span className="relative flex h-full w-full items-center justify-center">
               <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-150 ease-[var(--ease-smooth-out)]", showArrow ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-45 pointer-events-none")}>
@@ -1289,11 +1285,11 @@ function Composer({
               area.current?.focus()
             }
           }}
-          className="relative overflow-visible rounded-[24px] border border-border bg-card shadow-sm transition-[border-color,box-shadow] focus-within:border-ring/40 focus-within:ring-1 focus-within:ring-ring/20 hover:border-border/80"
+          className="relative overflow-visible rounded-xl border border-border bg-composer transition-[border-color,box-shadow] focus-within:border-ring/40 focus-within:ring-1 focus-within:ring-ring/20 hover:border-input-border-hover"
         >
-          <div className="relative px-4 pb-[54px] pt-4">
+          <div className="relative px-3.5 pb-[46px] pt-3.5">
             {!text && (
-              <span aria-hidden className="pointer-events-none absolute inset-x-4 top-4 truncate text-ui-base font-medium leading-relaxed text-foreground-subtlest select-none">
+              <span aria-hidden className="pointer-events-none absolute inset-x-3.5 top-3.5 truncate text-ui-base font-medium leading-relaxed text-foreground-subtlest select-none">
                 {placeholderText}
               </span>
             )}
@@ -1309,13 +1305,13 @@ function Composer({
               onKeyDown={onKey}
               onPaste={onPaste}
               className={cn(
-                'draft-input min-h-[64px] max-h-[220px] w-full overflow-hidden break-words border-0 bg-transparent p-0 text-ui-base leading-relaxed text-foreground outline-none',
+                'draft-input min-h-[56px] max-h-[220px] w-full overflow-hidden break-words border-0 bg-transparent p-0 text-ui-base leading-relaxed text-foreground outline-none',
                 (isRecording || submitting) && 'opacity-70'
               )}
             />
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-2.5 pb-2.5">
+          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-2 pb-2">
             {/* Left controls: model + effort · attach */}
             <div className="flex min-w-0 items-center gap-1">
               {providers && onModel && (
@@ -1366,7 +1362,7 @@ function Composer({
               {running && (
                 <button
                   type="button"
-                  className="grid size-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
+                  className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
                   title="Queue as follow-up (Ctrl+Enter)"
                   onClick={() => void submit(true)}
                   disabled={!canSubmit || submitting}
@@ -1384,8 +1380,7 @@ function Composer({
                 onClick={onActionButtonClick}
                 disabled={submitting}
                 aria-label={showArrow ? "Send prompt" : showStop ? "Stop recording or generation" : "Use voice input"}
-                style={{ borderRadius: 9999 }}
-                className="flex h-8 w-8 items-center justify-center bg-primary text-primary-foreground transition-all duration-[var(--duration-quick)] hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-default shadow-sm disabled:opacity-50"
+                className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground outline-none transition-all duration-[var(--duration-quick)] hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring cursor-default disabled:opacity-50"
               >
                 <span className="relative flex h-full w-full items-center justify-center">
                   <span className={cn("absolute inset-0 flex items-center justify-center transition-all duration-150 ease-[var(--ease-smooth-out)]", showArrow ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-45 pointer-events-none")}>

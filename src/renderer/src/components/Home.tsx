@@ -35,16 +35,6 @@ interface Props {
   onSettings?(): void
 }
 
-// Staggered entrance: mark → headline → composer → cards. One orchestrated
-// reveal on landing beats scattered micro-interactions later.
-const container = {
-  initial: {},
-  animate: { transition: { staggerChildren: 0.03, delayChildren: 0 } }
-}
-const rise = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.24, ease: EASE_OUT } }
-}
 function Home(props: Props): JSX.Element {
   const {
     loading, fatal, projects, selected, appName,
@@ -80,10 +70,10 @@ function Home(props: Props): JSX.Element {
       <div className="m-auto flex w-full max-w-2xl flex-col items-center gap-3 pb-16">
         {fatal ? (
           <div className="flex w-full max-w-xl flex-col items-center gap-4">
-            <pre className="max-h-48 w-full overflow-auto rounded-xl border border-destructive/30 bg-destructive/8 p-4 font-mono text-ui-sm leading-relaxed text-destructive-foreground">
+            <pre className="max-h-48 w-full overflow-auto rounded-lg border border-destructive/30 bg-destructive/8 p-4 font-mono text-ui-sm leading-relaxed text-destructive-foreground">
               {fatal}
             </pre>
-            <Button onClick={onRetry} className="rounded-full">
+            <Button onClick={onRetry}>
               <Rotate01 size={14} strokeWidth={1.8} />
               <span>Retry</span>
             </Button>
@@ -99,12 +89,12 @@ function Home(props: Props): JSX.Element {
             ))}
           </div>
         ) : projects.length === 0 ? (
-          <Button onClick={onAddProject} className="rounded-full" size="lg">
+          <Button onClick={onAddProject} size="lg">
             <FolderAdd size={15} strokeWidth={1.8} />
             <span>Add a project</span>
           </Button>
         ) : (
-          <motion.div variants={container} initial="initial" animate="animate" className="flex w-full flex-col gap-4">
+          <div className="flex w-full flex-col gap-4">
             {/* Header row: app name left, project picker right  the original
                 layout, kept quiet so the composer stays the focus. */}
             {/* Stacking: the composer's own popovers (model picker) must paint
@@ -112,8 +102,7 @@ function Home(props: Props): JSX.Element {
                 The project picker is inside this header row — whose blur/filter
                 variant makes it a stacking context — so the header only rises
                 above the composer while that picker is open. */}
-            <motion.div
-              variants={rise}
+            <div
               className={cn(
                 'flex flex-col items-center gap-3 px-5 pb-3',
                 open ? 'relative z-30' : 'relative z-10'
@@ -124,7 +113,7 @@ function Home(props: Props): JSX.Element {
               </h1>
               <div className="relative shrink-0" ref={pop} aria-label={appName}>
                 <button
-                  className="flex h-8 max-w-[280px] items-center gap-2 rounded-lg px-2.5 text-muted-foreground outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex h-7 max-w-[280px] items-center gap-2 rounded-md px-2 text-muted-foreground outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => setOpen(!open)}
                   title={current?.cwd}
                 >
@@ -138,7 +127,7 @@ function Home(props: Props): JSX.Element {
                 <AnimatePresence>
                   {open && (
                     <motion.div
-                      className="absolute left-1/2 top-10 z-50 max-h-[320px] w-[260px] -translate-x-1/2 origin-top overflow-y-auto rounded-xl bg-menu p-1 shadow-[var(--shadow-pop)]"
+                      className="absolute left-1/2 top-9 z-50 max-h-[320px] w-[260px] -translate-x-1/2 origin-top overflow-y-auto rounded-lg border border-popover-border bg-menu p-1 shadow-[var(--shadow-pop)]"
                       initial={{ opacity: 0, y: -6, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -3, scale: 0.99 }}
@@ -184,9 +173,9 @@ function Home(props: Props): JSX.Element {
                   )}
                 </AnimatePresence>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div variants={rise} className="relative z-20">
+            <div className="relative z-20">
               <Composer
                 running={false}
                 onSend={(content) => {
@@ -222,16 +211,16 @@ function Home(props: Props): JSX.Element {
                 effortSelectorVariant={effortSelectorVariant}
                 onCommand={onCommand}
               />
-            </motion.div>
+            </div>
 
 
             {recents.length > 0 && onOpenSession && (
-              <motion.section variants={rise} aria-label="Recent sessions" className="w-full max-w-xl self-center">
+              <section aria-label="Recent sessions" className="w-full max-w-xl self-center">
                 <button
                   type="button"
                   onClick={() => setRecentsOpen((value) => !value)}
                   aria-expanded={recentsOpen}
-                  className="flex min-h-10 w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex min-h-8 w-full min-w-0 items-center gap-3 rounded-md px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <HugeiconsIcon icon={Message01Icon} size={15} strokeWidth={1.5} className="shrink-0 text-foreground-subtlest" aria-hidden />
                   <span className="shrink-0 text-ui-sm text-foreground-subtlest">Recent</span>
@@ -260,7 +249,7 @@ function Home(props: Props): JSX.Element {
                             type="button"
                             onClick={() => onOpenSession(session.id)}
                             title={session.cwd}
-                            className="group flex min-h-9 w-full min-w-0 items-center gap-3 rounded-lg px-3 py-1.5 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                            className="group flex min-h-8 w-full min-w-0 items-center gap-3 rounded-md px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <span className="min-w-0 flex-1 truncate pl-[27px] text-ui-sm text-foreground-subtle group-hover:text-foreground">
                               {session.title || session.preview || `${session.messageCount} messages`}
@@ -277,9 +266,9 @@ function Home(props: Props): JSX.Element {
                     </motion.ul>
                   )}
                 </AnimatePresence>
-              </motion.section>
+              </section>
             )}
-          </motion.div>
+          </div>
         )}
       </div>
     </div>

@@ -16,7 +16,7 @@ export default function TurnSummary({ startedAt, endedAt, children }: { startedA
   const elapsed = (endedAt ?? Date.now()) - startedAt
 
   return (
-    <section className="turn-summary mt-5 transcript-rise">
+    <section className="turn-summary mt-5">
       <AnimatePresence initial={false}>
         {open && (
           <motion.div

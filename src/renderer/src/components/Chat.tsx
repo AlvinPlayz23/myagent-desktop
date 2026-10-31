@@ -21,7 +21,7 @@ import { ScrollFadeViewport } from './ui/scroll-fade-viewport'
 const STABLE_FRAMES = 4
 const SETTLE_CAP_MS = 5000
 
-// Rises a timeline entry in as it appends to a live conversation. Rows that
+// Fades a timeline entry in as it appends to a live conversation. Rows that
 // are part of the first render (history load / session resume) pass
 // animate=false so an entire transcript never replays its entrance.
 //
@@ -33,9 +33,9 @@ function Entrance({ animate, children }: { animate: boolean; children: ReactNode
   return (
     <motion.div
       className="transcript-row"
-      initial={animate ? { opacity: 0, y: 6 } : false}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.16, ease: 'easeOut' }}
+      initial={animate ? { opacity: 0 } : false}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12, ease: 'easeOut' }}
     >
       {children}
     </motion.div>
@@ -518,11 +518,11 @@ export default function Chat({
             aria-label="Jump to latest"
             title="Jump to latest"
             onClick={scrollToBottom}
-            initial={{ opacity: 0, y: 8, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.9 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="absolute bottom-4 left-1/2 z-10 flex size-9 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-background/90 text-muted-foreground shadow-md backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            className="absolute bottom-4 left-1/2 z-10 flex size-8 -translate-x-1/2 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground shadow-[var(--shadow-pop)] transition-colors hover:bg-hover hover:text-foreground"
           >
             <ArrowDown02 size={16} strokeWidth={1.8} />
           </motion.button>

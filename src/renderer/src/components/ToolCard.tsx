@@ -38,7 +38,7 @@ function ToolCard({ run }: { run: ToolRun }): JSX.Element {
   const shown = full || text.length <= MAX_PREVIEW ? text : text.slice(0, MAX_PREVIEW)
 
   return (
-    <div className="tool-row my-0 flex flex-col text-ui-base transcript-rise">
+    <div className="tool-row my-0 flex flex-col text-ui-base">
       <button
         className="-mx-1.5 flex min-h-8 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => setOpen(!open)}

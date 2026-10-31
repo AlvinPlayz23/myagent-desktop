@@ -516,9 +516,28 @@ export interface WorkspaceFile {
   name: string
 }
 
-/** Local file search behind the composer's @ picker. */
+/** One row in the file panel's directory tree. */
+export interface WorkspaceDirEntry {
+  /** Path relative to the project root, with POSIX separators. */
+  path: string
+  name: string
+  kind: 'file' | 'dir'
+}
+
+/** What the file panel can preview for one path. */
+export type WorkspaceFileContent =
+  | { kind: 'text'; content: string; size: number }
+  | { kind: 'image'; dataUrl: string; mimeType: string; size: number }
+  | { kind: 'binary'; size: number }
+  | { kind: 'too-large'; size: number }
+
+/** Local file access behind the @ picker and the file panel. */
 export interface FileApi {
   search(cwd: string, query: string): Promise<RpcResult<WorkspaceFile[]>>
+  /** One directory level, so the tree can expand lazily. */
+  list(cwd: string, path?: string): Promise<RpcResult<WorkspaceDirEntry[]>>
+  read(cwd: string, path: string): Promise<RpcResult<WorkspaceFileContent>>
+  reveal(cwd: string, path: string): Promise<RpcResult<void>>
 }
 
 export interface GithubApi {

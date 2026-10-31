@@ -56,7 +56,7 @@ function SubagentToolCard({
       : 'Subagent finished'
 
   return (
-    <div className="tool-row my-0 flex flex-col text-ui-base transcript-rise" data-subagent-task={task.key}>
+    <div className="tool-row my-0 flex flex-col text-ui-base" data-subagent-task={task.key}>
       <button
         className="-mx-1.5 flex min-h-8 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => onOpen(task, task.launchFailed ? ackText(run).trim() || undefined : undefined)}

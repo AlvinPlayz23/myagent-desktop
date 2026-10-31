@@ -12,7 +12,9 @@ import type {
   SessionTool,
   SessionTools,
   ServerPush,
-  WorkspaceFile
+  WorkspaceDirEntry,
+  WorkspaceFile,
+  WorkspaceFileContent
 } from '../../shared/protocol'
 
 declare global {
@@ -48,6 +50,20 @@ export const api = {
   searchFiles: async (cwd: string, query: string): Promise<WorkspaceFile[]> => {
     const res = await window.myagent.files.search(cwd, query)
     return res.ok ? res.result : []
+  },
+  listFiles: async (cwd: string, path?: string): Promise<WorkspaceDirEntry[]> => {
+    const res = await window.myagent.files.list(cwd, path)
+    if (!res.ok) throw new ApiError(res.error)
+    return res.result
+  },
+  readFile: async (cwd: string, path: string): Promise<WorkspaceFileContent> => {
+    const res = await window.myagent.files.read(cwd, path)
+    if (!res.ok) throw new ApiError(res.error)
+    return res.result
+  },
+  revealFile: async (cwd: string, path: string): Promise<void> => {
+    const res = await window.myagent.files.reveal(cwd, path)
+    if (!res.ok) throw new ApiError(res.error)
   },
   onPush: (cb: (push: ServerPush[]) => void): (() => void) => window.myagent.onPush(cb),
 

@@ -83,15 +83,14 @@ export const bloomIn = bloom(0, 0)
  * costing an exit plus an entrance in sequence.
  *
  * Keep the exit shorter than the entrance so the handoff reads as the new view
- * arriving rather than the old one leaving. Blur and scale are deliberately
- * absent: a full-height surface is the worst possible place to pay for an
- * animated filter, and scaling a panel inside a translucent window makes the
- * whole app look like it is breathing.
+ * arriving rather than the old one leaving. Blur, scale and travel are
+ * deliberately absent: a full-height surface should not look like it is
+ * sliding or breathing inside the window.
  */
 export const bloomPanel: Variants = {
-  initial: { opacity: 0, y: 4 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.18, ease: EASE_OUT } },
-  exit: { opacity: 0, transition: { duration: 0.12, ease: EASE_IN } }
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.14, ease: EASE_OUT } },
+  exit: { opacity: 0, transition: { duration: 0.1, ease: EASE_IN } }
 }
 
 /**

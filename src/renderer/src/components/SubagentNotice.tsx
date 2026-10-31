@@ -38,7 +38,7 @@ function SubagentNotice({ task, onOpen }: { task: SubagentTask; onOpen(task: Sub
 
   return (
     <div
-      className="transcript-rise my-0 flex flex-col text-ui-base"
+      className="my-0 flex flex-col text-ui-base"
       data-subagent-task={task.key}
     >
       <button

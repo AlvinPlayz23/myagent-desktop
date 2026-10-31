@@ -1,7 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { GitBranchIcon, Message01Icon } from '@hugeicons/core-free-icons'
+import { Message01Icon } from '@hugeicons/core-free-icons'
 import {
   Archive01,
   ArchiveRestore,
@@ -430,23 +430,23 @@ function Sidebar({
     }
   }, [visibleSessions, archived, collapsed, runningSessions])
 
-  /** Two-line session row: title with age, then project and branch. A live
-      run swaps the leading glyph for a pulsing dot, so status never costs a line. */
+  /** Dense two-line session row: title + age, then project. Branch stays in
+      the tooltip so the row does not turn into a metadata stack. */
   const sessionRow = (session: SessionMeta, muted = false): JSX.Element => {
     const running = runningIds.has(session.id)
     const project = knownProjects.find((item) => item.cwd === session.cwd)
     const branch = branchByCwd[session.cwd]
     const active = session.id === activeId
     const held = menu?.session.id === session.id
+    const detail = [label(session), project?.name, branch].filter(Boolean).join(' · ')
     return (
       <motion.button
         key={session.id}
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={false}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.18, ease: EASE_OUT }}
+        transition={{ duration: 0.12, ease: EASE_OUT }}
         className={cn(
-          'group relative flex w-full min-h-[46px] items-start gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none',
+          'group relative flex w-full min-h-[38px] items-center gap-2 rounded-md px-2 py-1 text-left outline-none',
           'transition-[background-color] duration-[var(--duration-instant)]',
           'focus-visible:ring-2 focus-visible:ring-ring',
           active ? 'bg-selected' : 'hover:bg-hover',
@@ -455,10 +455,10 @@ function Sidebar({
         )}
         onClick={() => onOpen(session.id)}
         onContextMenu={(event) => openMenu(event, session)}
-        title={label(session)}
+        title={detail}
         aria-current={active ? 'true' : undefined}
       >
-        <span className="mt-[3px] grid size-4 shrink-0 place-items-center" aria-hidden>
+        <span className="grid size-4 shrink-0 place-items-center" aria-hidden>
           {running ? (
             <RunIndicator variant={runIndicator} color={runIndicatorColorValue(sidebarRunColor)} />
           ) : (
@@ -474,29 +474,23 @@ function Sidebar({
             )
           )}
         </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex min-w-0 items-baseline gap-2">
             <span
               className={cn(
-                'min-w-0 flex-1 truncate text-ui-base leading-[18px]',
+                'min-w-0 flex-1 truncate text-ui-sm leading-[16px]',
                 active ? 'font-medium text-foreground' : 'text-foreground/85'
               )}
             >
               {label(session)}
             </span>
-            <span className="shrink-0 text-ui-xs tabular-nums text-foreground-subtlest">
+            <span className="shrink-0 text-ui-2xs leading-[13px] tabular-nums text-foreground-subtlest">
               {relTime(session.modified)}
             </span>
           </span>
-          <span className="flex min-w-0 items-center gap-1.5 text-ui-sm leading-[15px] text-foreground-subtle">
-            <span className="min-w-0 shrink truncate">{project?.name ?? 'project'}</span>
-            {branch && (
-              <>
-                <HugeiconsIcon icon={GitBranchIcon} size={11} strokeWidth={1.5} className="shrink-0 text-foreground-subtlest" aria-hidden />
-                <span className="min-w-0 shrink-[2] truncate font-mono text-ui-xs text-foreground-subtlest">{branch}</span>
-              </>
-            )}
-            {running && <span className="ml-auto shrink-0 text-ui-xs font-medium text-[color:var(--busy)]">Working</span>}
+          <span className="flex min-w-0 items-center gap-1.5 text-ui-2xs leading-[13px] text-foreground-subtle">
+            <span className="min-w-0 truncate">{project?.name ?? 'project'}</span>
+            {running && <span className="ml-auto shrink-0 font-medium text-[color:var(--busy)]">Working</span>}
           </span>
         </span>
       </motion.button>
@@ -562,7 +556,7 @@ function Sidebar({
         render={
           <button
             className={cn(
-              'grid size-8 shrink-0 place-items-center rounded-lg outline-none transition-colors',
+              'grid size-7 shrink-0 place-items-center rounded-md outline-none transition-colors',
               'focus-visible:ring-2 focus-visible:ring-ring',
               selected ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
             )}
@@ -586,7 +580,7 @@ function Sidebar({
           // One speed both ways: the collapse used to start 80ms late while the
           // expand ran slower and overshot past the rail's own width, which read
           // as the sidebar bouncing. toggleSidebar masks the repaint meanwhile.
-          'app-sidebar flex shrink-0 flex-col overflow-hidden transition-[width]',
+          'app-sidebar flex shrink-0 flex-col overflow-hidden border-r border-border-seam transition-[width]',
           collapsed
             ? 'w-14 duration-[160ms] ease-[var(--ease-smooth-out)]'
             : 'w-[264px] duration-[180ms] ease-[var(--ease-smooth-out)]'
@@ -644,10 +638,10 @@ function Sidebar({
                         render={
                           <button
                             className={cn(
-                              'relative grid size-8 shrink-0 place-items-center rounded-lg outline-none transition-colors',
+                              'relative grid size-7 shrink-0 place-items-center rounded-md outline-none transition-colors',
                               'focus-visible:ring-2 focus-visible:ring-ring',
                               isActive
-                                ? 'bg-selected text-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--foreground)_12%,transparent)]'
+                                ? 'bg-selected text-foreground'
                                 : 'text-muted-foreground hover:bg-hover hover:text-foreground',
                               isRunning && !isActive && 'ring-1 ring-[color:var(--busy)]/30'
                             )}
@@ -707,7 +701,7 @@ function Sidebar({
             ) : (
               <>
                 <div className="flex w-full flex-col gap-1">
-                  <div className="flex h-8 items-center justify-between gap-2 px-0.5">
+                  <div className="flex h-7 items-center justify-between gap-2 px-0.5">
                     <button
                       className={cn(
                         'flex h-7 min-w-0 items-center gap-2 rounded-md px-2 text-left outline-none',
@@ -742,7 +736,7 @@ function Sidebar({
                 }}
                 placeholder="Search sessions…"
                 aria-label="Search sessions"
-                className="h-8 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
+                className="h-7 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
               />
             </div>
           )}
@@ -890,7 +884,7 @@ function Sidebar({
                           >
                             <button
                               type="button"
-                              className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               onClick={() => handleGroupToggle(index, !open)}
                               aria-expanded={open}
                             >
@@ -1002,7 +996,7 @@ function Sidebar({
                       {searching ? 'No matching sessions' : knownProjects.length === 0 ? 'No projects yet' : 'No sessions here'}
                     </p>
                     <button
-                      className="mt-2.5 inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-ui-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                      className="mt-2.5 inline-flex h-7 items-center gap-1.5 rounded-md border border-border px-2.5 text-ui-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
                       onClick={newSessionAction}
                     >
                       <CirclePlus size={16} />
@@ -1113,7 +1107,7 @@ function Sidebar({
           <div className="mb-1 h-px bg-border/50" />
           <button
             className={cn(
-              'flex h-9 w-full items-center gap-2 rounded-lg text-left text-ui-sm font-medium outline-none',
+              'flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-ui-sm font-medium outline-none',
               'focus-visible:ring-2 focus-visible:ring-ring',
               settingsOpen ? 'bg-selected text-foreground' : 'text-muted-foreground',
               !settingsOpen && !settling && 'transition-colors hover:bg-hover hover:text-foreground',
@@ -1140,7 +1134,7 @@ function Sidebar({
             animate="animate"
             exit="exit"
             transition={BLOOM_FAST}
-            className="fixed z-[60] w-[252px] origin-top-left overflow-hidden rounded-lg border border-popover-border bg-menu $1 shadow-md"
+            className="fixed z-[60] w-[252px] origin-top-left overflow-hidden rounded-lg border border-popover-border bg-menu shadow-[var(--shadow-pop)]"
             style={{
               left: projectButtonRef.current?.getBoundingClientRect().left ?? 12,
               top: (projectButtonRef.current?.getBoundingClientRect().bottom ?? 80) + 6
@@ -1153,7 +1147,7 @@ function Sidebar({
                 value={projectQuery}
                 onChange={(event) => setProjectQuery(event.target.value)}
                 placeholder="Search projects…"
-                className="h-8 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
+                className="h-7 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
               />
             </div>
 
@@ -1226,7 +1220,7 @@ function Sidebar({
             animate="animate"
             exit="exit"
             transition={BLOOM_FAST}
-            className="fixed z-[61] w-[240px] origin-top-left overflow-hidden rounded-lg border border-popover-border bg-menu $1 shadow-md"
+            className="fixed z-[61] w-[240px] origin-top-left overflow-hidden rounded-lg border border-popover-border bg-menu shadow-[var(--shadow-pop)]"
             style={{ left: menu.x, top: menu.y }}
             onContextMenu={(event) => event.preventDefault()}
           >

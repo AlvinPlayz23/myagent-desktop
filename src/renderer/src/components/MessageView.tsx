@@ -41,7 +41,7 @@ function ErrorCard({ raw }: { raw: string }): JSX.Element {
   }
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 transcript-rise">
+    <div className="flex items-start gap-3 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3">
       <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-destructive/15 text-destructive-foreground">
         <Alert02 size={14} strokeWidth={1.8} />
       </span>
@@ -120,18 +120,17 @@ function MessageView({ msg, streaming, messageSize = 'default', showThinking = t
     const text = blocks.filter((block) => block.type === 'text').map((block) => block.text ?? '').join('')
     const images = blocks.filter((block) => block.type === 'image' && block.data && block.mimeType)
     return (
-      <div className="flex justify-end transcript-rise">
-        {/* Uniformly rounded, no tail: the corner radius pairs with the
-            composer's 24px so a sent message reads as the same object. */}
-        <div className={cn('flex max-w-[80%] flex-col gap-2.5 rounded-3xl border border-border bg-hover p-2.5 leading-relaxed text-foreground', text && 'px-4', messageClass)}>
+      <div className="flex justify-end">
+        {/* Flat bubble: one radius step below the composer so the two read as
+            the same family without a tail. */}
+        <div className={cn('flex max-w-[80%] flex-col gap-2.5 rounded-xl bg-hover p-2.5 leading-relaxed text-foreground', text && 'px-4', messageClass)}>
           {images.length > 0 && (
 			<div className={cn('grid gap-2', images.length > 1 && 'grid-cols-2')}>
 			  {images.map((image, index) => (
 				<img
 				  key={index}
 				  src={`data:${image.mimeType};base64,${image.data}`}
-				  alt={`Attached image ${index + 1}`}
-				  className="attachment-image max-h-64 max-w-full rounded-2xl object-cover"
+				  alt={`Attached image ${index + 1}`}  				  className="attachment-image max-h-64 max-w-full rounded-lg object-cover"
 				/>
 			  ))}
 			</div>
@@ -152,7 +151,7 @@ function MessageView({ msg, streaming, messageSize = 'default', showThinking = t
         .join('\n\n')
 
   return (
-    <div className="group flex transcript-rise">
+    <div className="group flex">
       <div className="flex w-full min-w-0 flex-col gap-0.5">
         {blocks.map((block, i) => {
           if (showThinking && block.type === 'thinking' && (block.thinking || block.redacted)) {

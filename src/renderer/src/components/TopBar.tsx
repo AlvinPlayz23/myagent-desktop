@@ -7,6 +7,7 @@ import {
   ArrowShrink01,
   Cpu,
   Edit01,
+  FolderTree01,
   GitBranch01,
   HelpCircle,
   MoreHorizontal,
@@ -36,6 +37,9 @@ interface Props {
   debugOpen: boolean
   onToggleGit(): void
   gitOpen: boolean
+  /** Open the project file tree in the right dock. */
+  onToggleFiles(): void
+  filesOpen: boolean
   /** Open the full-window source-control screen. */
   onOpenGitWindow(): void
   onToggleSubagents(): void
@@ -49,7 +53,7 @@ interface Props {
 
 function iconButton(active: boolean): string {
   return cn(
-    'grid size-8 shrink-0 place-items-center rounded-lg outline-none transition-colors duration-[var(--duration-instant)]',
+    'grid size-7 shrink-0 place-items-center rounded-md outline-none transition-colors duration-[var(--duration-instant)]',
     'focus-visible:ring-2 focus-visible:ring-ring',
     active ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
   )
@@ -83,7 +87,7 @@ function MenuItem({
   return (
     <button
       role="menuitem"
-      className="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-ui-caption text-foreground outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover focus-visible:bg-hover focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
+      className="flex h-7 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-ui-sm text-foreground outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover focus-visible:bg-hover focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
       onClick={onClick}
       disabled={disabled}
       title={title}
@@ -113,7 +117,7 @@ function Popover({
       exit="exit"
       transition={BLOOM_FAST}
       role="menu"
-      className="absolute right-0 top-9 z-50 origin-top-right overflow-hidden rounded-xl bg-menu p-1 shadow-[var(--shadow-pop)]"
+      className="absolute right-0 top-8 z-50 origin-top-right overflow-hidden rounded-lg border border-popover-border bg-menu p-1 shadow-[var(--shadow-pop)]"
       style={{ width }}
     >
       {children}
@@ -124,7 +128,7 @@ function Popover({
 function TopBar(props: Props): JSX.Element {
   const {
     chat, title, onCompact, onRename, onArchive,
-    onToggleDebug, debugOpen, onToggleGit, gitOpen, onOpenGitWindow,
+    onToggleDebug, debugOpen, onToggleGit, gitOpen, onToggleFiles, filesOpen, onOpenGitWindow,
     onToggleSubagents, subagentsOpen, runningSubagents,
     onSettings, onHelp
   } = props
@@ -159,6 +163,15 @@ function TopBar(props: Props): JSX.Element {
     <div className="no-drag ml-auto flex shrink-0 items-center gap-1">
       {chat && (
         <>
+          <button
+            className={iconButton(filesOpen)}
+            title={filesOpen ? 'Close files' : 'Open files'}
+            aria-pressed={filesOpen}
+            aria-label="Files"
+            onClick={onToggleFiles}
+          >
+            <FolderTree01 size={15} strokeWidth={1.8} />
+          </button>
           <button
             className={iconButton(gitOpen)}
             title={gitOpen ? 'Close source control' : 'Open source control'}
@@ -254,16 +267,16 @@ function TopBar(props: Props): JSX.Element {
       <div className="relative">
         <button
           className={cn(
-            'grid size-8 shrink-0 place-items-center rounded-full outline-none transition-shadow duration-[var(--duration-quick)]',
+            'grid size-7 shrink-0 place-items-center rounded-md outline-none transition-colors duration-[var(--duration-quick)]',
             'focus-visible:ring-2 focus-visible:ring-ring',
-            profileOpen ? 'ring-2 ring-ring/40' : 'hover:ring-2 hover:ring-ring/25'
+            profileOpen ? 'bg-selected' : 'hover:bg-hover'
           )}
           title="Account & settings"
           aria-label="Account & settings"
           aria-expanded={profileOpen}
           onClick={() => { setMenuOpen(false); setProfileOpen((v) => !v) }}
         >
-          <Avatar size={22} />
+          <Avatar size={20} />
         </button>
         <AnimatePresence>
           {profileOpen && (

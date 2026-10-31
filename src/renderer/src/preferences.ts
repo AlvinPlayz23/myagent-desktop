@@ -13,7 +13,7 @@ export interface ThemeMeta {
 }
 
 export const THEMES: readonly ThemeMeta[] = [
-  { id: 'default', name: 'Neutral', detail: 'Quiet greys with a blue accent', light: ['#ffffff', '#232323', '#2563eb'], dark: ['#1b1b1b', '#ececec', '#6aa3ff'] },
+  { id: 'default', name: 'Neutral', detail: 'Quiet greys with a blue accent', light: ['#f7f7f7', '#383838', '#2563eb'], dark: ['#202020', '#d6d6d6', '#6aa3ff'] },
   { id: 'nord', name: 'Nord', detail: 'Cool, muted arctic blues', light: ['#eceff4', '#2e3440', '#4c6f9b'], dark: ['#2e3440', '#e5e9f0', '#88c0d0'] },
   { id: 'catppuccin', name: 'Catppuccin', detail: 'Soft pastel — Latte and Mocha', light: ['#eff1f5', '#4c4f69', '#1e66f5'], dark: ['#1e1e2e', '#cdd6f4', '#89b4fa'] },
   { id: 'gruvbox', name: 'Gruvbox', detail: 'Warm retro earth tones', light: ['#fbf1c7', '#3c3836', '#9d5f0b'], dark: ['#282828', '#ebdbb2', '#fabd2f'] },
@@ -111,15 +111,15 @@ export const defaults: Preferences = {
   modelSelectorVariant: 'compact',
   effortSelectorVariant: 'slider',
   sidebarVariant: 'inbox',
-  runIndicator: 'S1',
+  runIndicator: 'color',
   sidebarRunColor: 'yellow',
   workingOrb: 'S1',
   tabDiffCounts: true,
   compactTurnSummary: true,
   subagentsChip: true,
-  transparencyEnabled: true,
+  transparencyEnabled: false,
   transparency: 50,
-  interfaceFontSize: 13.5,
+  interfaceFontSize: 13,
   appName: DEFAULT_APP_NAME
 }
 

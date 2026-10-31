@@ -52,6 +52,7 @@ import {
   Folder01Icon,
   Folder02Icon,
   FolderAddIcon,
+  FolderTreeIcon,
   LayoutAlignLeftIcon,
   LayoutAlignRightIcon,
   Loading03Icon,
@@ -101,6 +102,7 @@ export const Edit01 = makeIcon(Edit01Icon)
 export const Folder01 = makeIcon(Folder01Icon)
 export const Folder02 = makeIcon(Folder02Icon)
 export const FolderAdd = makeIcon(FolderAddIcon)
+export const FolderTree01 = makeIcon(FolderTreeIcon)
 export const Globe02 = makeIcon(Globe02Icon)
 export const Keyboard01 = makeIcon(KeyboardIcon)
 export const GitBranch01 = makeIcon(GitBranchIcon)

@@ -17,6 +17,10 @@ import WindowControls from './components/WindowControls'
 import TabBar from './components/TabBar'
 import OpenWith from './components/OpenWith'
 import SubagentPanel from './components/SubagentPanel'
+import FilePreview from './components/FilePreview'
+import FileTree from './components/FileTree'
+import RightDock, { type DockTab } from './components/RightDock'
+import { FileNavigationProvider } from './fileNavigation'
 import { useDiffStats } from './hooks/use-diff-stats'
 import { subagentTaskIndex, subagentTaskList, revealSubagentInTranscript, type SubagentTask } from './subagents'
 import { applyTheme, applyFontSize, loadPreferences, normalizeAppName, normalizeTransparency, runIndicatorColorValue, savePreferences, type Preferences } from './preferences'
@@ -52,6 +56,13 @@ function ScreenFallback(): JSX.Element {
   return <div className="fixed inset-0 z-50 bg-background/80" aria-hidden />
 }
 
+interface FileTab {
+  id: string
+  cwd: string
+  path: string
+  name: string
+}
+
 const NO_SUBAGENTS: SubagentTask[] = []
 const NO_CWDS: string[] = []
 const NO_LABELS: string[] = []
@@ -63,11 +74,14 @@ export default function App(): JSX.Element {
   // debug-panel: drawer open/closed state
   const [debugOpen, setDebugOpen] = useState(false)
   const [gitOpen, setGitOpen] = useState(false)
-  // The full-window source-control screen. Separate from `gitOpen` (the 320px
-  // staging panel): they answer different questions and are used at different
-  // moments, so neither replaces the other.
+  // The full-window source-control screen. Separate from `gitOpen` (the source
+  // control tab in the right dock): they answer different questions and are
+  // used at different moments, so neither replaces the other.
   const [gitWindowOpen, setGitWindowOpen] = useState(false)
   const [subagentsOpen, setSubagentsOpen] = useState(false)
+  const [filesOpen, setFilesOpen] = useState(false)
+  const [fileTabs, setFileTabs] = useState<FileTab[]>([])
+  const [dockActive, setDockActive] = useState('')
   const [preferences, setPreferences] = useState<Preferences>(loadPreferences)
   const [queuedFollowUps, setQueuedFollowUps] = useState<{ id: string; sessionId: string; content: ContentBlock[]; label: string }[]>([])
   const [homeNotice, setHomeNotice] = useState<string | null>(null)
@@ -366,23 +380,65 @@ export default function App(): JSX.Element {
     startChromeAnimation(240)
     setSidebarCollapsed((value) => !value)
   }, [])
+  // Every right-dock surface is a tab. Closing the active one activates the
+  // most recent file tab, then the next tool tab, so the dock never goes blank
+  // while another tab is still open.
+  const closeGit = useCallback(() => {
+    setGitOpen(false)
+    if (dockActive === 'git') {
+      setDockActive(fileTabs[fileTabs.length - 1]?.id ?? (subagentsOpen ? 'subagents' : filesOpen ? 'files' : ''))
+    }
+  }, [dockActive, fileTabs, subagentsOpen, filesOpen])
+  // Closing also drops the detail: reopening should land on the list, not on
+  // whatever task was last inspected.
+  const closeSubagents = useCallback(() => {
+    setSubagentsOpen(false)
+    setSubagentDetail(null)
+    if (dockActive === 'subagents') {
+      setDockActive(fileTabs[fileTabs.length - 1]?.id ?? (gitOpen ? 'git' : filesOpen ? 'files' : ''))
+    }
+  }, [dockActive, fileTabs, gitOpen, filesOpen])
+  const closeFiles = useCallback(() => {
+    setFilesOpen(false)
+    if (dockActive === 'files') {
+      setDockActive(fileTabs[fileTabs.length - 1]?.id ?? (gitOpen ? 'git' : subagentsOpen ? 'subagents' : ''))
+    }
+  }, [dockActive, fileTabs, gitOpen, subagentsOpen])
   const toggleGit = useCallback(() => {
     startChromeAnimation(200)
-    setGitOpen((value) => !value)
-  }, [])
-  // Closing the panel also drops the detail: reopening should land on the list,
-  // not on whatever task was last inspected.
+    if (gitOpen && dockActive === 'git') {
+      closeGit()
+      return
+    }
+    setGitOpen(true)
+    setDockActive('git')
+  }, [gitOpen, dockActive, closeGit])
   const toggleSubagents = useCallback(() => {
     startChromeAnimation(200)
-    setSubagentsOpen((value) => !value)
+    if (subagentsOpen && dockActive === 'subagents') {
+      closeSubagents()
+      return
+    }
+    setSubagentsOpen(true)
     setSubagentDetail(null)
-  }, [])
+    setDockActive('subagents')
+  }, [subagentsOpen, dockActive, closeSubagents])
+  const toggleFiles = useCallback(() => {
+    startChromeAnimation(200)
+    if (filesOpen && dockActive === 'files') {
+      closeFiles()
+      return
+    }
+    setFilesOpen(true)
+    setDockActive('files')
+  }, [filesOpen, dockActive, closeFiles])
   // Clicking any subagent row (transcript card, completion notice, side-panel
   // row) drills the side panel into that task's detail, opening the panel if it
   // is closed. Stored by key so the detail always reads the latest task object —
   // including a report that lands while it is open.
   const openSubagent = useCallback((task: SubagentTask, launchError?: string) => {
     setSubagentsOpen(true)
+    setDockActive('subagents')
     setSubagentDetail({ key: task.key, launchError })
   }, [])
   const closeSubagentDetail = useCallback(() => setSubagentDetail(null), [])
@@ -540,11 +596,48 @@ export default function App(): JSX.Element {
   const closeGitWindow = useCallback(() => setGitWindowOpen(false), [])
   const openHelp = useCallback(() => setModal('help'), [])
   const closeModal = useCallback(() => setModal(null), [])
-  const closeGit = useCallback(() => setGitOpen(false), [])
-  const closeSubagents = useCallback(() => {
-    setSubagentsOpen(false)
-    setSubagentDetail(null)
+  // A file path from a message, tree row or markdown link becomes a dock tab.
+  // Relative paths resolve against the active session; the tab keeps its cwd so
+  // it still previews correctly after switching sessions.
+  const openFileTab = useCallback((rawPath: string, cwdOverride?: string) => {
+    const cwd = cwdOverride ?? chatRef.current?.cwd
+    if (!cwd) return
+    const path = rawPath.trim().replace(/\\/g, '/').replace(/^\.\//, '')
+    if (!path) return
+    const id = `file:${cwd}:${path}`
+    setFileTabs((current) =>
+      current.some((tab) => tab.id === id)
+        ? current
+        : [...current, { id, cwd, path, name: baseName(path) }]
+    )
+    setDockActive(id)
   }, [])
+  const closeFileTab = useCallback((id: string) => {
+    const index = fileTabs.findIndex((tab) => tab.id === id)
+    if (index < 0) return
+    const next = fileTabs.filter((tab) => tab.id !== id)
+    setFileTabs(next)
+    if (dockActive === id) {
+      setDockActive(
+        next[Math.max(0, index - 1)]?.id ?? (filesOpen ? 'files' : gitOpen ? 'git' : subagentsOpen ? 'subagents' : '')
+      )
+    }
+  }, [dockActive, fileTabs, filesOpen, gitOpen, subagentsOpen])
+  const addDockTab = useCallback((kind: 'files' | 'git' | 'subagents') => {
+    if (kind === 'files') setFilesOpen(true)
+    else if (kind === 'git') setGitOpen(true)
+    else {
+      setSubagentsOpen(true)
+      setSubagentDetail(null)
+    }
+    setDockActive(kind)
+  }, [])
+  const closeDockTab = useCallback((id: string) => {
+    if (id === 'git') closeGit()
+    else if (id === 'subagents') closeSubagents()
+    else if (id === 'files') closeFiles()
+    else closeFileTab(id)
+  }, [closeGit, closeSubagents, closeFiles, closeFileTab])
   const closeSettings = useCallback(() => setView('content'), [])
   const dismissHomeNotice = useCallback(() => setHomeNotice(null), [])
   const focusTab = useCallback((id: string) => dispatch({ type: 'focusChat', sessionId: id }), [])
@@ -704,6 +797,22 @@ export default function App(): JSX.Element {
   const subagentDetailTask =
     subagentDetail && chat ? subagentTaskIndex(chat).get(subagentDetail.key) : undefined
 
+  const dockCwd = chat?.cwd ?? state.homeCwd ?? null
+  const dockTabs: DockTab[] = [
+    ...(filesOpen ? [{ id: 'files', kind: 'files' as const, label: 'Files' }] : []),
+    ...(gitOpen ? [{ id: 'git', kind: 'git' as const, label: 'Git' }] : []),
+    ...(subagentsOpen ? [{ id: 'subagents', kind: 'subagents' as const, label: 'Subagents' }] : []),
+    ...fileTabs.map((tab) => ({
+      id: tab.id,
+      kind: 'file' as const,
+      label: tab.name,
+      path: tab.path,
+      cwd: tab.cwd
+    }))
+  ]
+  const dockActiveId = dockTabs.some((tab) => tab.id === dockActive) ? dockActive : dockTabs[0]?.id ?? ''
+  const activeDockTab = dockTabs.find((tab) => tab.id === dockActiveId)
+
   // Map each global shortcut id to the callback that should run. Held in a ref
   // so the keydown listener (subscribed once) always calls the latest closures
   // without resubscribing on every state change.
@@ -755,6 +864,7 @@ export default function App(): JSX.Element {
 
   return (
     <MotionConfig reducedMotion={preferences.reducedMotion ? 'always' : 'user'}>
+    <FileNavigationProvider value={openFileTab}>
     <div className="app-shell flex h-screen w-full overflow-hidden">
       <Sidebar
         sessions={state.sessions}
@@ -780,12 +890,11 @@ export default function App(): JSX.Element {
         sidebarRunColor={preferences.sidebarRunColor}
       />
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {/* The tab strip rides the window shell, not the chat panel: the panel
-            below is its own rounded surface, so the strip reads as chrome
-            sitting on top of it rather than as part of the transcript. */}
+        {/* The top strip is a seam-separated band of the same canvas as the
+            transcript below. No floating card, no inset gutter. */}
         <div
           className={cn(
-            'drag-region relative flex h-9 shrink-0 items-center gap-2 overflow-visible pl-2',
+            'drag-region relative flex h-9 shrink-0 items-center gap-2 overflow-visible border-b border-border-seam bg-background pl-2',
             // The window controls are fixed over the top-right corner, and the
             // strip now spans the full width whether or not a side panel is
             // open, so it always has to clear them.
@@ -833,18 +942,20 @@ export default function App(): JSX.Element {
             onToggleDebug={toggleDebug}
             debugOpen={debugOpen}
             onToggleGit={toggleGit}
-            gitOpen={gitOpen}
+            gitOpen={gitOpen && dockActiveId === 'git'}
             onOpenGitWindow={openGitWindow}
+            onToggleFiles={toggleFiles}
+            filesOpen={filesOpen && dockActiveId === 'files'}
             onToggleSubagents={toggleSubagents}
-            subagentsOpen={subagentsOpen}
+            subagentsOpen={subagentsOpen && dockActiveId === 'subagents'}
             runningSubagents={runningSubagents}
             onSettings={toggleSettings}
             settingsOpen={view === 'settings'}
             onHelp={openHelp}
           />
         </div>
-        <div className="flex min-h-0 min-w-0 flex-1 gap-2 px-2 pb-2">
-        <div className="main-panel surface-grain relative flex min-w-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1">
+        <div className="main-panel relative flex min-w-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <AnimatePresence mode="popLayout">
         <motion.div
@@ -925,63 +1036,51 @@ export default function App(): JSX.Element {
         />
         </div>
 
-        {/* One shared column: with both panels open they stack (Git over
-            Subagents) instead of sitting side by side, so the pair costs the
-            transcript 320px rather than 640px. */}
-        <AnimatePresence initial={false}>
-          {(gitOpen || subagentsOpen) && (
-            <motion.aside
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-              className="shrink-0 overflow-hidden rounded-xl border border-border/60 bg-card/40"
-            >
-              <div className="flex h-full w-[320px] flex-col">
-                {/* No title-bar spacer: the window controls live over the tab
-                    strip above this panel, never over the panel itself. */}
-                {gitOpen && (
-                  <div className={cn('min-h-0', subagentsOpen ? 'flex-[3]' : 'flex-1')}>
-                    {/* Keyed on cwd so switching to a different project remounts
-                        the panel: fresh status, fresh poll timer, and no chance of
-                        the previous repo's in-flight reply landing here. */}
-                    <Suspense fallback={<PanelFallback />}>
-                      <GitPanel
-                        key={chat?.cwd ?? 'none'}
-                        cwd={chat?.cwd ?? null}
-                        onClose={closeGit}
-                        onExpand={openGitWindow}
-                      />
-                    </Suspense>
-                  </div>
-                )}
-                {subagentsOpen && (
-                  <div
-                    className={cn(
-                      'min-h-0 flex-[2]',
-                      // Two panels sharing one card: the rule separates them
-                      // inside the surface, so it stays a hairline divider.
-                      gitOpen && 'border-t border-border/60'
-                    )}
-                  >
-                    {/* Keyed on the session so switching tabs remounts and drops
-                        the previous expansion state. */}
-                    <SubagentPanel
-                      key={chat?.sessionId ?? 'none'}
-                      tasks={subagentTasks}
-                      onClose={closeSubagents}
-                      onOpen={openSubagent}
-                      detailTask={subagentDetailTask}
-                      detailLaunchError={subagentDetail?.launchError}
-                      onBack={closeSubagentDetail}
-                      onShowInConversation={showSubagentInConversation}
-                    />
-                  </div>
-                )}
-              </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
+        {dockTabs.length > 0 && (
+          <RightDock
+            tabs={dockTabs}
+            activeId={dockActiveId}
+            onActivate={setDockActive}
+            onClose={closeDockTab}
+            onAdd={addDockTab}
+          >
+            {activeDockTab?.kind === 'file' ? (
+              <FilePreview
+                key={activeDockTab.id}
+                cwd={activeDockTab.cwd ?? dockCwd ?? ''}
+                path={activeDockTab.path ?? ''}
+                name={activeDockTab.label}
+                onOpenFile={openFileTab}
+              />
+            ) : activeDockTab?.kind === 'git' ? (
+              <Suspense fallback={<PanelFallback />}>
+                <GitPanel
+                  key={chat?.cwd ?? 'none'}
+                  cwd={chat?.cwd ?? null}
+                  onClose={closeGit}
+                  onExpand={openGitWindow}
+                />
+              </Suspense>
+            ) : activeDockTab?.kind === 'subagents' ? (
+              <SubagentPanel
+                key={chat?.sessionId ?? 'none'}
+                tasks={subagentTasks}
+                onClose={closeSubagents}
+                onOpen={openSubagent}
+                detailTask={subagentDetailTask}
+                detailLaunchError={subagentDetail?.launchError}
+                onBack={closeSubagentDetail}
+                onShowInConversation={showSubagentInConversation}
+              />
+            ) : activeDockTab?.kind === 'files' ? (
+              <FileTree
+                cwd={dockCwd}
+                activePath={fileTabs.find((tab) => tab.id === dockActiveId)?.path}
+                onOpenFile={openFileTab}
+              />
+            ) : null}
+          </RightDock>
+        )}
         </div>
         </div>
       </main>
@@ -1046,6 +1145,7 @@ export default function App(): JSX.Element {
         )}
       </AnimatePresence>
     </div>
+    </FileNavigationProvider>
     </MotionConfig>
   )
 }

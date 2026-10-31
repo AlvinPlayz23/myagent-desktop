@@ -2,6 +2,7 @@ import { memo, useState, isValidElement, ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Copy01, Check } from './ui/icons'
+import { FilePathPill, normalizeInlinePath } from './FilePathPill'
 
 function extractText(node: ReactNode): string {
   if (typeof node === 'string') return node
@@ -35,7 +36,9 @@ function CodeBlock({ children }: { children?: ReactNode }): JSX.Element {
            {copied ? <Check size={13} strokeWidth={1.8} /> : <Copy01 size={13} strokeWidth={1.8} />}
         </button>
       </div>
-      <pre>{children}</pre>
+      <pre>
+        <code>{extractText(children).replace(/\n$/, '')}</code>
+      </pre>
     </div>
   )
 }
@@ -47,11 +50,21 @@ const Markdown = memo(function Markdown({ text }: { text: string }): JSX.Element
         remarkPlugins={[remarkGfm]}
         components={{
           pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
-          a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noreferrer">
-              {children}
-            </a>
-          ),
+          code: ({ className, children }) => {
+            const text = extractText(children)
+            const path = normalizeInlinePath(text)
+            if (path) return <FilePathPill path={path} label={text.trim()} />
+            return <code className={className}>{children}</code>
+          },
+          a: ({ href, children }) => {
+            const path = href ? normalizeInlinePath(href) : null
+            if (path) return <FilePathPill path={path} label={extractText(children) || path} />
+            return (
+              <a href={href} target="_blank" rel="noreferrer">
+                {children}
+              </a>
+            )
+          },
           table: ({ children }) => (
             <div className="table-scroll">
               <table>{children}</table>

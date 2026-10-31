@@ -43,7 +43,7 @@
 @custom-variant dark (&:is(.dark, .dark *));
 
 /* ── design tokens ─────────────────────────────────────────────────────────
-   Restrained neutral surfaces, Inter / IBM Plex Mono, and a 0.625rem base
+   Restrained neutral surfaces, Inter / IBM Plex Mono, and a 0.5rem base
    radius. Light is default;
    the `.dark` class (toggled from prefers-color-scheme in main.tsx) flips it.
 
@@ -71,13 +71,13 @@
      on interface chrome, and makes interface scaling a single-variable change.
      Only intrinsic content (code, diff, terminal output) keeps its own numeric
      size settings. See DESIGN.md. */
-  --text-ui-2xs: calc(var(--ui-font-size) - 5px);
-  --text-ui-xs: calc(var(--ui-font-size) - 4px);
-  --text-ui-sm: calc(var(--ui-font-size) - 2px);
-  --text-ui-caption: calc(var(--ui-font-size) - 1px);
+  --text-ui-2xs: calc(var(--ui-font-size) - 3px);
+  --text-ui-xs: calc(var(--ui-font-size) - 2px);
+  --text-ui-sm: calc(var(--ui-font-size) - 1px);
+  --text-ui-caption: var(--ui-font-size);
   --text-ui-base: var(--ui-font-size);
   --text-ui-lg: calc(var(--ui-font-size) + 2px);
-  --text-ui-xl: calc(var(--ui-font-size) + 4px);
+  --text-ui-xl: calc(var(--ui-font-size) + 5px);
   /* iOS focus-zoom floor for editable controls; a platform constant, not a
      hierarchy step. Never use it as a general UI size. */
   --text-mobile-input-safe: 16px;
@@ -144,29 +144,32 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-composer: var(--composer);
+  --color-border-seam: var(--border-seam);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+
+  /* Hard, zero-blur elevation. Depth comes from a one- or two-pixel offset and
+     the seam, not from a wide soft shadow. Overlays still read as detached. */
+  --shadow-2xs: 0 1px 0 rgb(var(--shadow-ink) / calc(0.04 * var(--shadow-strength)));
+  --shadow-xs: 0 1px 0 rgb(var(--shadow-ink) / calc(0.05 * var(--shadow-strength)));
+  --shadow-sm: 0 1px 0 rgb(var(--shadow-ink) / calc(0.06 * var(--shadow-strength)));
+  --shadow: 0 1px 0 rgb(var(--shadow-ink) / calc(0.06 * var(--shadow-strength)));
+  --shadow-md: 0 2px 0 rgb(var(--shadow-ink) / calc(0.07 * var(--shadow-strength)));
+  --shadow-lg: 0 2px 0 rgb(var(--shadow-ink) / calc(0.08 * var(--shadow-strength)));
+  --shadow-xl: 0 3px 0 rgb(var(--shadow-ink) / calc(0.09 * var(--shadow-strength)));
+  --shadow-2xl: 0 4px 0 rgb(var(--shadow-ink) / calc(0.12 * var(--shadow-strength)));
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-xl: calc(var(--radius) + 2px);
+  --radius-2xl: calc(var(--radius) + 6px);
+  --radius-3xl: calc(var(--radius) + 10px);
 
   @keyframes blink {
     50% {
       opacity: 0;
-    }
-  }
-  @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
     }
   }
   @keyframes label-shine {
@@ -308,30 +311,30 @@
    of it for the same perceived step. */
 :root {
   color-scheme: light;
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --window-radius: 0px;
   /* Interface font size. The Appearance control mutates this one variable;
      never touch the root html font-size (that would scale padding, radii and
      icons too). */
-  --ui-font-size: 13.5px;
+  --ui-font-size: 13px;
 
-  --canvas: #ffffff;
-  --ink: #232323;
+  --canvas: #f7f7f7;
+  --ink: #383838;
   --brand: #2563eb;
   --brand-foreground: #ffffff;
 
-  --s1: 3%;
-  --s2: 5%;
-  --s3: 8%;
-  --s4: 13%;
-  --line: 9%;
-  --line-strong: 18%;
-  --control-line: 26%;
+  --s1: 4%;
+  --s2: 6%;
+  --s3: 10%;
+  --s4: 16%;
+  --line: 10%;
+  --line-strong: 20%;
+  --control-line: 28%;
   --rail-tone: var(--ink);
-  --rail-s: 3.5%;
+  --rail-s: 2.2%;
   --card-lift: 0%;
   --menu-lift: 0%;
-  --fg-subtle-a: 68%;
+  --fg-subtle-a: 74%;
   --fg-subtlest-a: 56%;
 
   --success: #16a34a;
@@ -353,24 +356,24 @@
 
 .dark {
   color-scheme: dark;
-  --canvas: #1b1b1b;
-  --ink: #ececec;
+  --canvas: #202020;
+  --ink: #d6d6d6;
   --brand: #6aa3ff;
   --brand-foreground: #0b1220;
 
-  --s1: 4%;
-  --s2: 7%;
-  --s3: 11%;
-  --s4: 17%;
-  --line: 10%;
-  --line-strong: 22%;
-  --control-line: 30%;
-  --rail-tone: #000000;
-  --rail-s: 32%;
-  --card-lift: 4.5%;
-  --menu-lift: 7%;
-  --fg-subtle-a: 64%;
-  --fg-subtlest-a: 50%;
+  --s1: 4.5%;
+  --s2: 7.5%;
+  --s3: 12%;
+  --s4: 18%;
+  --line: 11%;
+  --line-strong: 24%;
+  --control-line: 32%;
+  --rail-tone: var(--ink);
+  --rail-s: 4%;
+  --card-lift: 0%;
+  --menu-lift: 6%;
+  --fg-subtle-a: 70%;
+  --fg-subtlest-a: 54%;
 
   --success: #34d27b;
   --warning: #eab308;
@@ -384,7 +387,7 @@
   --diff-removed-foreground: #ff8a8a;
   --overlay: rgb(0 0 0 / 0.6);
   --shadow-ink: 0 0 0;
-  --shadow-strength: 2.2;
+  --shadow-strength: 1.5;
 }
 
 /* ── Named themes ────────────────────────────────────────────────────────
@@ -460,10 +463,11 @@
   --shell: color-mix(in srgb, var(--rail-tone) var(--rail-s), var(--canvas));
   --shell-translucent: color-mix(in srgb, var(--shell) calc(var(--shell-opacity) * 100%), transparent);
   --shell-clear: var(--shell-translucent);
-  --shell-opacity: 0.88;
+  --shell-opacity: 1;
   --sidebar: var(--shell);
   --header: var(--canvas);
   --panel: color-mix(in srgb, var(--ink) 1.5%, var(--canvas));
+  --composer: #ffffff;
   --elevated: color-mix(in srgb, var(--ink) var(--card-lift), var(--canvas));
   --subtle: color-mix(in srgb, var(--ink) var(--s1), transparent);
   --hover: color-mix(in srgb, var(--ink) var(--s2), transparent);
@@ -479,18 +483,22 @@
   --card-selected: color-mix(in srgb, var(--ink) var(--s3), var(--canvas));
   --popover: color-mix(in srgb, var(--ink) var(--menu-lift), var(--canvas));
   --popover-foreground: var(--ink);
-  --popover-border: color-mix(in srgb, var(--ink) var(--line), transparent);
+  --popover-border: color-mix(in srgb, var(--ink) var(--line), var(--canvas));
   --menu: var(--popover);
   --menu-hover: color-mix(in srgb, var(--ink) var(--s2), transparent);
 
+  /* One seam for the top strip, sidebar and side panels. Borders are mixed over
+     the canvas rather than left translucent, so a 1px rule stays crisp on the
+     flat shell instead of picking up whatever is painted beneath it. */
+  --border-seam: color-mix(in srgb, var(--ink) 9.5%, var(--canvas));
   /* --input is the stroke/off-fill of form controls (the Base UI primitives read
      it as `border-input`); fields keep a visible edge at ~3:1 against the page. */
-  --input: color-mix(in srgb, var(--ink) var(--control-line), transparent);
+  --input: color-mix(in srgb, var(--ink) var(--control-line), var(--canvas));
   --input-border: var(--input);
-  --input-border-hover: color-mix(in srgb, var(--ink) calc(var(--control-line) + 14%), transparent);
+  --input-border-hover: color-mix(in srgb, var(--ink) calc(var(--control-line) + 14%), var(--canvas));
   --input-border-focused: var(--brand);
   --input-focused: var(--card);
-  --border: color-mix(in srgb, var(--ink) var(--line), transparent);
+  --border: color-mix(in srgb, var(--ink) var(--line), var(--canvas));
   --ring: var(--brand);
 
   --foreground-subtle: color-mix(in srgb, var(--ink) var(--fg-subtle-a), transparent);
@@ -523,15 +531,13 @@
   --sidebar-primary-foreground: var(--canvas);
   --sidebar-ring: var(--brand);
 
-  /* Elevation: one soft layered shadow per tier, never a border on top of a
-     wide blur. --shadow-strength lifts the same recipe for dark canvases. */
-  --shadow-card:
-    0 1px 2px rgb(var(--shadow-ink) / calc(0.05 * var(--shadow-strength))),
-    0 4px 12px -4px rgb(var(--shadow-ink) / calc(0.06 * var(--shadow-strength)));
+  /* Overlay elevation: a seam plus a short hard offset. Nothing in the shell
+     uses a blurred shadow. --shadow-strength lifts the same recipe for dark
+     canvases. */
+  --shadow-card: 0 1px 0 rgb(var(--shadow-ink) / calc(0.06 * var(--shadow-strength)));
   --shadow-pop:
-    0 0 0 1px color-mix(in srgb, var(--ink) var(--line), transparent),
-    0 2px 6px rgb(var(--shadow-ink) / calc(0.05 * var(--shadow-strength))),
-    0 12px 32px -8px rgb(var(--shadow-ink) / calc(0.14 * var(--shadow-strength)));
+    0 0 0 1px var(--border-seam),
+    0 2px 0 rgb(var(--shadow-ink) / calc(0.10 * var(--shadow-strength)));
 }
 
 @layer base {
@@ -589,6 +595,7 @@
 }
 .dark {
   --surface-grain: none;
+  --composer: color-mix(in srgb, var(--ink) 12%, var(--canvas));
 }
 
 /* ── transitions-dev (gallery model selector) ─────────────────────────
@@ -1300,13 +1307,6 @@
   display: none;
 }
 
-/* A transcript row announcing itself. Deliberately short: appended content
-   should not keep the reader waiting on its own entrance, and during a run
-   several rows can land within the same second. */
-@utility transcript-rise {
-  animation: rise var(--duration-quick) var(--ease-smooth-out);
-}
-
 @keyframes t-badge-slide-in {
   from { transform: translate(var(--badge-offset-x), var(--badge-offset-y)); }
   to   { transform: translate(0, 0); }
@@ -1718,20 +1718,19 @@
 }
 
 /* ── window shell ───────────────────────────────────────────────────────────
-   The sidebar has no fill of its own; it rides directly on this. `data-backdrop`
-   is written to <html> once at boot from the mode the main process resolved
-   (see resolveBackdrop in src/main/index.ts). The default below is the opaque
-   case, so a slow IPC round-trip flashes a solid fill rather than a void. */
+   Opaque by default. `data-backdrop` is written to <html> once at boot from
+   the mode the main process resolved (see resolveBackdrop in src/main/index.ts).
+   Transparency is opt-in: when the preference is off, --shell-opacity is 1
+   and the shell reads as one continuous canvas. */
 .app-shell {
   background: var(--shell-translucent);
   border-radius: var(--window-radius);
 }
 
-/* Compositor blurs the desktop for us, so the tint can stay light. */
-[data-backdrop='acrylic'] .app-shell,
-[data-backdrop='mica'] .app-shell,
-[data-backdrop='vibrancy'] .app-shell {
-  background: var(--shell-translucent);
+/* The sidebar is a flat rail, never a frosted pane. It gets tonal separation
+   from the canvas plus a single seam; the window material does not show here. */
+.app-sidebar {
+  background: var(--sidebar);
 }
 
 /* No blur available — the wallpaper comes through sharp, so the tint has to
@@ -1750,7 +1749,7 @@
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
-/* Row fills tuned for an opaque sidebar disappear over a translucent one. */
+/* Row fills tuned for the opaque rail. */
 [data-backdrop]:not([data-backdrop='none']) .app-shell {
   --hover: rgba(255, 255, 255, 0.08);
   --selected: rgba(255, 255, 255, 0.14);
@@ -1760,37 +1759,8 @@
   --selected: rgba(0, 0, 0, 0.10);
 }
 
-/* Comet-inspired translucent sidebar: give the rail its own frosted tint
-   when the window has a compositor blur. Otherwise the 5% hover wash is
-   invisible over a sharp wallpaper.
-
-   No divider here. The chat panel is a separated card inset from the rail, so
-   a second vertical rule right next to it read as a stray line — and on a
-   transparent window the rounded card already supplies the edge. */
-[data-backdrop]:not([data-backdrop='none']) .app-sidebar {
-  background: color-mix(in srgb, var(--shell) 58%, transparent);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-}
-[data-backdrop]:not([data-backdrop='none']):not(.dark) .app-sidebar {
-  background: color-mix(in srgb, var(--shell) 72%, transparent);
-}
-
-/* Drops the two effects that dominate a repaint pass — the sidebar's
-   backdrop-filter and the chat panel's SVG grain — while a chrome geometry
-   animation runs. Two callers:
-
-   1. `.window-resizing`: DWM animating a maximize/resize, where a transparent
-      window repaints in software (see the resize listener in App.tsx).
-   2. `.chrome-animating`: collapsing the sidebar or opening the git panel, both
-      of which resize a neighbour of the chat column (see chromeAnimation.ts).
-
-   Plain selectors: both classes live on <html>. */
-.window-resizing .app-sidebar,
-.chrome-animating .app-sidebar {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
+/* Grain is already off; drop the remaining decorative paint work while a
+   chrome geometry animation runs. */
 .window-resizing .surface-grain,
 .chrome-animating .surface-grain {
   background-image: none;
@@ -1824,23 +1794,13 @@
   mask-image: linear-gradient(to bottom, black calc(100% - 28px), transparent 100%);
 }
 
-/* The chat panel. Opaque by definition; the grain lives here now that the body
-   no longer paints (film grain over acrylic reads as dirt).
-
-   It is a separated card floating inside the window: the tab strip above rides
-   the shell, and the panel is inset from the sidebar, the strip, the bottom
-   edge and the side panels, so all four edges round together. The window's own
-   corner rounding still belongs to `.app-shell`, which clips the whole thing.
-
-   Separation is tonal plus a soft lift, deliberately *not* a hairline border.
-   A 1px CSS border lands on a fractional device pixel at the common 125%/150%
-   Windows scale factors, and Chromium then anti-aliases it into a faint line
-   that reads as a stray rule next to the rail — the panel is already lighter
-   than the shell, so the edge does not need drawing. */
+/* The content plane. It is deliberately not a floating card: the top strip,
+   transcript, composer and status bar share one continuous canvas, with seams
+   drawn only where regions actually meet (see the sidebar and top strip). */
 @utility main-panel {
   background: var(--background);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-card);
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* A dim band sweeping through the text, marking "the agent is working on this".
@@ -2053,7 +2013,7 @@
 }
 .chat-markdown :not(pre) > code {
   border: 1px solid var(--border);
-  border-radius: 0.375rem;
+  border-radius: 4px;
   background: var(--muted);
   padding: 0.1rem 0.35rem;
   color: var(--foreground);
@@ -2064,7 +2024,7 @@
   max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   background: var(--muted);
   padding: 0.8rem 0.9rem;
 }
@@ -2074,6 +2034,51 @@
   padding: 0;
   font-family: var(--font-mono);
   font-size: 0.75rem;
+}
+
+/* ── inline file pills ──────────────────────────────────────────────────────
+   A file path the model mentions is a button, not a link: clicking it opens the
+   right dock instead of navigating. The label truncates; the tooltip carries
+   the full path. */
+.file-pill {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 0 6px;
+  color: var(--foreground-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-sm);
+  line-height: 1.5;
+  vertical-align: baseline;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-quick) var(--ease-smooth-out),
+    border-color var(--duration-quick) var(--ease-smooth-out),
+    color var(--duration-quick) var(--ease-smooth-out);
+}
+.file-pill:hover {
+  border-color: var(--input);
+  background: var(--hover);
+  color: var(--foreground);
+}
+.file-pill-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* File viewer code keeps its intrinsic size instead of following the interface
+   type scale, like diffs and terminal output. */
+.file-code {
+  font-size: 12px;
+  line-height: 20px;
+  tab-size: 2;
 }
 .chat-markdown table {
   width: max-content;
@@ -2111,14 +2116,14 @@
   overflow-x: auto;
   margin: 0.65rem 0;
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
 }
 .codeblock {
   max-width: 100%;
   overflow: hidden;
   margin: 0.65rem 0;
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   background: var(--code);
 }
 .codeblock-bar {
@@ -2189,13 +2194,13 @@
 }
 .settings-card {
   border: 1px solid var(--border);
-  border-radius: 0.875rem;
+  border-radius: var(--radius-lg);
   background: var(--subtle);
-  padding: 0 1rem;
+  padding: 0 0.875rem;
 }
 .settings-row {
   display: flex;
-  min-height: 3rem;
+  min-height: 2.5rem;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -2223,7 +2228,7 @@
   height: 1.6rem;
   padding: 0 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 0.375rem;
+  border-radius: 4px;
   background: var(--muted);
   color: var(--foreground);
   font-family: var(--font-mono);
@@ -2240,7 +2245,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border-radius: 999px;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--muted-foreground);
