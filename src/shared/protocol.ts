@@ -524,6 +524,23 @@ export interface WorkspaceDirEntry {
   kind: 'file' | 'dir'
 }
 
+/** Starting points the in-app folder picker offers: the home folder and roots. */
+export interface WorkspacePlaces {
+  home: string
+  /** Drive roots on Windows, `/` elsewhere. */
+  roots: string[]
+}
+
+/** One level of folders, for the in-app folder picker. */
+export interface DirListing {
+  /** Absolute path of the folder that was read. */
+  path: string
+  /** Absolute parent path, or null at a filesystem root. */
+  parent: string | null
+  /** Child folders, sorted by name. Files are omitted. */
+  dirs: WorkspaceDirEntry[]
+}
+
 /** What the file panel can preview for one path. */
 export type WorkspaceFileContent =
   | { kind: 'text'; content: string; size: number }
@@ -538,6 +555,10 @@ export interface FileApi {
   list(cwd: string, path?: string): Promise<RpcResult<WorkspaceDirEntry[]>>
   read(cwd: string, path: string): Promise<RpcResult<WorkspaceFileContent>>
   reveal(cwd: string, path: string): Promise<RpcResult<void>>
+  /** Starting points for the in-app folder picker. */
+  places(): Promise<RpcResult<WorkspacePlaces>>
+  /** One level of child folders at an absolute path. */
+  listDirs(path: string): Promise<RpcResult<DirListing>>
 }
 
 export interface GithubApi {

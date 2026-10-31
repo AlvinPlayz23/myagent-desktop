@@ -449,13 +449,13 @@ export default function ModelEffortPicker({
         aria-expanded={open}
       >
         <ModelIcon model={shortModel || 'GPT 5.5'} className="size-3.5 shrink-0 opacity-80 transition-opacity group-hover:opacity-100" />
-        <span className="min-w-0 truncate text-ui-sm font-medium leading-none text-foreground select-none">
+        <span className="min-w-0 truncate text-ui-sm font-medium leading-[1.25] text-foreground select-none">
           {shortModel || 'Select Model'}
         </span>
         <span className="shrink-0 text-ui-xs leading-none text-foreground-subtlest" aria-hidden>
           ·
         </span>
-        <span className="shrink-0 text-ui-xs font-medium leading-none text-muted-foreground select-none">{currentEffortLabel}</span>
+        <span className="shrink-0 text-ui-xs font-medium leading-[1.25] text-muted-foreground select-none">{currentEffortLabel}</span>
         <HugeiconsIcon
           icon={ArrowDown01Icon}
           size={12}

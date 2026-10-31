@@ -43,6 +43,7 @@ const GitPanel = lazy(() => import('./components/GitPanel'))
 const CommandModal = lazy(() => import('./components/CommandModal'))
 const RenameSessionModal = lazy(() => import('./components/RenameSessionModal'))
 const ToolsModal = lazy(() => import('./components/ToolsModal'))
+const FolderPicker = lazy(() => import('./components/FolderPicker'))
 
 // Chunk loads resolve off local disk in single-digit milliseconds, so these
 // fallbacks are deliberately near-invisible: a spinner that flashes once is
@@ -87,6 +88,7 @@ export default function App(): JSX.Element {
   const [homeNotice, setHomeNotice] = useState<string | null>(null)
   const [sessionPreferences, setSessionPreferences] = useState<SessionPreferences>(loadSessionPreferences)
   const [modal, setModal] = useState<'help' | 'tools' | null>(null)
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
   // The subagent shown in the side panel's detail view, by task key. Resolved
   // against the live index on every render (not stored as an object) so a
@@ -349,11 +351,13 @@ export default function App(): JSX.Element {
     return out
   }, [state.projects, state.sessions])
 
-  // "+" next to the Projects title: pick a folder, register it as a project,
-  // land on the home screen with it preselected.
-  const addProject = useCallback(async () => {
-    const cwd = await api.pickFolder()
-    if (!cwd) return
+  // "+" next to the Projects title: open the in-app folder picker, then register
+  // the chosen folder as a project and land on the home screen with it selected.
+  // The native dialog is avoided on purpose: it cannot wear the app's own surface
+  // and cannot show these folders the way every other list does.
+  const addProject = useCallback(() => setProjectPickerOpen(true), [])
+  const chooseProject = useCallback((cwd: string) => {
+    setProjectPickerOpen(false)
     dispatch({ type: 'addProject', cwd })
     dispatch({ type: 'home', cwd })
   }, [])
@@ -1141,6 +1145,18 @@ export default function App(): JSX.Element {
         {renameTarget && (
           <Suspense fallback={null}>
             <RenameSessionModal key="rename" initialTitle={renameTarget.title} onClose={() => setRenameTarget(null)} onSave={saveSessionRename} />
+          </Suspense>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {projectPickerOpen && (
+          <Suspense fallback={null}>
+            <FolderPicker
+              key="folder-picker"
+              startPath={state.homeCwd ?? projectList[0]?.cwd ?? null}
+              onClose={() => setProjectPickerOpen(false)}
+              onSelect={chooseProject}
+            />
           </Suspense>
         )}
       </AnimatePresence>

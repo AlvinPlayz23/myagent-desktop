@@ -46,7 +46,9 @@ const api: MyagentApi = {
     search: (cwd, query) => ipcRenderer.invoke('myagent:files:search', cwd, query),
     list: (cwd, path) => ipcRenderer.invoke('myagent:files:list', cwd, path),
     read: (cwd, path) => ipcRenderer.invoke('myagent:files:read', cwd, path),
-    reveal: (cwd, path) => ipcRenderer.invoke('myagent:files:reveal', cwd, path)
+    reveal: (cwd, path) => ipcRenderer.invoke('myagent:files:reveal', cwd, path),
+    places: () => ipcRenderer.invoke('myagent:files:places'),
+    listDirs: (path) => ipcRenderer.invoke('myagent:files:listDirs', path)
   },
   github: {
     status: (cwd) => ipcRenderer.invoke('myagent:github:status', cwd),

@@ -1,5 +1,6 @@
 import type {
   ContentBlock,
+  DirListing,
   Message,
   MyagentApi,
   ProviderInput,
@@ -14,7 +15,8 @@ import type {
   ServerPush,
   WorkspaceDirEntry,
   WorkspaceFile,
-  WorkspaceFileContent
+  WorkspaceFileContent,
+  WorkspacePlaces
 } from '../../shared/protocol'
 
 declare global {
@@ -64,6 +66,18 @@ export const api = {
   revealFile: async (cwd: string, path: string): Promise<void> => {
     const res = await window.myagent.files.reveal(cwd, path)
     if (!res.ok) throw new ApiError(res.error)
+  },
+  /** Home folder and drive roots, for the in-app folder picker. */
+  folderPlaces: async (): Promise<WorkspacePlaces> => {
+    const res = await window.myagent.files.places()
+    if (!res.ok) throw new ApiError(res.error)
+    return res.result
+  },
+  /** One level of child folders at an absolute path. */
+  listFolders: async (path: string): Promise<DirListing> => {
+    const res = await window.myagent.files.listDirs(path)
+    if (!res.ok) throw new ApiError(res.error)
+    return res.result
   },
   onPush: (cb: (push: ServerPush[]) => void): (() => void) => window.myagent.onPush(cb),
 

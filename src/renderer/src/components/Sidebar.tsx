@@ -278,15 +278,19 @@ function Sidebar({
     const project = knownProjects.find((item) => item.cwd === session.cwd)
     return `${session.title ?? ''} ${session.preview ?? ''} ${project?.name ?? ''}`.toLowerCase().includes(query)
   }
+
   const toggleSearch = (): void => {
     if (searchOpen) {
       setSearchOpen(false)
       setSearchQuery('')
     } else {
       setSearchOpen(true)
-      queueMicrotask(() => searchInputRef.current?.focus())
     }
   }
+
+  useEffect(() => {
+    if (searchOpen && !collapsed) searchInputRef.current?.focus()
+  }, [searchOpen, collapsed])
 
   // Live runs, ACROSS every project. This list deliberately ignores
   // `selectedCwd`: a run you started in another folder is exactly the thing the
@@ -592,6 +596,30 @@ function Sidebar({
         >
           {!collapsed && (
             <div className="no-drag flex items-center gap-0.5" onDoubleClick={(event) => event.stopPropagation()}>
+              <AnimatePresence initial={false}>
+                {searchOpen && (
+                  <motion.div
+                    key="session-search"
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: 186, opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    transition={{ width: { duration: 0.18, ease: EASE_OUT }, opacity: { duration: 0.12 } }}
+                    className="flex h-7 min-w-0 shrink-0 items-center gap-2 overflow-hidden rounded-lg border border-border/70 bg-muted/50 px-2.5"
+                  >
+                    <input
+                      ref={searchInputRef}
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') toggleSearch()
+                      }}
+                      placeholder="Search sessions…"
+                      aria-label="Search sessions"
+                      className="h-7 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
               {railButton('search', <Search01 size={15} strokeWidth={1.8} />, 'Search sessions', toggleSearch, searchOpen)}
               {railButton('collapse', <LayoutAlignLeft size={16} strokeWidth={1.8} />, 'Collapse sidebar', onToggle)}
             </div>
@@ -723,23 +751,6 @@ function Sidebar({
               </>
             )}
           </div>
-
-          {searchOpen && !collapsed && (
-            <div className="mb-1 flex shrink-0 items-center gap-2 rounded-lg border border-border/70 bg-muted/50 px-2.5">
-              <Search01 size={12} strokeWidth={1.8} className="shrink-0 text-foreground-subtle" />
-              <input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') toggleSearch()
-                }}
-                placeholder="Search sessions…"
-                aria-label="Search sessions"
-                className="h-7 min-w-0 flex-1 bg-transparent text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest"
-              />
-            </div>
-          )}
 
           {!collapsed && !isGrouped && (
             <div className="shrink-0 px-0.5 pb-1 pt-2">

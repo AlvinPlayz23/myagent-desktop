@@ -1,7 +1,14 @@
 import fs from 'fs'
-import { extname, isAbsolute, join, relative, resolve, sep } from 'path'
+import { homedir } from 'os'
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path'
 import { shell } from 'electron'
-import type { WorkspaceDirEntry, WorkspaceFile, WorkspaceFileContent } from '../shared/protocol'
+import type {
+  DirListing,
+  WorkspaceDirEntry,
+  WorkspaceFile,
+  WorkspaceFileContent,
+  WorkspacePlaces
+} from '../shared/protocol'
 
 // The @ picker only needs enough of the tree to feel instant while typing, so
 // the walk is bounded and the result is cached for a few seconds: a burst of
@@ -213,4 +220,41 @@ export async function search(cwd: unknown, query: unknown): Promise<WorkspaceFil
   }
   scored.sort((a, b) => a.score - b.score || a.file.path.localeCompare(b.file.path))
   return scored.slice(0, LIMIT).map((entry) => entry.file)
+}
+
+/** Starting points for the in-app folder picker: home, plus every drive root. */
+export async function places(): Promise<WorkspacePlaces> {
+  const roots: string[] = []
+  if (process.platform === 'win32') {
+    // No Win32 API for the drive list worth the FFI; probing the 26 letters is
+    // one stat each and the OS caches them.
+    for (let code = 65; code <= 90; code++) {
+      const drive = `${String.fromCharCode(code)}:\\`
+      if (fs.existsSync(drive)) roots.push(drive)
+    }
+  } else {
+    roots.push('/')
+  }
+  return { home: homedir(), roots }
+}
+
+/**
+ * One level of child folders at an absolute path, for the folder picker.
+ *
+ * Unlike the calls above this is not confined to a project root — choosing a
+ * project is exactly the act of naming a new one — so it reads only directory
+ * names and never a file.
+ */
+export async function listDirs(requested: unknown): Promise<DirListing> {
+  if (typeof requested !== 'string' || requested.length === 0) throw new Error('No folder path')
+  const target = resolve(requested)
+  const stat = await fs.promises.stat(target)
+  if (!stat.isDirectory()) throw new Error('Not a folder')
+  const entries = await fs.promises.readdir(target, { withFileTypes: true })
+  const dirs = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => ({ path: join(target, entry.name), name: entry.name, kind: 'dir' as const }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const parent = dirname(target)
+  return { path: target, parent: parent === target ? null : parent, dirs }
 }

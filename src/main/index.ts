@@ -460,6 +460,11 @@ app.whenReady().then(() => {
   gitHandle('myagent:files:read', (cwd: string, path: string) => files.readFileContent(cwd, path))
   gitHandle('myagent:files:reveal', (cwd: string, path: string) => files.revealFile(cwd, path))
 
+  // The in-app folder picker navigates absolute paths, so it sits outside the
+  // project-root containment used by the calls above.
+  gitHandle('myagent:files:places', () => files.places())
+  gitHandle('myagent:files:listDirs', (path: string) => files.listDirs(path))
+
   ipcMain.handle('myagent:window:minimize', () => win?.minimize())
   ipcMain.handle('myagent:window:toggleMaximize', () => {
     if (!win) return false
