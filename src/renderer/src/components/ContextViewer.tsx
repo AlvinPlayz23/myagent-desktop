@@ -2,7 +2,8 @@
 import type { SessionContext } from '../../../shared/protocol'
 import { api, ApiError } from '../api'
 import { cn } from '../util'
-import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card'
+import { Popover, PopoverPopup, PopoverTrigger } from './ui/popover'
+import HoverTooltip from './ui/HoverTooltip'
 import { Alert02, Loading03 } from './ui/icons'
 
 const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 })
@@ -190,21 +191,28 @@ export default function ContextViewer({
   }
 
   return (
-    <HoverCard open={open} onOpenChange={setOpen}>
-      <HoverCardTrigger
-        delay={150}
-        closeDelay={200}
-        render={
-          <button
-            type="button"
-            aria-label="Session context window"
-            className={cn('grid size-8 shrink-0 place-items-center rounded-full outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring', error ? 'text-muted-foreground' : color)}
-          />
-        }
+    <Popover open={open} onOpenChange={setOpen}>
+      <HoverTooltip
+        label={percent !== null ? `${percent}% used` : error ? 'Context usage unavailable' : 'Loading context usage'}
       >
-        <ContextRing fraction={fraction} />
-      </HoverCardTrigger>
-      <HoverCardContent align="end" sideOffset={8} className="w-[340px] overflow-hidden p-0">
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              aria-label="Session context window"
+              className={cn('grid size-8 shrink-0 place-items-center rounded-full outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring', error ? 'text-muted-foreground' : color)}
+            />
+          }
+        >
+          <ContextRing fraction={fraction} />
+        </PopoverTrigger>
+      </HoverTooltip>
+      <PopoverPopup
+        align="end"
+        sideOffset={8}
+        className="w-[340px] overflow-hidden rounded-xl border-popover-border bg-popover p-0 text-ui-base text-popover-foreground shadow-md"
+        viewportClassName="p-0"
+      >
         {snapshot ? (
           <ContextCard
             snapshot={snapshot}
@@ -222,7 +230,7 @@ export default function ContextViewer({
             {error ?? 'Loading context…'}
           </p>
         )}
-      </HoverCardContent>
-    </HoverCard>
+      </PopoverPopup>
+    </Popover>
   )
 }

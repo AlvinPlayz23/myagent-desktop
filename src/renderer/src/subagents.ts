@@ -59,14 +59,16 @@ interface SubagentStatusMeta {
   label: string
   /** Tailwind text token for the status pill / dot. */
   className: string
+  /** Tailwind background token for the status dot. */
+  dot: string
 }
 
 export const SUBAGENT_STATUS: Record<SubagentState, SubagentStatusMeta> = {
-  running: { label: 'Running', className: 'text-info-foreground' },
-  completed: { label: 'Completed', className: 'text-success-foreground' },
-  failed: { label: 'Failed', className: 'text-destructive-foreground' },
-  timed_out: { label: 'Timed out', className: 'text-warning-foreground' },
-  cancelled: { label: 'Cancelled', className: 'text-foreground-subtlest' }
+  running: { label: 'Running', className: 'text-info-foreground', dot: 'bg-busy' },
+  completed: { label: 'Completed', className: 'text-success-foreground', dot: 'bg-success' },
+  failed: { label: 'Failed', className: 'text-destructive-foreground', dot: 'bg-destructive' },
+  timed_out: { label: 'Timed out', className: 'text-warning-foreground', dot: 'bg-warning' },
+  cancelled: { label: 'Cancelled', className: 'text-foreground-subtlest', dot: 'bg-foreground-subtlest' }
 }
 
 function ackOf(run: ToolRun): SubagentAckDetails | null {

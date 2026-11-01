@@ -295,7 +295,7 @@ interface Props {
 
 /** Draft height caps. The compact pill reuses the same cap as its draft so the
  *  shell can never clip the content it is wrapping. */
-const COMPACT_MAX_HEIGHT = 120
+const COMPACT_MAX_HEIGHT = 220
 const CARD_MAX_HEIGHT = 220
 /** Line box of the compact draft (`leading-[24px]`, `p-0`). The draft is
  *  "wrapped" the moment it measures taller than one line; that is what docks
@@ -1182,7 +1182,7 @@ function Composer({
               onKeyDown={onKey}
               onPaste={onPaste}
               className={cn(
-                'draft-input block min-h-[24px] w-full overflow-hidden break-words border-0 bg-transparent p-0 text-ui-base leading-[24px] text-foreground outline-none transition-[height] duration-[var(--resize-dur)] ease-[var(--resize-ease)]',
+                'draft-input block min-h-[24px] w-full overflow-y-auto break-words border-0 bg-transparent p-0 text-ui-base leading-[24px] text-foreground outline-none transition-[height] duration-[var(--resize-dur)] ease-[var(--resize-ease)]',
                 (isRecording || submitting) && 'opacity-70'
               )}
             />
@@ -1305,7 +1305,7 @@ function Composer({
               onKeyDown={onKey}
               onPaste={onPaste}
               className={cn(
-                'draft-input min-h-[56px] max-h-[220px] w-full overflow-hidden break-words border-0 bg-transparent p-0 text-ui-base leading-relaxed text-foreground outline-none',
+                'draft-input min-h-[56px] max-h-[220px] w-full overflow-y-auto break-words border-0 bg-transparent p-0 text-ui-base leading-relaxed text-foreground outline-none',
                 (isRecording || submitting) && 'opacity-70'
               )}
             />

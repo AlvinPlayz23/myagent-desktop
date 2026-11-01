@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
-import { Alert02, ChevronLeft, ChevronRight, Loading03, Robot01 } from './ui/icons'
+import { Alert02, ChevronLeft, ChevronRight, Loading03 } from './ui/icons'
 import { Button } from './ui/button'
 import Markdown from './LazyMarkdown'
 import DiffView from './DiffView'
@@ -55,7 +55,7 @@ function TrajectoryToolRow({
   )
 
   return (
-    <div className="tool-row my-0 flex flex-col text-ui-base">
+    <div className="tool-row my-0 flex flex-col text-ui-sm">
       <button
         type="button"
         className="-mx-1.5 flex min-h-8 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -84,7 +84,7 @@ function TrajectoryToolRow({
         )}
         <span className="ml-auto flex min-w-0 items-center gap-1.5">
           {summary && (
-            <span className="min-w-0 max-w-[14rem] truncate rounded-md bg-muted px-2 py-0.5 font-mono text-ui-sm text-foreground-subtle">
+            <span className="min-w-0 max-w-[14rem] truncate rounded-md bg-muted px-2 py-0.5 font-mono text-ui-xs text-foreground-subtle">
               {summary}
             </span>
           )}
@@ -135,37 +135,6 @@ function TrajectoryToolRow({
   )
 }
 
-/** A toolResult the pairing pass could not match to a call. Never expected
- *  (results always follow their call), but a trajectory must not drop content. */
-function OrphanResultRow({ result }: { result: SubagentTrajectoryMessage }): JSX.Element {
-  return (
-    <div className="flex gap-2 py-1">
-      <span
-        className={cn(
-          'w-14 shrink-0 pt-px font-mono text-ui-2xs uppercase tracking-wide',
-          result.isError ? 'text-destructive-foreground' : 'text-foreground-subtlest'
-        )}
-      >
-        {result.toolName || 'tool'}
-      </span>
-      <span className="min-w-0 flex-1 whitespace-pre-wrap break-words font-mono text-ui-sm leading-relaxed text-muted-foreground">
-        {result.text || result.note || '—'}
-      </span>
-    </div>
-  )
-}
-
-function CompactionRow({ note }: { note: string }): JSX.Element {
-  return (
-    <div className="flex gap-2 py-1">
-      <span className="w-14 shrink-0 pt-px font-mono text-ui-2xs uppercase tracking-wide text-foreground-subtlest">
-        system
-      </span>
-      <span className="min-w-0 flex-1 text-ui-sm italic leading-relaxed text-foreground-subtle">{note}</span>
-    </div>
-  )
-}
-
 interface Props {
   task: SubagentTask
   /** The launch acknowledgement text for a task that never started. Only the
@@ -178,10 +147,8 @@ interface Props {
 }
 
 /**
- * The full view of one background subagent: prompt, trajectory rendered like
- * the main timeline (assistant prose as markdown, tool calls in ToolCard
- * anatomy, folded behind the same "Worked for …" divider), then the final
- * answer.
+ * The full view of one background subagent: prompt, a compact list of tool
+ * calls folded behind the "Worked for …" divider, then the final answer.
  *
  * This is the drill-in target of the subagents side panel, not a dialog — it
  * fills the panel column it is dropped into. The task is resolved by key on
@@ -190,6 +157,7 @@ interface Props {
  */
 export default function SubagentDetail({ task, launchError, onBack, onShowInConversation }: Props): JSX.Element {
   const [trajectoryOpen, setTrajectoryOpen] = useState(false)
+  const [promptOpen, setPromptOpen] = useState(false)
   const running = task.state === 'running' && !task.launchFailed
   // Ticks only while the child is in flight; settled reports have fixed times.
   const now = useNow(running)
@@ -208,41 +176,21 @@ export default function SubagentDetail({ task, launchError, onBack, onShowInConv
     return () => window.removeEventListener('keydown', onKey)
   }, [onBack])
 
-  // Pair each result with its call so the row expands onto the outcome, exactly
-  // like a live tool card. The wire order is preserved; user-role entries are
-  // skipped because the Prompt section already shows the delegation prompt.
+  // Pair each result with its call so the compact tool row can expand onto its
+  // outcome. The outer disclosure shows only tool calls; verbose assistant
+  // commentary and system compaction notes stay out of this summary.
   const { blocks, toolCallCount } = useMemo(() => {
     const resultsByCallId = new Map<string, SubagentTrajectoryMessage>()
-    const callIds = new Set<string>()
     for (const entry of trajectory) {
-      for (const call of entry.toolCalls ?? []) callIds.add(call.id)
       if (entry.role === 'toolResult' && entry.toolCallId) {
         resultsByCallId.set(entry.toolCallId, entry)
       }
     }
     const out: JSX.Element[] = []
     let calls = 0
-    trajectory.forEach((entry, i) => {
+    trajectory.forEach((entry) => {
       if (entry.role === 'user') return
-      if (entry.role === 'compaction') {
-        if (entry.note) out.push(<CompactionRow key={`c-${i}`} note={entry.note} />)
-        return
-      }
-      if (entry.role === 'toolResult') {
-        // Paired results render inside their call's row; only a result whose
-        // call id never appears (truncated report) gets its own row.
-        if (!entry.toolCallId || !callIds.has(entry.toolCallId)) {
-          out.push(<OrphanResultRow key={`r-${i}`} result={entry} />)
-        }
-        return
-      }
-      if (entry.text) {
-        out.push(
-          <div key={`t-${i}`} className="chat-markdown text-ui-base">
-            <Markdown text={entry.text} />
-          </div>
-        )
-      }
+      if (entry.role === 'compaction' || entry.role === 'toolResult') return
       for (const call of entry.toolCalls ?? []) {
         calls++
         out.push(<TrajectoryToolRow key={call.id} call={call} result={resultsByCallId.get(call.id)} />)
@@ -254,34 +202,37 @@ export default function SubagentDetail({ task, launchError, onBack, onShowInConv
   const elapsedMs = running ? subagentElapsed(task, now) : (task.durationMs ?? 0)
   const summary = `Worked for ${duration(elapsedMs)} and made ${toolCallCount} tool ${toolCallCount === 1 ? 'call' : 'calls'}`
   const final = task.finalResult ?? ''
+  // Long delegation prompts are the common case; clamping keeps the trajectory
+  // and the answer on screen instead of pushing them below a wall of text.
+  const promptLong = task.prompt.length > 320
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center gap-1.5 border-b border-border/60 px-2 py-1.5">
+      <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border-seam pl-1 pr-2">
         <button
           type="button"
           title="Back to subagents"
+          aria-label="Back to subagents"
           onClick={onBack}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ChevronLeft size={15} strokeWidth={1.8} aria-hidden />
         </button>
-        <Robot01 size={14} strokeWidth={1.8} className="shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground">
+        <span className="min-w-0 flex-1 truncate px-0.5 text-ui-sm font-medium text-foreground">
           {subagentPromptPreview(task.prompt, 80) || 'Subagent'}
         </span>
-        <span className={cn('shrink-0 text-ui-sm', status.className)}>{status.label}</span>
+        <span className="flex shrink-0 items-center gap-1.5 text-ui-sm">
+          <span className={cn('size-1.5 shrink-0 rounded-full', status.dot)} aria-hidden />
+          <span className={status.className}>{status.label}</span>
+        </span>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border/60 px-2.5 py-1.5 text-ui-sm text-muted-foreground">
-        {model && <span className="min-w-0 truncate font-mono text-ui-xs text-foreground-subtle">{model}</span>}
-        {task.taskId && (
-          <span className="shrink-0 font-mono text-ui-xs text-foreground-subtlest">{task.taskId}</span>
-        )}
-        <span className="shrink-0 font-mono text-ui-xs tabular-nums text-foreground-subtlest">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-border-seam px-3 py-1 text-ui-xs text-foreground-subtlest">
+        {model && <span className="min-w-0 truncate font-mono">{model}</span>}
+        <span className="shrink-0 font-mono tabular-nums">
           {running ? `${duration(elapsedMs)}…` : subagentDurationLabel(task)}
         </span>
-        {stats && <span className="min-w-0">{stats}</span>}
+        {stats && <span className="min-w-0 truncate">{stats}</span>}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-3">
@@ -298,93 +249,95 @@ export default function SubagentDetail({ task, launchError, onBack, onShowInConv
             )}
           </div>
         ) : (
-          <>
+          <div className="flex flex-col gap-3">
             {task.error && (
-              <div className="mb-3 flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/5 px-3.5 py-2.5 text-ui-sm text-destructive-foreground">
+              <div className="flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/5 px-3.5 py-2.5 text-ui-sm text-destructive-foreground">
                 <Alert02 size={14} strokeWidth={1.8} className="mt-0.5 shrink-0" aria-hidden />
                 <span className="min-w-0 whitespace-pre-wrap break-words">{task.error}</span>
               </div>
             )}
 
             {task.prompt && (
-              <div className="mb-4">
-                <div className="mb-1 text-ui-2xs uppercase tracking-wide text-foreground-subtlest">Prompt</div>
-                <pre className="m-0 max-h-[240px] overflow-auto whitespace-pre-wrap break-words font-mono text-ui-sm leading-relaxed text-muted-foreground">
-                  {task.prompt}
-                </pre>
+              <div className="rounded-lg border border-border-seam bg-subtle px-3 py-2">
+                  <p
+                    className={cn(
+                      'm-0 whitespace-pre-wrap break-words text-ui-sm leading-relaxed text-foreground-subtle',
+                      !promptOpen && 'line-clamp-1'
+                    )}
+                  >
+                    {task.prompt}
+                  </p>
+                  {promptLong && (
+                    <button
+                      type="button"
+                      onClick={() => setPromptOpen((value) => !value)}
+                      className="mt-1.5 text-ui-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {promptOpen ? 'Show less' : 'Show full prompt'}
+                    </button>
+                  )}
               </div>
             )}
 
             {running && blocks.length === 0 ? (
-              <div className="flex items-center gap-2 rounded-xl bg-subtle px-3.5 py-3 text-ui-sm text-muted-foreground">
-                <Loading03 size={14} strokeWidth={1.8} className="shrink-0 animate-spin" aria-hidden />
-                Still working — the trajectory and final answer land here when the report arrives.
-              </div>
-            ) : blocks.length > 0 ? (
-              <div className="mb-4">
-                {toolCallCount === 0 ? (
-                  <div className="flex flex-col gap-2.5">{blocks}</div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="group -mx-1.5 flex min-h-7 max-w-full items-center gap-1.5 rounded-lg px-1.5 text-left text-ui-base text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={() => setTrajectoryOpen((value) => !value)}
-                      aria-expanded={trajectoryOpen}
-                    >
-                      <span className="min-w-0 truncate tabular-nums">{summary}</span>
-                      <HugeiconsIcon
-                        icon={ArrowRight01Icon}
-                        size={14}
-                        strokeWidth={1.75}
-                        className={cn(
-                          'shrink-0 text-foreground-subtlest transition-[transform,color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] group-hover:text-foreground',
-                          trajectoryOpen && 'rotate-90'
-                        )}
-                        aria-hidden
-                      />
-                    </button>
-                    <AnimatePresence initial={false}>
-                      {trajectoryOpen && (
-                        <motion.div
-                          variants={disclosure}
-                          initial="initial"
-                          animate="animate"
-                          exit="exit"
-                          className="overflow-hidden"
-                        >
-                          <div className="flex flex-col gap-2.5 pt-1.5">{blocks}</div>
-                        </motion.div>
+                <div className="flex items-center gap-2 rounded-lg bg-subtle px-3 py-2.5 text-ui-sm text-muted-foreground">
+                  <Loading03 size={14} strokeWidth={1.8} className="shrink-0 animate-spin" aria-hidden />
+                  Still working — the trajectory lands here when the report arrives.
+                </div>
+              ) : blocks.length === 0 ? (
+                <p className="m-0 text-ui-sm italic text-foreground-subtlest">
+                  No tool calls were recorded.
+                </p>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="group -mx-1.5 flex min-h-7 max-w-full items-center gap-1.5 rounded-lg px-1.5 text-left text-ui-sm text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => setTrajectoryOpen((value) => !value)}
+                    aria-expanded={trajectoryOpen}
+                  >
+                    <span className="min-w-0 truncate tabular-nums">{summary}</span>
+                    <HugeiconsIcon
+                      icon={ArrowRight01Icon}
+                      size={14}
+                      strokeWidth={1.75}
+                      className={cn(
+                        'shrink-0 text-foreground-subtlest transition-[transform,color] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] group-hover:text-foreground',
+                        trajectoryOpen && 'rotate-90'
                       )}
-                    </AnimatePresence>
-                  </>
-                )}
-              </div>
-            ) : null}
+                      aria-hidden
+                    />
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {trajectoryOpen && (
+                      <motion.div
+                        variants={disclosure}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        className="overflow-hidden"
+                      >
+                        <div className="flex flex-col gap-1.5 pt-1.5">{blocks}</div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              )}
 
-            <div className="mb-1 text-ui-2xs uppercase tracking-wide text-foreground-subtlest">
-              Final answer
-            </div>
             {final ? (
-              <div className="chat-markdown text-ui-base">
+              <div className="chat-markdown border-t border-border-seam pt-3 text-ui-sm">
                 <Markdown text={final} />
               </div>
-            ) : (
-              <p className="m-0 text-ui-sm italic text-foreground-subtlest">
-                {running ? 'No answer yet — the child is still working.' : 'No final answer recorded.'}
+            ) : !running ? (
+              <p className="m-0 border-t border-border-seam pt-3 text-ui-sm italic text-foreground-subtlest">
+                No final answer recorded.
               </p>
-            )}
-            {(task.effort || task.provider) && (
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-ui-xs text-foreground-subtlest">
-                {task.effort && <span>effort {task.effort}</span>}
-                {task.provider && <span>{task.provider}</span>}
-              </div>
-            )}
-          </>
+            ) : null}
+          </div>
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-2 border-t border-border/60 px-2 py-1.5">
+      <div className="flex shrink-0 items-center gap-2 border-t border-border-seam px-2 py-1.5">
         <Button variant="ghost" size="sm" onClick={() => onShowInConversation(task)}>
           Show in conversation
         </Button>
