@@ -1,25 +1,16 @@
 import { memo } from 'react'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Cancel01Icon } from '@hugeicons/core-free-icons'
-import { ChevronRight, Loading03, Robot01 } from './ui/icons'
+import { ChevronRight, Robot01 } from './ui/icons'
 import SubagentDetail from './SubagentDetail'
 import { useNow } from '../hooks/use-now'
-import {
-  SUBAGENT_STATUS,
-  subagentElapsedLabel,
-  subagentModelLabel,
-  subagentPromptPreview,
-  subagentResultPreview,
-  type SubagentTask
-} from '../subagents'
+import { SUBAGENT_STATUS, subagentElapsedLabel, type SubagentTask } from '../subagents'
 import { cn } from '../util'
 
 /**
  * One task in the list.
  *
- * Three lines at most: what was asked, what came back, and the metadata line.
- * The task id lives in the detail view only — it is an identifier the reader
- * copies once, not something to scan past on every row.
+ * A single line: state, what was asked, how long it took. Model, result and
+ * trajectory all live in the detail view — the panel is for scanning, not
+ * reading.
  */
 function TaskRow({
   task,
@@ -31,11 +22,15 @@ function TaskRow({
   /** Drills the panel into this task's detail. */
   onOpen(task: SubagentTask): void
 }): JSX.Element {
-  const status = SUBAGENT_STATUS[task.state]
-  const running = task.state === 'running'
-  const model = subagentModelLabel(task)
-  const prompt = subagentPromptPreview(task.prompt)
-  const result = running ? '' : subagentResultPreview(task)
+  const running = task.state === 'running' && !task.launchFailed
+  const completed = task.state === 'completed' && !task.launchFailed
+  const status = task.launchFailed ? SUBAGENT_STATUS.failed : SUBAGENT_STATUS[task.state]
+  const prompt = task.prompt.replace(/\s+/g, ' ').trim()
+
+  // Only live and abnormal states carry a note. A completed row is just the
+  // task, so a long history stays quiet; its duration lives in the detail.
+  const note = running ? subagentElapsedLabel(task, now) : completed ? '' : status.label
+  const noteTone = running ? 'text-foreground-subtlest' : status.className
 
   return (
     <li className="min-w-0">
@@ -43,74 +38,54 @@ function TaskRow({
         type="button"
         onClick={() => onOpen(task)}
         title={task.prompt}
-        className="flex w-full min-w-0 flex-col gap-1 rounded-xl border border-transparent px-2.5 py-2 text-left transition-colors hover:border-border-seam hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="group flex h-8 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="flex w-full min-w-0 items-center gap-2">
-          <span className={cn('size-1.5 shrink-0 rounded-full', status.dot)} aria-hidden />
-          <span className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground">
-            {prompt || <span className="font-normal italic text-foreground-subtlest">(no prompt)</span>}
-          </span>
-          {running && (
-            <Loading03
-              size={12}
-              strokeWidth={1.75}
-              className="shrink-0 animate-spin text-muted-foreground"
-              aria-label="Running"
-            />
+        <span
+          className={cn(
+            'size-1.5 shrink-0 rounded-full',
+            status.dot,
+            // Completed is the quiet default. Only live and abnormal states
+            // earn a mark, so a history of finished work stays calm.
+            completed && 'invisible',
+            running && 'animate-pulse'
           )}
-          <ChevronRight
-            size={12}
-            strokeWidth={1.75}
-            className="shrink-0 text-foreground-subtlest transition-transform duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)]"
-            aria-hidden
-          />
+          aria-hidden
+        />
+        <span className="sr-only">{status.label}: </span>
+        <span
+          className={cn(
+            'min-w-0 flex-1 truncate text-ui-sm group-hover:text-foreground',
+            running ? 'text-foreground' : 'text-foreground-subtle'
+          )}
+        >
+          {prompt ? (
+            prompt
+          ) : (
+            <span className="italic text-foreground-subtlest">(no prompt)</span>
+          )}
         </span>
-
-        {result && (
-          <span className="line-clamp-2 pl-3.5 text-ui-xs leading-relaxed text-foreground-subtlest">
-            {result}
-          </span>
+        {note && (
+          <span className={cn('shrink-0 font-mono text-ui-xs tabular-nums', noteTone)}>{note}</span>
         )}
-
-        <span className="flex w-full min-w-0 items-center gap-1.5 pl-3.5 text-ui-xs">
-          <span className={cn('shrink-0 font-medium', status.className)}>{status.label}</span>
-          {model && (
-            <>
-              <span className="shrink-0 text-foreground-subtlest" aria-hidden>
-                ·
-              </span>
-              <span className="min-w-0 truncate font-mono text-foreground-subtlest">{model}</span>
-            </>
-          )}
-          <span className="ml-auto shrink-0 font-mono tabular-nums text-foreground-subtlest">
-            {subagentElapsedLabel(task, now)}
-          </span>
-        </span>
+        <ChevronRight
+          size={12}
+          strokeWidth={1.75}
+          className="shrink-0 text-foreground-subtlest opacity-0 transition-opacity duration-[var(--duration-quick)] group-hover:opacity-100 group-focus-visible:opacity-100"
+          aria-hidden
+        />
       </button>
     </li>
   )
 }
 
-/** Group heading: micro label, count, then a hairline out to the edge. */
-function SectionHead({
-  title,
-  count,
-  live = false
-}: {
-  title: string
-  count: number
-  live?: boolean
-}): JSX.Element {
+/** Group heading: a quiet label and its count. */
+function SectionHead({ title, count }: { title: string; count: number }): JSX.Element {
   return (
-    <div className="flex items-center gap-2 px-2.5 pb-1 pt-2.5">
-      {live && <span className="size-1.5 shrink-0 rounded-full bg-busy" aria-hidden />}
-      <span className="shrink-0 text-ui-2xs uppercase tracking-wide text-foreground-subtlest">
+    <div className="flex items-baseline gap-1.5 px-2 pb-1 pt-3">
+      <span className="text-ui-2xs font-medium uppercase tracking-wide text-foreground-subtlest">
         {title}
       </span>
-      <span className="shrink-0 font-mono text-ui-2xs tabular-nums text-foreground-subtlest">
-        {count}
-      </span>
-      <span className="h-px min-w-2 flex-1 bg-border-seam" aria-hidden />
+      <span className="font-mono text-ui-2xs tabular-nums text-foreground-subtlest">{count}</span>
     </div>
   )
 }
@@ -128,10 +103,12 @@ function SectionHead({
  * transcript row) drills the same column into the full report instead of
  * opening a dialog over the app. `detailTask` is resolved by key in App, so a
  * detail left open on a running child fills in when its report lands.
+ *
+ * The list has no chrome of its own. The dock tab already names the panel and
+ * owns its close button; a second header would only repeat both.
  */
 function SubagentPanel({
   tasks,
-  onClose,
   onOpen,
   detailTask,
   detailLaunchError,
@@ -139,7 +116,6 @@ function SubagentPanel({
   onShowInConversation
 }: {
   tasks: SubagentTask[]
-  onClose(): void
   /** Drills the panel into a task's detail. */
   onOpen(task: SubagentTask): void
   /** The task to show in detail, or undefined for the list. */
@@ -150,8 +126,8 @@ function SubagentPanel({
   /** Returns to the list and scrolls the transcript to this task's row. */
   onShowInConversation(task: SubagentTask): void
 }): JSX.Element {
-  const running = tasks.filter((t) => t.state === 'running')
-  const finished = tasks.filter((t) => t.state !== 'running')
+  const running = tasks.filter((task) => task.state === 'running' && !task.launchFailed)
+  const finished = tasks.filter((task) => task.state !== 'running' || task.launchFailed)
   const now = useNow(running.length > 0)
 
   // Kept below the hook on purpose: an early return above `useNow` would make
@@ -159,6 +135,7 @@ function SubagentPanel({
   if (detailTask) {
     return (
       <SubagentDetail
+        key={detailTask.toolCallId}
         task={detailTask}
         launchError={detailLaunchError}
         onBack={onBack}
@@ -167,61 +144,39 @@ function SubagentPanel({
     )
   }
 
-  const section = (title: string, rows: SubagentTask[], live = false): JSX.Element | null => {
-    if (rows.length === 0) return null
+  if (tasks.length === 0) {
     return (
-      <section>
-        <SectionHead title={title} count={rows.length} live={live} />
-        <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
-          {rows.map((task) => (
-            <TaskRow key={task.key} task={task} now={now} onOpen={onOpen} />
-          ))}
-        </ul>
-      </section>
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+        <Robot01 size={16} strokeWidth={1.5} className="text-foreground-subtlest" aria-hidden />
+        <p className="m-0 text-ui-sm text-foreground-subtlest">
+          No subagents yet — delegated work appears here.
+        </p>
+      </div>
     )
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border-seam px-2">
-        <Robot01 size={14} strokeWidth={1.8} className="shrink-0 text-muted-foreground" aria-hidden />
-        <span className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground">
-          Subagents
-        </span>
-        {running.length > 0 && (
-          <span className="shrink-0 rounded-full bg-busy/15 px-1.5 py-px text-ui-xs text-warning-foreground">
-            {running.length} running
-          </span>
-        )}
-        <button
-          type="button"
-          title="Close subagents panel"
-          aria-label="Close subagents panel"
-          onClick={onClose}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.8} aria-hidden />
-        </button>
-      </div>
-
-      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-1 pb-2 pt-0.5">
-        {tasks.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-5 text-center">
-            <span className="grid size-11 place-items-center rounded-2xl border border-border bg-card">
-              <Robot01 size={18} strokeWidth={1.5} className="text-foreground-subtlest" aria-hidden />
-            </span>
-            <p className="m-0 text-ui-sm leading-relaxed text-foreground-subtlest">
-              No subagents in this session. The agent delegates background work on its own, and each
-              task reports back here when it finishes.
-            </p>
-          </div>
-        ) : (
-          <>
-            {section('Running', running, true)}
-            {section('Finished', finished)}
-          </>
-        )}
-      </div>
+    <div className="no-scrollbar h-full overflow-y-auto px-1.5 pb-2 pt-1">
+      {running.length > 0 && (
+        <section>
+          <SectionHead title="Running" count={running.length} />
+          <ul className="m-0 flex list-none flex-col p-0">
+            {running.map((task) => (
+              <TaskRow key={task.key} task={task} now={now} onOpen={onOpen} />
+            ))}
+          </ul>
+        </section>
+      )}
+      {finished.length > 0 && (
+        <section>
+          <SectionHead title="Finished" count={finished.length} />
+          <ul className="m-0 flex list-none flex-col p-0">
+            {finished.map((task) => (
+              <TaskRow key={task.key} task={task} now={now} onOpen={onOpen} />
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }

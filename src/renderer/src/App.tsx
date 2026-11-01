@@ -1069,7 +1069,6 @@ export default function App(): JSX.Element {
               <SubagentPanel
                 key={chat?.sessionId ?? 'none'}
                 tasks={subagentTasks}
-                onClose={closeSubagents}
                 onOpen={openSubagent}
                 detailTask={subagentDetailTask}
                 detailLaunchError={subagentDetail?.launchError}
