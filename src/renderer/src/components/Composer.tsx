@@ -894,16 +894,18 @@ function Composer({
   const canSubmit = (hasText || hasAttachments) && !readingAttachments
   const retrying = notice != null && /retry/i.test(notice)
   const cmdCount = commandSuggestions.length
-  // Visible heights of the merged tray's sections; the tray's last 8px hide
-  // behind the composer, so each section carries its own bottom breathing room.
+  // Visible heights of the merged tray's sections. The tray tucks its last 8px
+  // behind the composer, and each section carries its own bottom breathing room.
   const ATTACH_ROW = 64
+  const NOTICE_ROW = 40
   // The `@` list is a tab of this same tray, so it is a fixed height like the
-  // command list â€” up to six rows and the tray's bottom breathing.
+  // command list — up to six rows and the tray's bottom breathing.
   const mentionVisible =
     mention && cwd ? Math.min(Math.max(mentionFiles.length, 1), 6) : 0
   const mentionRows = mentionVisible > 0 ? 18 + mentionVisible * 30 + (mentionVisible - 1) * 2 : 0
   const cmdRows = cmdCount > 0 ? cmdCount * 30 + (cmdCount - 1) * 2 + 12 + (hasAttachments || mentionRows > 0 ? 1 : 0) : 0
-  const trayHeight = mentionRows + (hasAttachments ? ATTACH_ROW : 0) + cmdRows
+  const noticeRows = notice ? NOTICE_ROW : 0
+  const trayHeight = noticeRows + mentionRows + (hasAttachments ? ATTACH_ROW : 0) + cmdRows
 
   const showArrow = canSubmit && !isRecording && !running
   const showStop = running || isRecording
@@ -943,12 +945,12 @@ function Composer({
         )}
       </AnimatePresence>
 
-      {/* One tray for the `@` file list, attachment thumbnails and the `/`
-          command list, so any of them can be open without a floating panel:
-          the tray tucks its last 8px behind the composer to read as attached. */}
+      {/* One tray for the status notice, `@` file list, attachment thumbnails
+          and the `/` command list. Stacking them in one surface keeps a notice
+          and command menu visually connected instead of floating as separate tabs. */}
       <div
         aria-hidden={trayHeight === 0}
-        style={{ height: trayHeight, transition: `height 0.14s ${EASE_EXPAND}` }}
+        style={{ height: trayHeight, transition: `height ${noticeRows > 0 ? 'var(--toast-open)' : '0.14s'} ${noticeRows > 0 ? 'var(--toast-ease)' : EASE_EXPAND}` }}
         className="relative z-0 w-full overflow-hidden"
       >
         <div
@@ -961,10 +963,38 @@ function Composer({
             paddingBottom: 8,
             transform: trayHeight > 0 ? 'translateY(0)' : 'translateY(100%)',
             opacity: trayHeight > 0 ? 1 : 0,
-            transition: `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease-out`
+            transition: `transform ${noticeRows > 0 ? 'var(--toast-open)' : '0.14s'} ${noticeRows > 0 ? 'var(--toast-ease)' : EASE_EXPAND}, opacity 0.1s ease-out`
           }}
           className="flex flex-col overflow-hidden rounded-t-lg border border-b-0 border-border bg-muted"
         >
+          {noticeRows > 0 && (
+            <div
+              style={{ height: NOTICE_ROW }}
+              className={cn('flex shrink-0 items-center gap-2 overflow-hidden px-3', trayHeight > noticeRows && 'border-b border-border/60')}
+            >
+              {retrying ? (
+                <span className="size-3 shrink-0 animate-spin rounded-full border-[1.5px] border-warning border-t-transparent" aria-hidden />
+              ) : (
+                <span className="size-2 shrink-0 rounded-full bg-muted-foreground/60" aria-hidden />
+              )}
+              {retrying ? (
+                <span className="shimmer-text min-w-0 flex-1 truncate whitespace-nowrap text-ui-sm font-medium">{notice}</span>
+              ) : (
+                <span className="min-w-0 flex-1 truncate whitespace-nowrap text-ui-sm font-medium text-muted-foreground">{notice}</span>
+              )}
+              {!retrying && (
+                <button
+                  type="button"
+                  onClick={onDismissNotice}
+                  className="grid size-5 shrink-0 place-items-center rounded-md text-foreground-subtlest transition-colors hover:bg-hover hover:text-foreground"
+                  aria-label="Dismiss notice"
+                  title="Dismiss"
+                >
+                  <CloseIcon />
+                </button>
+              )}
+            </div>
+          )}
           {mentionRows > 0 && (
             <div
               style={{ height: mentionRows }}
@@ -1003,7 +1033,7 @@ function Composer({
               style={{ height: cmdRows }}
               className={cn(
                 'flex shrink-0 flex-col gap-0.5 px-1.5 pt-1.5',
-                hasAttachments && 'border-t border-border/60'
+                (hasAttachments || mentionRows > 0 || noticeRows > 0) && 'border-t border-border/60'
               )}
             >
               {commandSuggestions.map((command, index) => (
@@ -1023,76 +1053,6 @@ function Composer({
                 </button>
               ))}
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Follow-ups tab */}
-      <div
-        aria-hidden={queuedFollowUps.length === 0}
-        style={{ height: queuedFollowUps.length > 0 ? 40 : 0, transition: `height 0.14s ${EASE_EXPAND}` }}
-        className="relative z-0 w-full overflow-hidden"
-      >
-        <div
-          style={{
-            position: 'absolute',
-            bottom: -8,
-            left: 20,
-            right: 20,
-            height: 40,
-            transform: queuedFollowUps.length > 0 ? 'translateY(0)' : 'translateY(100%)',
-            opacity: queuedFollowUps.length > 0 ? 1 : 0,
-            transition: `transform 0.14s ${EASE_EXPAND}, opacity 0.1s ease-out`
-          }}
-          className="flex items-center gap-2 overflow-hidden rounded-t-lg border border-b-0 border-border bg-muted px-3"
-        >
-          <AddToList size={14} strokeWidth={1.8} className="shrink-0" />
-          <span className="whitespace-nowrap font-medium text-foreground">
-            {queuedFollowUps.length} follow-up{queuedFollowUps.length === 1 ? '' : 's'} queued
-          </span>
-          <span className="min-w-0 truncate text-muted-foreground">{queuedFollowUps[0]}</span>
-        </div>
-      </div>
-
-      {/* Notice tab */}
-      <div
-        aria-hidden={!notice}
-        style={{ height: notice ? 40 : 0, transition: `height var(--toast-${notice ? 'open' : 'close'}) var(--toast-ease)` }}
-        className="relative z-0 w-full overflow-hidden"
-      >
-        <div
-          style={{
-            position: 'absolute',
-            bottom: -8,
-            left: 20,
-            right: 20,
-            height: 40,
-            transform: notice ? 'translateY(0)' : 'translateY(100%)',
-            opacity: notice ? 1 : 0,
-            transition: `transform var(--toast-${notice ? 'open' : 'close'}) var(--toast-ease), opacity var(--toast-${notice ? 'open' : 'close'}) var(--toast-ease)`
-          }}
-          className="flex items-center gap-2 overflow-hidden rounded-t-lg border border-b-0 border-border bg-muted px-3"
-        >
-          {retrying ? (
-            <span className="size-3 shrink-0 animate-spin rounded-full border-[1.5px] border-warning border-t-transparent" aria-hidden />
-          ) : (
-            <span className="size-2 shrink-0 rounded-full bg-muted-foreground/60" aria-hidden />
-          )}
-          {retrying ? (
-            <span className="shimmer-text min-w-0 flex-1 truncate whitespace-nowrap text-ui-sm font-medium">{notice}</span>
-          ) : (
-            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-ui-sm font-medium text-muted-foreground">{notice}</span>
-          )}
-          {!retrying && (
-            <button
-              type="button"
-              onClick={onDismissNotice}
-              className="grid size-5 shrink-0 place-items-center rounded-md text-foreground-subtlest transition-colors hover:bg-hover hover:text-foreground"
-              aria-label="Dismiss notice"
-              title="Dismiss"
-            >
-              <CloseIcon />
-            </button>
           )}
         </div>
       </div>
