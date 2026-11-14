@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme, screen } from 'electron'
+import { app, shell, BrowserWindow, Notification, ipcMain, dialog, nativeTheme, screen } from 'electron'
 import { execFile } from 'child_process'
 import fs from 'fs'
 import { join } from 'path'
@@ -8,6 +8,7 @@ import { RpcClient } from './rpc'
 import type {
   AgentEvent,
   BackdropMode,
+  NotificationPayload,
   PullFilter,
   PullStateFilter,
   RpcResult,
@@ -25,6 +26,9 @@ let connecting: Promise<RpcResult<{ name: string; version: string }>> | null = n
 let appTheme: 'light' | 'dark' | null = null
 let transparency = 50
 let transparencyEnabled = true
+// Notification objects must stay reachable until they are dismissed, or the
+// click handler can be collected before the user sees the banner.
+const liveNotifications = new Set<Notification>()
 
 // `moved`/`resized` fire continuously while the window is dragged or snapped,
 // and each one used to cost an IPC message plus a renderer re-render. Only the
@@ -474,6 +478,33 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('myagent:window:close', () => win?.close())
   ipcMain.handle('myagent:window:isMaximized', () => win?.isMaximized() ?? false)
+
+  // Task-settled OS notification. The renderer decides *whether* a run deserves
+  // one (session focus, user preference, stop vs finish); the main process only
+  // knows how to put it on screen and how to bring the window back on click.
+  ipcMain.handle('myagent:notify', (_e, payload: NotificationPayload) => {
+    if (!Notification.isSupported() || !payload) return false
+    const title = typeof payload.title === 'string' ? payload.title.slice(0, 120) : 'myagent'
+    const body = typeof payload.body === 'string' ? payload.body.slice(0, 300) : ''
+    const sessionId = typeof payload.sessionId === 'string' ? payload.sessionId : undefined
+    const notification = new Notification({ title, body })
+    liveNotifications.add(notification)
+    const release = (): void => {
+      liveNotifications.delete(notification)
+    }
+    notification.on('close', release)
+    notification.on('failed', release)
+    notification.on('click', () => {
+      release()
+      if (!win || win.isDestroyed()) return
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
+      if (sessionId) win.webContents.send('myagent:notification:activate', sessionId)
+    })
+    notification.show()
+    return true
+  })
 
   // Reveal a session's project folder in an external app. 'explorer' opens
   // Windows File Explorer at the folder; 'vscode' launches VS Code (falls

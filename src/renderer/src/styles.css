@@ -145,6 +145,7 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --color-composer: var(--composer);
+  --color-composer-footer: var(--composer-footer);
   --color-border-seam: var(--border-seam);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
@@ -468,6 +469,8 @@
   --header: var(--canvas);
   --panel: color-mix(in srgb, var(--ink) 1.5%, var(--canvas));
   --composer: #ffffff;
+  /* One step below the composer, so the footer bar reads as its own surface. */
+  --composer-footer: color-mix(in srgb, var(--ink) 4%, #ffffff);
   --elevated: color-mix(in srgb, var(--ink) var(--card-lift), var(--canvas));
   --subtle: color-mix(in srgb, var(--ink) var(--s1), transparent);
   --hover: color-mix(in srgb, var(--ink) var(--s2), transparent);
@@ -596,6 +599,7 @@
 .dark {
   --surface-grain: none;
   --composer: color-mix(in srgb, var(--ink) 12%, var(--canvas));
+  --composer-footer: color-mix(in srgb, var(--ink) 6%, var(--canvas));
 }
 
 /* ── transitions-dev (gallery model selector) ─────────────────────────
@@ -2273,4 +2277,15 @@
   opacity: 0.40;
   cursor: default;
   pointer-events: none;
+}
+/* Find-in-conversation matches. Painted through the CSS Custom Highlight API
+   (see findHighlight.ts) so React's nodes are never rewritten; only color and
+   background are allowed on these pseudo-elements. */
+::highlight(chat-find) {
+  background-color: color-mix(in srgb, var(--busy) 42%, transparent);
+}
+
+::highlight(chat-find-current) {
+  background-color: var(--foreground);
+  color: var(--background);
 }

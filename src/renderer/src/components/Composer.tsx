@@ -2,14 +2,14 @@ import { memo, useCallback, useEffect, useRef, useState, KeyboardEvent, Clipboar
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Add01Icon, ArrowDown01Icon, ArrowUp02Icon, Attachment01Icon, AudioWave01Icon, Cancel01Icon, Mic01Icon, StopIcon as StopIconGlyph } from '@hugeicons/core-free-icons'
-import { AddToList, Robot01 } from './ui/icons'
+import { Add01Icon, ArrowDown01Icon, ArrowUp02Icon, Attachment01Icon, AudioWave01Icon, Cancel01Icon, Mic01Icon, Shield01Icon, StopIcon as StopIconGlyph } from '@hugeicons/core-free-icons'
+import { AddToList, Folder01, GitBranch01, Robot01, Tick01 } from './ui/icons'
 import ContextViewer from './ContextViewer'
 import FileMentionPopup from './FileMentionPopup'
 import { api } from '../api'
-import type { ContentBlock, ProvidersInfo, ReasoningEffort, WorkspaceFile } from '../../../shared/protocol'
-import type { EffortSelectorVariant, ModelSelectorVariant } from '../preferences'
-import { cn } from '../util'
+import type { ContentBlock, GitBranch, ProvidersInfo, ReasoningEffort, WorkspaceFile } from '../../../shared/protocol'
+import type { ComposerVariant, EffortSelectorVariant, ModelSelectorVariant } from '../preferences'
+import { baseName, cn } from '../util'
 import { commandMatches, parseCommand, type CommandName } from '../commands'
 import { composerFocus } from '../shortcuts'
 import ModelEffortPicker from './ModelEffortPicker'
@@ -54,6 +54,283 @@ function ClipIcon(): JSX.Element {
 
 function CloseIcon(): JSX.Element {
   return <HugeiconsIcon icon={Cancel01Icon} size={11} strokeWidth={2} aria-hidden />
+}
+
+function ShieldIcon(): JSX.Element {
+  return <HugeiconsIcon icon={Shield01Icon} size={14} strokeWidth={1.6} aria-hidden />
+}
+
+// ----------------------------------------------------------------------
+// Footer bar controls (footer composer variant)
+// ----------------------------------------------------------------------
+
+/** One quiet control row in the footer bar; buttons share this shell. */
+const FOOTER_CONTROL = 'flex h-6 min-w-0 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm outline-none transition-colors'
+
+/**
+ * Project folder for the footer bar. The chat footer can only point somewhere
+ * else by starting a new session, so `onSelect` decides what that means
+ * (App opens the home composer; Home just switches the pending project).
+ */
+function ProjectPicker({
+  cwd,
+  projects,
+  onSelect,
+  onAddProject
+}: {
+  cwd: string | null
+  projects: { cwd: string; name: string }[]
+  onSelect?(cwd: string): void
+  onAddProject?(): void
+}): JSX.Element | null {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const close = (event: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
+    }
+    const onKey = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  if (!cwd) return null
+  const current = projects.find((project) => project.cwd === cwd) ?? null
+  const label = current?.name ?? baseName(cwd)
+
+  if (!onSelect) {
+    return (
+      <span className={cn(FOOTER_CONTROL, 'text-muted-foreground')} title={cwd}>
+        <Folder01 size={14} strokeWidth={1.6} className="shrink-0" />
+        <span className="min-w-0 truncate">{label}</span>
+      </span>
+    )
+  }
+
+  return (
+    <div className="relative min-w-0 shrink-0" ref={ref}>
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((value) => !value)}
+        className={cn(
+          FOOTER_CONTROL,
+          'max-w-[170px]',
+          open ? 'bg-hover text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
+        )}
+        title={cwd}
+        aria-label={`Project. Current: ${label}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <Folder01 size={14} strokeWidth={1.6} className="shrink-0" />
+        <span className="min-w-0 truncate">{label}</span>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="absolute bottom-full left-0 z-50 mb-1 max-h-[280px] w-[220px] origin-bottom-left overflow-y-auto rounded-lg border border-popover-border bg-menu p-1 shadow-[var(--shadow-pop)]"
+            initial={{ opacity: 0, y: 6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 3, scale: 0.99 }}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            onMouseDown={(e) => e.stopPropagation()}
+            role="menu"
+            aria-label="Projects"
+          >
+            {projects.map((project) => {
+              const active = project.cwd === cwd
+              return (
+                <button
+                  key={project.cwd}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpen(false)
+                    if (!active) onSelect(project.cwd)
+                  }}
+                  title={project.cwd}
+                  className={cn(
+                    'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-ui-sm transition-colors',
+                    active ? 'bg-selected font-medium text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
+                  )}
+                >
+                  <Folder01 size={13} strokeWidth={1.7} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                  {active && <Tick01 size={12} className="shrink-0 text-muted-foreground" />}
+                </button>
+              )
+            })}
+            {onAddProject && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false)
+                  onAddProject()
+                }}
+                className="mt-1 flex h-7 w-full items-center gap-2 rounded-md border-t border-border px-2 pt-1 text-left text-ui-sm text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+              >
+                <Add01IconGlyph />
+                <span className="min-w-0 flex-1 truncate">Add projectâ€¦</span>
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function Add01IconGlyph(): JSX.Element {
+  return <HugeiconsIcon icon={Add01Icon} size={13} strokeWidth={1.7} aria-hidden />
+}
+
+/**
+ * Current git branch with an upward menu that checks out another one. Hidden
+ * outside a repository, so the footer never shows a control that cannot act.
+ */
+function BranchPicker({ cwd }: { cwd: string | null }): JSX.Element | null {
+  const [branches, setBranches] = useState<GitBranch[]>([])
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const load = useCallback(() => {
+    if (!cwd) {
+      setBranches([])
+      return
+    }
+    void window.myagent.git
+      .branches(cwd)
+      .then((result) => setBranches(result.ok ? result.result : []))
+      .catch(() => setBranches([]))
+  }, [cwd])
+
+  useEffect(() => {
+    setOpen(false)
+    setError(null)
+    load()
+  }, [load])
+
+  // Another surface (the git panel, the source-control window) can move HEAD
+  // while this menu is closed; the shared event keeps the label honest.
+  useEffect(() => {
+    const onMutated = (event: Event): void => {
+      const detail = (event as CustomEvent<{ cwd?: string }>).detail
+      if (!detail?.cwd || detail.cwd === cwd) load()
+    }
+    window.addEventListener('myagent:git-mutated', onMutated)
+    return () => window.removeEventListener('myagent:git-mutated', onMutated)
+  }, [cwd, load])
+
+  useEffect(() => {
+    if (!open) return
+    const close = (event: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
+    }
+    const onKey = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const current = branches.find((branch) => branch.current)?.name ?? null
+  if (!cwd || !current) return null
+
+  const checkout = async (name: string): Promise<void> => {
+    if (!cwd || busy) return
+    setBusy(name)
+    setError(null)
+    const result = await window.myagent.git.checkout(cwd, name)
+    setBusy(null)
+    if (!result.ok) {
+      setError(result.error?.message ?? 'Could not switch branch.')
+      return
+    }
+    setOpen(false)
+    load()
+    window.dispatchEvent(new CustomEvent('myagent:git-mutated', { detail: { cwd } }))
+  }
+
+  return (
+    <div className="relative min-w-0 shrink-0" ref={ref}>
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((value) => !value)}
+        className={cn(
+          FOOTER_CONTROL,
+          'max-w-[170px]',
+          open ? 'bg-hover text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
+        )}
+        title={`Branch: ${current}`}
+        aria-label={`Branch. Current: ${current}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <GitBranch01 size={14} strokeWidth={1.6} className="shrink-0" />
+        <span className="min-w-0 truncate">{current}</span>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="absolute bottom-full left-0 z-50 mb-1 max-h-[280px] w-[230px] origin-bottom-left overflow-y-auto rounded-lg border border-popover-border bg-menu p-1 shadow-[var(--shadow-pop)]"
+            initial={{ opacity: 0, y: 6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 3, scale: 0.99 }}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            onMouseDown={(e) => e.stopPropagation()}
+            role="menu"
+            aria-label="Branches"
+          >
+            {branches.map((branch) => (
+              <button
+                key={branch.name}
+                type="button"
+                role="menuitem"
+                disabled={!!busy || branch.current}
+                onClick={() => void checkout(branch.name)}
+                title={branch.upstream ? `Tracking ${branch.upstream}` : branch.name}
+                className={cn(
+                  'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-ui-sm transition-colors',
+                  branch.current
+                    ? 'bg-selected font-medium text-foreground'
+                    : 'text-muted-foreground hover:bg-hover hover:text-foreground',
+                  busy === branch.name && 'opacity-60'
+                )}
+              >
+                <GitBranch01 size={13} strokeWidth={1.7} className="shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{branch.name}</span>
+                {branch.current && <Tick01 size={12} className="shrink-0 text-muted-foreground" />}
+              </button>
+            ))}
+            {error && (
+              <p role="alert" className="mx-1 mt-1 border-t border-border px-1 pb-1 pt-2 text-ui-xs text-destructive-foreground">
+                {error}
+              </p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
 }
 
 // ----------------------------------------------------------------------
@@ -289,8 +566,15 @@ interface Props {
   modelSelectorVariant?: ModelSelectorVariant
   /** Effort picker presentation: slider rail (default) or the original chip row. */
   effortSelectorVariant?: EffortSelectorVariant
+  /** Composer layout: controls inside the card (`classic`) or in a footer bar. */
+  composerVariant?: ComposerVariant
   /** Project root the `@` picker searches; the picker is off without one. */
   cwd?: string | null
+  /** Known project folders for the footer bar's project control. */
+  projects?: { cwd: string; name: string }[]
+  /** Point the composer at another project; absent makes the chip a label. */
+  onSelectProject?(cwd: string): void
+  onAddProject?(): void
 }
 
 /** Draft height caps. The compact pill reuses the same cap as its draft so the
@@ -366,7 +650,11 @@ function Composer({
   compact = false,
   modelSelectorVariant = 'compact',
   effortSelectorVariant = 'slider',
-  cwd = null
+  composerVariant = 'classic',
+  cwd = null,
+  projects = [],
+  onSelectProject,
+  onAddProject
 }: Props): JSX.Element {
   const [text, setText] = useState('')
   const [docked, setDocked] = useState(false)
@@ -701,6 +989,10 @@ function Composer({
 
   const hasText = text.trim().length > 0
   const placeholderText = placeholder ?? (running ? 'Steer the agent. (Ctrl+Enter to queue a follow-up)' : 'Ask anything')
+  // The footer layout writes its own affordances into the empty state, so the
+  // hint line doubles as the legend for `/` and `@`.
+  const footerPlaceholder =
+    placeholder ?? (running ? placeholderText : 'Ask anything, / for commands, @ for context')
   const pillTall = docked
 
   // --- Voice Recording Logic ---
@@ -899,7 +1191,7 @@ function Composer({
   const ATTACH_ROW = 64
   const NOTICE_ROW = 40
   // The `@` list is a tab of this same tray, so it is a fixed height like the
-  // command list — up to six rows and the tray's bottom breathing.
+  // command list ï¿½ up to six rows and the tray's bottom breathing.
   const mentionVisible =
     mention && cwd ? Math.min(Math.max(mentionFiles.length, 1), 6) : 0
   const mentionRows = mentionVisible > 0 ? 18 + mentionVisible * 30 + (mentionVisible - 1) * 2 : 0
@@ -923,6 +1215,20 @@ function Composer({
       startRecording()
     }
   }
+
+  // The footer layout keeps an explicit mic beside a send button that stays a
+  // send button (muted while there is nothing to send) instead of morphing.
+  const onPrimaryClick = (e: React.MouseEvent): void => {
+    e.preventDefault()
+    if (isRecording) {
+      stopRecording()
+    } else if (running) {
+      onStop()
+    } else if (canSubmit) {
+      void submit(false)
+    }
+  }
+  const primaryLive = canSubmit || running || isRecording
 
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col">
@@ -1084,9 +1390,161 @@ function Composer({
           contenteditable rather than a textarea so `@file` mentions can sit
           inline as chips. */}
       <div
-        className={cn('relative z-10 rounded-xl transition-[background-color] duration-[var(--resize-dur)] ease-[var(--resize-ease)]', !compact && 'p-px', running && !compact ? 'bg-input' : 'bg-transparent')}
+        className={cn(
+          'relative z-10 rounded-xl transition-[background-color] duration-[var(--resize-dur)] ease-[var(--resize-ease)]',
+          // The footer layout carries two stacked surfaces with their own
+          // borders, so the classic running ring would double up here.
+          !compact && composerVariant === 'classic' && 'p-px',
+          running && !compact && composerVariant === 'classic' ? 'bg-input' : 'bg-transparent'
+        )}
       >
-        {compact ? (
+        {composerVariant === 'footer' ? (
+        <div className="flex flex-col">
+          <div
+            onMouseDown={(e) => {
+              if (e.target !== area.current && !isRecording) {
+                e.preventDefault()
+                area.current?.focus()
+              }
+            }}
+            className="relative overflow-visible rounded-xl border border-border bg-composer transition-[border-color,box-shadow] focus-within:border-ring/40 focus-within:ring-1 focus-within:ring-ring/20 hover:border-input-border-hover"
+          >
+            <div className="relative px-4 pb-1.5 pt-3">
+              {!text && (
+                <span aria-hidden className="pointer-events-none absolute inset-x-4 top-3 truncate text-ui-base font-medium leading-relaxed text-foreground-subtlest select-none">
+                  {footerPlaceholder}
+                </span>
+              )}
+              <div
+                ref={area}
+                contentEditable={!isRecording && !submitting}
+                suppressContentEditableWarning
+                role="textbox"
+                aria-multiline="true"
+                aria-label="Message"
+                onInput={(e) => onDraftInput(e.currentTarget)}
+                onBlur={() => setMention(null)}
+                onKeyDown={onKey}
+                onPaste={onPaste}
+                className={cn(
+                  'draft-input min-h-[22px] max-h-[220px] w-full overflow-y-auto break-words border-0 bg-transparent p-0 text-ui-base leading-relaxed text-foreground outline-none',
+                  (isRecording || submitting) && 'opacity-70'
+                )}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
+              {/* Attach: a bordered circle, sitting under the draft. */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => fileInput.current?.click()}
+                disabled={submitting || attachments.length >= MAX_ATTACHMENTS}
+                className="grid size-7 shrink-0 place-items-center rounded-full border border-input text-muted-foreground outline-none transition-colors hover:border-input-border-hover hover:bg-hover hover:text-foreground disabled:opacity-40"
+                title="Attach images"
+                aria-label="Attach images"
+              >
+                <PlusIcon />
+              </button>
+
+              <div className="flex shrink-0 items-center gap-1">
+                {/* Audio wave overlay while recording */}
+                <div
+                  className={cn(
+                    'flex h-7 items-center justify-end gap-[3px] overflow-hidden transition-all duration-150 ease-[var(--ease-smooth-out)]',
+                    isRecording ? 'w-16 opacity-100' : 'pointer-events-none w-0 opacity-0'
+                  )}
+                >
+                  {audioData.map((val, i) => (
+                    <div
+                      key={i}
+                      className="w-1 rounded-full bg-primary transition-[height] duration-75 ease-out"
+                      style={{ height: `${Math.max(4, val * 22)}px` }}
+                    />
+                  ))}
+                </div>
+
+                {running && (
+                  <button
+                    type="button"
+                    className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
+                    title="Queue as follow-up (Ctrl+Enter)"
+                    onClick={() => void submit(true)}
+                    disabled={!canSubmit || submitting}
+                  >
+                    <AddToList size={15} strokeWidth={1.8} />
+                  </button>
+                )}
+
+                {contextSessionId && <ContextViewer key={contextSessionId} sessionId={contextSessionId} running={running} revision={contextRevision} model={model} />}
+
+                {showMic && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); e.stopPropagation() }}
+                    onClick={() => void startRecording()}
+                    className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                    title="Voice input"
+                    aria-label="Use voice input"
+                  >
+                    <MicIcon />
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); e.stopPropagation() }}
+                  onClick={onPrimaryClick}
+                  disabled={submitting || !primaryLive}
+                  aria-label={showStop ? 'Stop recording or generation' : 'Send prompt'}
+                  className={cn(
+                    'flex size-7 shrink-0 items-center justify-center rounded-full outline-none transition-colors duration-[var(--duration-quick)] focus-visible:ring-2 focus-visible:ring-ring',
+                    primaryLive
+                      ? 'bg-primary text-primary-foreground hover:opacity-90'
+                      : 'bg-muted text-foreground-subtlest'
+                  )}
+                >
+                  {showStop ? <StopIcon /> : <ArrowUpIcon />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer bar: what this run may touch, where it runs, and with which
+              model. Square top corners and a hairline pull-up join it to the
+              input card, so the two read as one panel with no gap. */}
+          <div className="-mt-px mx-2 flex min-h-8 items-center gap-0.5 rounded-b-xl border border-border bg-composer-footer px-1">
+            {/* Static label: this renderer has no permission modes to switch,
+                so the bar states the mode it always runs in. */}
+            <span
+              className={cn(FOOTER_CONTROL, 'text-muted-foreground')}
+              title="Full access"
+            >
+              <ShieldIcon />
+              <span className="shrink-0">Full access</span>
+            </span>
+            <ProjectPicker cwd={cwd} projects={projects} onSelect={onSelectProject} onAddProject={onAddProject} />
+            <BranchPicker cwd={cwd} />
+            <div className="ml-auto flex min-w-0 items-center pl-1">
+              {providers && onModel && (
+                <ModelEffortPicker
+                  model={model}
+                  providers={providers}
+                  effort={effort}
+                  onModel={onModel}
+                  onSetEffort={onSetEffort}
+                  onDiscoverModels={onDiscoverModels}
+                  modelSelectorVariant={modelSelectorVariant}
+                  effortSelectorVariant={effortSelectorVariant}
+                  trigger="bare"
+                  align="right"
+                  disabled={running}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+        ) : compact ? (
         <div
           onMouseDown={(e) => {
             if (e.target !== area.current && !isRecording) {

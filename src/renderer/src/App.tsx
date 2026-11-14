@@ -24,11 +24,13 @@ import { FileNavigationProvider } from './fileNavigation'
 import { useDiffStats } from './hooks/use-diff-stats'
 import { subagentTaskIndex, subagentTaskList, revealSubagentInTranscript, type SubagentTask } from './subagents'
 import { applyTheme, applyFontSize, loadPreferences, normalizeAppName, normalizeTransparency, runIndicatorColorValue, savePreferences, type Preferences } from './preferences'
+import { toastManager } from './components/ui/toast'
 import { loadSessionPreferences, saveSessionPreferences, type SessionPreferences } from './sessionPreferences'
 // debug-panel: see debug-panel/README.md for what this is and how to remove it
 import DebugPanel from './debug-panel/DebugPanel'
 import type { CommandName } from './commands'
-import { matchShortcut, composerFocus, composerModelPicker, type ShortcutId } from './shortcuts'
+import { matchShortcut, composerFocus, composerModelPicker, formatCombo, transcriptFind, type ShortcutId } from './shortcuts'
+import type { PaletteCommand } from './components/CommandPalette'
 import type { ContentBlock, ReasoningEffort } from '../../shared/protocol'
 
 // Surfaces the user has to ask for. They are large (Settings alone drags in
@@ -44,6 +46,7 @@ const CommandModal = lazy(() => import('./components/CommandModal'))
 const RenameSessionModal = lazy(() => import('./components/RenameSessionModal'))
 const ToolsModal = lazy(() => import('./components/ToolsModal'))
 const FolderPicker = lazy(() => import('./components/FolderPicker'))
+const CommandPalette = lazy(() => import('./components/CommandPalette'))
 
 // Chunk loads resolve off local disk in single-digit milliseconds, so these
 // fallbacks are deliberately near-invisible: a spinner that flashes once is
@@ -89,6 +92,7 @@ export default function App(): JSX.Element {
   const [sessionPreferences, setSessionPreferences] = useState<SessionPreferences>(loadSessionPreferences)
   const [modal, setModal] = useState<'help' | 'tools' | null>(null)
   const [projectPickerOpen, setProjectPickerOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
   // The subagent shown in the side panel's detail view, by task key. Resolved
   // against the live index on every render (not stored as an object) so a
@@ -110,6 +114,14 @@ export default function App(): JSX.Element {
   sessionsRef.current = state.sessions
   const conn = useRef(state.conn)
   const chats = useRef(state.chats)
+  // Read inside the once-subscribed push listener: whether to announce a run
+  // must reflect the current preference, not the one from mount time.
+  const preferencesRef = useRef(preferences)
+  preferencesRef.current = preferences
+  // Sessions whose last run the user stopped by hand. `session.done` for those
+  // must not announce "finished" — it is an answer to the stop button.
+  const stoppedSessions = useRef(new Set<string>())
+  const openSessionRef = useRef<(id: string) => void>(() => {})
   activeSession.current = chat?.sessionId ?? null
   chats.current = state.chats
   // Refs read inside the stable keydown listener so it never resubscribes.
@@ -121,6 +133,15 @@ export default function App(): JSX.Element {
   // must see the latest value without resubscribing on every state change.
   const noticeRef = useRef<string | null>(null)
   noticeRef.current = chat?.notice ?? null
+  // Same for the palette: while it is open it owns the keyboard, so global
+  // shortcuts must not fire behind it.
+  const paletteRef = useRef(false)
+  paletteRef.current = paletteOpen
+  // Whether the transcript is actually on screen. A run settling in the open
+  // session still needs attention while Settings, the source-control window or
+  // the palette covers it.
+  const transcriptVisibleRef = useRef(true)
+  transcriptVisibleRef.current = view === 'content' && !gitWindowOpen && !paletteOpen
 
   useEffect(() => {
     applyTheme(preferences.theme, preferences.themeId)
@@ -300,6 +321,9 @@ export default function App(): JSX.Element {
           case 'done':
             setQueuedFollowUps((current) => current.filter((pending) => pending.sessionId !== push.sessionId))
             coalescer.drop(push.sessionId)
+            // Announce before the state update: `chats` still holds this run's
+            // last model and cwd, and the session list still has its title.
+            if (chats.current[push.sessionId]) announceSettled(push.sessionId, push.error)
             dispatch({ type: 'done', sessionId: push.sessionId, error: push.error })
             refreshSessions()
             break
@@ -328,6 +352,50 @@ export default function App(): JSX.Element {
     } catch (err) {
       dispatch({ type: 'loading', value: false })
       dispatch({ type: 'fatal', message: err instanceof Error ? err.message : String(err) })
+    }
+  }, [])
+
+  openSessionRef.current = (id) => void openSession(id)
+
+  // A click on an OS notification lands the window on the run it was about.
+  useEffect(() => window.myagent.onNotificationActivate((id) => openSessionRef.current(id)), [])
+
+  /**
+   * Decide whether a settled run deserves attention, and where it is shown.
+   *
+   * In-app toast answers "another run moved while I was reading this one" — the
+   * agent workspace's core problem. The OS notification answers "the window is
+   * not in front of me", which is the only moment a system banner can beat the
+   * transcript. Both carry the session so opening it is one click.
+   */
+  const announceSettled = useCallback((sessionId: string, error?: string) => {
+    if (stoppedSessions.current.delete(sessionId)) return
+    const prefs = preferencesRef.current
+    const session = sessionsRef.current.find((entry) => entry.id === sessionId)
+    const task = session?.title || session?.preview || 'Untitled task'
+    const project = session ? baseName(session.cwd) : ''
+    const viewing = activeSession.current === sessionId && transcriptVisibleRef.current
+    const focused = document.hasFocus()
+    if (prefs.notifyOnFinish && !viewing && focused) {
+      toastManager.add({
+        type: error ? 'error' : 'success',
+        title: error ? 'Run failed' : 'Run finished',
+        description: project ? `${task} · ${project}` : task,
+        actionProps: { children: 'Open', onClick: () => openSessionRef.current(sessionId) }
+      })
+    }
+    if (prefs.desktopNotifications && !focused) {
+      // Independent of the in-app toggle: a user who muted toasts can still
+      // want the OS banner while the app is behind something else.
+      void window.myagent
+        .notify({
+          title: error ? 'Run failed' : task,
+          body: error
+            ? `${task}${project ? ` · ${project}` : ''} — ${error}`.slice(0, 300)
+            : `${task}${project ? ` · ${project}` : ''} — finished`,
+          sessionId
+        })
+        .catch(() => {})
     }
   }, [])
 
@@ -453,6 +521,8 @@ export default function App(): JSX.Element {
   }, [])
   const toggleSettings = useCallback(() => setView((v) => (v === 'settings' ? 'content' : 'settings')), [])
   const openSettings = useCallback(() => setView('settings'), [])
+  const togglePalette = useCallback(() => setPaletteOpen((value) => !value), [])
+  const closePalette = useCallback(() => setPaletteOpen(false), [])
 
   // Home composer: create a session in the selected project, then prompt.
   const homeSend = useCallback(
@@ -532,7 +602,9 @@ export default function App(): JSX.Element {
 
   const stop = useCallback(() => {
     const chat = chatRef.current
-    if (chat) api.abort(chat.sessionId).catch(() => {})
+    if (!chat) return
+    stoppedSessions.current.add(chat.sessionId)
+    api.abort(chat.sessionId).catch(() => {})
   }, [])
 
   const compact = useCallback(() => {
@@ -817,12 +889,50 @@ export default function App(): JSX.Element {
   const dockActiveId = dockTabs.some((tab) => tab.id === dockActive) ? dockActive : dockTabs[0]?.id ?? ''
   const activeDockTab = dockTabs.find((tab) => tab.id === dockActiveId)
 
+  // Palette contents are app capabilities, not palette knowledge: every entry
+  // routes to something this component already owns. Keyed on the booleans
+  // that actually change availability, so streaming does not rebuild the list.
+  const chatId = chat?.sessionId ?? null
+  const chatRunning = !!chat?.running
+  const chatHasItems = !!chat?.items.length
+  const paletteCommands = useMemo<PaletteCommand[]>(() => {
+    const list: PaletteCommand[] = [
+      { id: 'new-task', label: 'Start a new task', hint: formatCombo('mod+n'), run: goHome },
+      { id: 'settings', label: 'Open settings', hint: formatCombo('mod+,'), run: openSettings },
+      { id: 'toggle-sidebar', label: 'Toggle sidebar', hint: formatCombo('mod+b'), run: toggleSidebar },
+      { id: 'commands', label: 'Commands reference', hint: formatCombo('mod+/'), run: openHelp },
+      { id: 'files', label: 'Toggle files panel', run: toggleFiles },
+      { id: 'git', label: 'Toggle source control panel', run: toggleGit },
+      { id: 'git-window', label: 'Open source control window', hint: formatCombo('mod+shift+g'), run: openGitWindow },
+      { id: 'debug', label: 'Toggle LLM debug panel', hint: formatCombo('mod+j'), run: toggleDebug }
+    ]
+    if (chatId) {
+      list.push(
+        { id: 'subagents', label: 'Toggle subagents panel', hint: formatCombo('mod+shift+a'), run: toggleSubagents },
+        { id: 'model', label: 'Choose model', hint: formatCombo('mod+m'), run: () => composerModelPicker.current?.() }
+      )
+      if (chatRunning) {
+        list.push({ id: 'stop', label: 'Stop the active run', hint: formatCombo('mod+.'), run: stop })
+      } else if (chatHasItems) {
+        list.push({ id: 'compact', label: 'Compact context', hint: formatCombo('mod+shift+c'), run: compact })
+      }
+    }
+    return list
+  }, [chatId, chatRunning, chatHasItems, compact, goHome, openGitWindow, openHelp, openSettings, stop, toggleDebug, toggleFiles, toggleGit, toggleSidebar, toggleSubagents])
+
+  const paletteSessions = useMemo(
+    () => state.sessions.filter((session) => !archivedSessionIds.has(session.id)),
+    [state.sessions, archivedSessionIds]
+  )
+
   // Map each global shortcut id to the callback that should run. Held in a ref
   // so the keydown listener (subscribed once) always calls the latest closures
   // without resubscribing on every state change.
   const shortcutsRef = useRef<Partial<Record<ShortcutId, (() => void) | null>>>({})
   shortcutsRef.current = {
     newTask: goHome,
+    commandPalette: togglePalette,
+    findInTranscript: () => transcriptFind.current?.(),
     toggleSidebar,
     openSettings,
     focusComposer: () => composerFocus.current?.(),
@@ -847,6 +957,9 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      // The palette owns every key while it is open (arrows, enter, escape);
+      // nothing global may fire behind it.
+      if (paletteRef.current) return
       // Pause global shortcuts while a modal dialog is open so its own Esc
       // handling and focus stay predictable.
       if (modalRef.current !== null || renameRef.current !== null) return
@@ -989,6 +1102,10 @@ export default function App(): JSX.Element {
                 sendOnEnter={preferences.sendOnEnter}
                 modelSelectorVariant={preferences.modelSelectorVariant}
                 effortSelectorVariant={preferences.effortSelectorVariant}
+                composerVariant={preferences.composerVariant}
+                projects={projectList}
+                onSelectProject={composeIn}
+                onAddProject={addProject}
                 queuedFollowUps={queuedFollowUpLabels}
                 notice={chat.notice}
                 onDismissNotice={dismissChatNotice}
@@ -1023,6 +1140,7 @@ export default function App(): JSX.Element {
             sendOnEnter={preferences.sendOnEnter}
             modelSelectorVariant={preferences.modelSelectorVariant}
             effortSelectorVariant={preferences.effortSelectorVariant}
+            composerVariant={preferences.composerVariant}
             onCommand={handleCommand}
             recentSessions={recentSessions}
             onOpenSession={openSession}
@@ -1087,6 +1205,20 @@ export default function App(): JSX.Element {
         </div>
         </div>
       </main>
+      {paletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette
+            commands={paletteCommands}
+            sessions={paletteSessions}
+            projects={projectList}
+            runningIds={runningIds}
+            onOpenSession={(id) => void openSession(id)}
+            onCompose={composeIn}
+            onAddProject={addProject}
+            onClose={closePalette}
+          />
+        </Suspense>
+      )}
       {/* The window controls move into the source-control window while it is
           open, so exactly one set exists and it stays above whatever is on top. */}
       {!gitWindowOpen && <WindowControls />}

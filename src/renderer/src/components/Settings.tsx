@@ -4,7 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { AiBrain01, Archive01, ArchiveRestore, InformationCircle, Keyboard01, LayoutAlignLeft, Message01, PaintBoard, Search01, Tick01 } from './ui/icons'
 import type { ConnState } from '../state'
-import { THEMES, normalizeAppName, normalizeFontSize, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type EffortSelectorVariant, type SidebarVariant, type RunIndicatorStyle, type SidebarRunColor, type OrbVariant, ORB_VARIANTS } from '../preferences'
+import { THEMES, normalizeAppName, normalizeFontSize, type ThemeId, type Preferences, type ThemePreference, type MessageSize, type ToolActivityDisplay, type ModelSelectorVariant, type ComposerVariant, type EffortSelectorVariant, type SidebarVariant, type RunIndicatorStyle, type SidebarRunColor, type OrbVariant, ORB_VARIANTS } from '../preferences'
 import type { ProviderInput, ProvidersInfo, SessionMeta } from '../../../shared/protocol'
 import { cn } from '../util'
 import { Switch } from './ui/switch'
@@ -51,6 +51,11 @@ const toolDisplays: Array<{ value: ToolActivityDisplay; title: string; detail: s
   { value: 'expanded', title: 'Expanded', detail: 'Every tool execution as its own card' },
   { value: 'compact', title: 'Compact', detail: 'Tools inline while running; fold when done' },
   { value: 'hidden', title: 'Hidden', detail: 'Quiet chat stream; only show failures' }
+]
+
+const composerVariants: Array<{ value: ComposerVariant; title: string; detail: string }> = [
+  { value: 'classic', title: 'Classic', detail: 'Model, effort and attach live inside the input card' },
+  { value: 'footer', title: 'Footer', detail: 'Input card above a bar with permissions, project, branch and model' }
 ]
 
 const modelSelectorVariants: Array<{ value: ModelSelectorVariant; title: string; detail: string }> = [
@@ -705,6 +710,16 @@ export default function Settings({
                   />
                 </SettingsSection>
 
+                <SettingsSection title="Composer layout">
+                  <ChoiceRailRow
+                    id="composer-variant"
+                    title="Composer layout"
+                    options={composerVariants}
+                    current={preferences.composerVariant}
+                    onSelect={(composerVariant) => onChange({ composerVariant })}
+                  />
+                </SettingsSection>
+
                 <SettingsSection title="Model selector">
                   <ChoiceRailRow
                     id="model-selector"
@@ -746,6 +761,21 @@ export default function Settings({
                     title="Enter sends prompt"
                     detail="Press Enter to send message, or Shift+Enter to insert a new line."
                     onChange={(sendOnEnter) => onChange({ sendOnEnter })}
+                  />
+                </SettingsSection>
+
+                <SettingsSection title="Notifications">
+                  <ToggleRow
+                    checked={preferences.notifyOnFinish}
+                    title="Task notifications"
+                    detail="Show an in-app toast when a run finishes or fails in a session you are not viewing."
+                    onChange={(notifyOnFinish) => onChange({ notifyOnFinish })}
+                  />
+                  <ToggleRow
+                    checked={preferences.desktopNotifications}
+                    title="Desktop notifications"
+                    detail="Show a system notification when a task settles while the window is in the background. Clicking it opens that session."
+                    onChange={(desktopNotifications) => onChange({ desktopNotifications })}
                   />
                 </SettingsSection>
 

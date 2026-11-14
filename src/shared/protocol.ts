@@ -273,6 +273,16 @@ export type ServerPush =
   | { kind: 'done'; sessionId: string; error?: string }
   | { kind: 'status'; state: 'starting' | 'connected' | 'reconnecting' | 'disconnected'; detail?: string }
 
+/**
+ * A task-settled signal for the OS notification center. Carries the session it
+ * belongs to so clicking the notification can land the window on that run.
+ */
+export interface NotificationPayload {
+  title: string
+  body: string
+  sessionId?: string
+}
+
 export interface ProviderEntry {
   name: string
   models: string[]
@@ -585,6 +595,10 @@ export interface MyagentApi {
   openWith(target: 'explorer' | 'vscode', dir: string): Promise<boolean>
   onWindowMaximized(cb: (maximized: boolean) => void): () => void
   onPush(cb: (push: ServerPush[]) => void): () => void
+  /** Show an OS notification; resolves false when the platform has none. */
+  notify(payload: NotificationPayload): Promise<boolean>
+  /** Fires when the user clicks a notification that carried a session id. */
+  onNotificationActivate(cb: (sessionId: string) => void): () => void
   git: GitApi
   github: GithubApi
   files: FileApi

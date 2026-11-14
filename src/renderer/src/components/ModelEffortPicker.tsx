@@ -49,6 +49,11 @@ export interface ModelEffortPickerProps {
   modelSelectorVariant?: ModelSelectorVariant
   /** Effort submenu presentation: slider rail (default) or JellyRadio chips. */
   effortSelectorVariant?: EffortSelectorVariant
+  /**
+   * Trigger presentation: the bordered `chip` used inside the composer card,
+   * or a `bare` text button for the composer footer bar.
+   */
+  trigger?: 'chip' | 'bare'
   /** Which trigger edge the menu hangs from. */
   align?: 'left' | 'right'
   /** Backend rejects model/effort writes while a turn is running (ErrBusy). */
@@ -64,6 +69,7 @@ export default function ModelEffortPicker({
   onDiscoverModels,
   modelSelectorVariant = 'compact',
   effortSelectorVariant = 'slider',
+  trigger = 'chip',
   align = 'left',
   disabled = false
 }: ModelEffortPickerProps): JSX.Element {
@@ -440,8 +446,14 @@ export default function ModelEffortPicker({
           // Fixed row height, one baseline for every glyph. The model name is
           // the only thing allowed to shrink; the icon, separator, effort and
           // chevron stay put, so the pill's height never changes.
-          'chip group h-8 min-w-0 max-w-[190px] items-center gap-1.5 py-0 pl-2 pr-1.5 leading-none',
-          open && 'chip-active'
+          trigger === 'bare'
+            ? cn(
+                // Footer bar: the model reads as quiet metadata until hovered.
+                'group flex h-6 min-w-0 max-w-[220px] items-center gap-1.5 rounded-lg px-2 leading-none outline-none transition-colors',
+                open ? 'bg-hover text-foreground' : 'text-muted-foreground hover:bg-hover hover:text-foreground'
+              )
+            : 'chip group h-8 min-w-0 max-w-[190px] items-center gap-1.5 py-0 pl-2 pr-1.5 leading-none',
+          trigger === 'chip' && open && 'chip-active'
         )}
         title={disabled ? 'Model and effort can be changed between turns' : `${shortModel ?? 'Select model'} · ${currentEffortLabel} effort`}
         aria-label={`Model and reasoning effort. Current: ${shortModel ?? 'none'}, ${currentEffortLabel}`}
@@ -449,20 +461,29 @@ export default function ModelEffortPicker({
         aria-expanded={open}
       >
         <ModelIcon model={shortModel || 'GPT 5.5'} className="size-3.5 shrink-0 opacity-80 transition-opacity group-hover:opacity-100" />
-        <span className="min-w-0 truncate text-ui-sm font-medium leading-[1.25] text-foreground select-none">
+        <span
+          className={cn(
+            'min-w-0 truncate text-ui-sm font-medium leading-[1.25] select-none',
+            trigger === 'bare' ? 'text-current' : 'text-foreground'
+          )}
+        >
           {shortModel || 'Select Model'}
         </span>
-        <span className="shrink-0 text-ui-xs leading-none text-foreground-subtlest" aria-hidden>
-          ·
-        </span>
-        <span className="shrink-0 text-ui-xs font-medium leading-[1.25] text-muted-foreground select-none">{currentEffortLabel}</span>
-        <HugeiconsIcon
-          icon={ArrowDown01Icon}
-          size={12}
-          strokeWidth={2}
-          aria-hidden
-          className={cn('shrink-0 opacity-60 transition-transform duration-[var(--duration-quick)]', open && 'rotate-180')}
-        />
+        {trigger === 'bare' ? null : (
+          <>
+            <span className="shrink-0 text-ui-xs leading-none text-foreground-subtlest" aria-hidden>
+              ·
+            </span>
+            <span className="shrink-0 text-ui-xs font-medium leading-[1.25] text-muted-foreground select-none">{currentEffortLabel}</span>
+            <HugeiconsIcon
+              icon={ArrowDown01Icon}
+              size={12}
+              strokeWidth={2}
+              aria-hidden
+              className={cn('shrink-0 opacity-60 transition-transform duration-[var(--duration-quick)]', open && 'rotate-180')}
+            />
+          </>
+        )}
       </button>
 
       <AnimatePresence>

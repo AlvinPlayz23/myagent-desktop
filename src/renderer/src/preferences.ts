@@ -23,6 +23,12 @@ export const THEMES: readonly ThemeMeta[] = [
 export type MessageSize = 'compact' | 'default' | 'large'
 export type ToolActivityDisplay = 'expanded' | 'compact' | 'hidden'
 export type ModelSelectorVariant = 'compact' | 'gallery'
+/**
+ * Composer presentation: the original card with every control inside it, or
+ * the footer layout where the input card sits above a bar carrying the
+ * permission, project, branch and model controls.
+ */
+export type ComposerVariant = 'classic' | 'footer'
 export type EffortSelectorVariant = 'slider' | 'chips'
 export type SidebarVariant = 'inbox' | 'grouped'
 /** Dot-matrix animation patterns; see Orb.tsx for how each one moves. */
@@ -60,6 +66,11 @@ export interface Preferences {
   toolActivityDisplay: ToolActivityDisplay
   modelSelectorVariant: ModelSelectorVariant
   /**
+   * Composer presentation: `classic` keeps model, effort and attach inside the
+   * input card; `footer` moves them to a bar under the card.
+   */
+  composerVariant: ComposerVariant
+  /**
    * Effort picker presentation: the slider rail, or the original row of level
    * chips. The chips variant also restores click-to-cycle on the trigger.
    */
@@ -92,6 +103,14 @@ export interface Preferences {
   interfaceFontSize: number
   /** Display name shown in the window's titlebar strip. */
   appName: string
+  /**
+   * In-app toast when a task settles in a session the user is not looking at.
+   * This is the agent-workspace signal: another run finished, or failed, while
+   * the window was showing something else.
+   */
+  notifyOnFinish: boolean
+  /** OS notification when a task settles while the window is in the background. */
+  desktopNotifications: boolean
 }
 
 const KEY = 'myagent.desktop.preferences'
@@ -109,6 +128,7 @@ export const defaults: Preferences = {
   sendOnEnter: true,
   toolActivityDisplay: 'compact',
   modelSelectorVariant: 'compact',
+  composerVariant: 'classic',
   effortSelectorVariant: 'slider',
   sidebarVariant: 'inbox',
   runIndicator: 'color',
@@ -120,7 +140,9 @@ export const defaults: Preferences = {
   transparencyEnabled: false,
   transparency: 50,
   interfaceFontSize: 13,
-  appName: DEFAULT_APP_NAME
+  appName: DEFAULT_APP_NAME,
+  notifyOnFinish: true,
+  desktopNotifications: true
 }
 
 /** Keep the visual preference safe when localStorage contains old or invalid data. */
@@ -154,6 +176,7 @@ export function loadPreferences(): Preferences {
       themeId: THEMES.some((t) => t.id === stored.themeId) ? (stored.themeId as ThemeId) : 'default',
       toolActivityDisplay: stored.toolActivityDisplay === 'expanded' || stored.toolActivityDisplay === 'hidden' ? stored.toolActivityDisplay : 'compact',
       modelSelectorVariant: stored.modelSelectorVariant === 'gallery' ? 'gallery' : 'compact',
+      composerVariant: stored.composerVariant === 'footer' ? 'footer' : 'classic',
       effortSelectorVariant: stored.effortSelectorVariant === 'chips' ? 'chips' : 'slider',
       sidebarVariant: stored.sidebarVariant === 'grouped' ? 'grouped' : 'inbox',
       // 'dotmatrix' was the pre-variant name for the radiating pattern.
@@ -169,7 +192,9 @@ export function loadPreferences(): Preferences {
       transparencyEnabled: stored.transparencyEnabled !== false,
       transparency: normalizeTransparency(stored.transparency),
       interfaceFontSize: normalizeFontSize(stored.interfaceFontSize),
-      appName: normalizeAppName(stored.appName ?? defaults.appName)
+      appName: normalizeAppName(stored.appName ?? defaults.appName),
+      notifyOnFinish: stored.notifyOnFinish !== false,
+      desktopNotifications: stored.desktopNotifications !== false
     }
   } catch {
     return defaults

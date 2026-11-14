@@ -1,6 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Folder01 } from './ui/icons'
+import { Cancel01, ChevronDown, ChevronUp, Folder01, Search01 } from './ui/icons'
+import { transcriptFind } from '../shortcuts'
+import { clearFind, collectFindRanges, paintFind } from '../findHighlight'
 import type { ChatItem, ChatState } from '../state'
 import type { Message } from '../../../shared/protocol'
 import type { OrbVariant, ToolActivityDisplay } from '../preferences'
@@ -68,6 +70,13 @@ export default function Chat({
   // Mirrors `pinned` into state so the jump-to-latest pill can appear/disappear.
   // Only flips on transitions; scrolling within the bottom region is free.
   const [atBottom, setAtBottom] = useState(true)
+  // Find-in-conversation. Ranges stay in state so the count and the step
+  // buttons read the same collection that is painted in the DOM.
+  const findInput = useRef<HTMLInputElement>(null)
+  const [findOpen, setFindOpen] = useState(false)
+  const [findQuery, setFindQuery] = useState('')
+  const [findRanges, setFindRanges] = useState<Range[]>([])
+  const [findIndex, setFindIndex] = useState(0)
   // In-flight glide for the jump-to-latest pill. Native smooth scrolling is
   // too abrupt over long transcripts, so animate manually instead. The
   // destination is re-read every frame because content keeps growing while a
@@ -274,6 +283,73 @@ export default function Chat({
     takeOverScroll()
   }
 
+  // --- Find in conversation -------------------------------------------------
+
+  // The app-level ⌘F handler reaches this through the shortcut ref, so the bar
+  // works even though only this component knows where the transcript is.
+  const toggleFind = useCallback(() => setFindOpen((value) => !value), [])
+  useEffect(() => {
+    transcriptFind.current = toggleFind
+    return () => {
+      if (transcriptFind.current === toggleFind) transcriptFind.current = null
+    }
+  }, [toggleFind])
+
+  // Closing (or unmounting) must take the painted highlights with it; they live
+  // in a document-level registry, not in React's tree.
+  useEffect(() => {
+    if (findOpen) return
+    clearFind()
+    setFindRanges([])
+    setFindIndex(0)
+  }, [findOpen])
+  useEffect(() => () => clearFind(), [])
+
+  useEffect(() => {
+    if (!findOpen) return
+    const id = window.setTimeout(() => {
+      findInput.current?.focus()
+      findInput.current?.select()
+    }, 0)
+    return () => window.clearTimeout(id)
+  }, [findOpen])
+
+  const revealFindRange = (range: Range): void => {
+    const el = scroller.current
+    if (!el) return
+    const rect = range.getBoundingClientRect()
+    const box = el.getBoundingClientRect()
+    if (rect.width === 0 && rect.height === 0) return
+    // Searching is inspection: stop following the stream while stepping hits.
+    takeOverScroll()
+    el.scrollTop = Math.max(0, el.scrollTop + (rect.top - box.top) - Math.max(32, box.height / 3))
+  }
+
+  // Re-collect on query change, not on every streamed token: the ranges are
+  // live, so already-found hits keep their place as content grows.
+  useEffect(() => {
+    if (!findOpen) return
+    const id = window.setTimeout(() => {
+      const content = contentRef.current
+      const ranges = content && findQuery.trim() ? collectFindRanges(content, findQuery) : []
+      setFindRanges(ranges)
+      setFindIndex(0)
+      paintFind(ranges, 0)
+      if (ranges.length > 0) revealFindRange(ranges[0])
+    }, 90)
+    return () => window.clearTimeout(id)
+  }, [findQuery, findOpen])
+
+  const stepFind = (delta: number): void => {
+    if (findRanges.length === 0) return
+    const next = (findIndex + delta + findRanges.length) % findRanges.length
+    setFindIndex(next)
+    paintFind(findRanges, next)
+    revealFindRange(findRanges[next])
+  }
+
+  // -------------------------------------------------------------------------
+
   const scrollToBottom = (): void => {
     const el = scroller.current
     if (!el) return
@@ -465,6 +541,64 @@ export default function Chat({
 
   return (
     <div className="relative min-h-0 flex-1">
+      {findOpen && (
+        <div className="absolute right-3 top-3 z-20 flex items-center gap-1 rounded-lg border border-border bg-background px-1.5 py-1 shadow-[var(--shadow-pop)]">
+          <Search01 size={13} strokeWidth={1.8} className="shrink-0 text-foreground-subtle" aria-hidden />
+          <input
+            ref={findInput}
+            type="text"
+            value={findQuery}
+            onChange={(e) => setFindQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                stepFind(e.shiftKey ? -1 : 1)
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                e.stopPropagation()
+                setFindOpen(false)
+              }
+            }}
+            placeholder="Find in conversation"
+            aria-label="Find in conversation"
+            autoComplete="off"
+            spellCheck={false}
+            className="h-6 w-52 bg-transparent text-ui-caption text-foreground outline-none placeholder:text-foreground-subtlest"
+          />
+          <span className="w-10 shrink-0 text-right font-mono text-ui-sm text-foreground-subtlest">
+            {findRanges.length > 0 ? `${findIndex + 1}/${findRanges.length}` : findQuery.trim() ? '0/0' : ''}
+          </span>
+          <button
+            type="button"
+            onClick={() => stepFind(-1)}
+            disabled={findRanges.length === 0}
+            aria-label="Previous match"
+            title="Previous match"
+            className="grid size-6 cursor-pointer place-items-center rounded-md text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
+          >
+            <ChevronUp size={14} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            onClick={() => stepFind(1)}
+            disabled={findRanges.length === 0}
+            aria-label="Next match"
+            title="Next match"
+            className="grid size-6 cursor-pointer place-items-center rounded-md text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
+          >
+            <ChevronDown size={14} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setFindOpen(false)}
+            aria-label="Close find"
+            title="Close find"
+            className="grid size-6 cursor-pointer place-items-center rounded-md text-foreground-subtle outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Cancel01 size={14} strokeWidth={1.8} />
+          </button>
+        </div>
+      )}
       <ScrollFadeViewport
         ref={scroller}
         // overflow-anchor off: the browser's scroll anchoring silently rewrites

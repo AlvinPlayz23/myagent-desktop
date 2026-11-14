@@ -10,6 +10,8 @@
 
 export type ShortcutId =
   | 'newTask'
+  | 'commandPalette'
+  | 'findInTranscript'
   | 'toggleSidebar'
   | 'openSettings'
   | 'focusComposer'
@@ -49,6 +51,8 @@ export const isMacPlatform = isMac
 // either metaKey or ctrlKey so the same combo works under both hosts.
 export const shortcuts: Shortcut[] = [
   { id: 'newTask', description: 'Start a new task', combo: 'mod+n', category: 'Navigation', global: true },
+  { id: 'commandPalette', description: 'Search sessions, projects and actions', combo: 'mod+k', category: 'Navigation', global: true },
+  { id: 'findInTranscript', description: 'Find in conversation', combo: 'mod+f', category: 'Navigation', global: true },
   { id: 'toggleSidebar', description: 'Toggle the sidebar', combo: 'mod+b', category: 'Navigation', global: true },
   { id: 'focusComposer', description: 'Focus the composer', combo: 'mod+l', category: 'Navigation', global: true },
   { id: 'openSettings', description: 'Open settings', combo: 'mod+,', category: 'Navigation', global: true },
@@ -124,3 +128,6 @@ export function formatCombo(combo: string): string {
 // other stays null. Plain objects (not useRef) so they're importable anywhere.
 export const composerFocus: { current: (() => void) | null } = { current: null }
 export const composerModelPicker: { current: (() => void) | null } = { current: null }
+// Toggles the transcript's find bar. Only the mounted Chat publishes; the
+// app-level listener reaches it without threading state through the whole tree.
+export const transcriptFind: { current: (() => void) | null } = { current: null }

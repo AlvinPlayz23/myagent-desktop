@@ -26,6 +26,12 @@ const api: MyagentApi = {
     ipcRenderer.on('myagent:push', listener)
     return () => ipcRenderer.removeListener('myagent:push', listener)
   },
+  notify: (payload) => ipcRenderer.invoke('myagent:notify', payload),
+  onNotificationActivate: (cb: (sessionId: string) => void) => {
+    const listener = (_e: unknown, sessionId: string): void => cb(sessionId)
+    ipcRenderer.on('myagent:notification:activate', listener)
+    return () => ipcRenderer.removeListener('myagent:notification:activate', listener)
+  },
   git: {
     status: (cwd) => ipcRenderer.invoke('myagent:git:status', cwd),
     diff: (cwd, path, staged) => ipcRenderer.invoke('myagent:git:diff', cwd, path, staged),

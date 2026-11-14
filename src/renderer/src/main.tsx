@@ -6,6 +6,7 @@ import ReactDOM from 'react-dom/client'
 // spend ~120 KB on glyph ranges that never render here.
 import './styles.css'
 import App from './App'
+import { ToastProvider } from './components/ui/toast'
 
 // Loop animations — the Working orb, the shimmer sweep, the streaming caret —
 // have no reason to keep painting while the window is behind something else or
@@ -19,6 +20,8 @@ syncWindowHidden()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <ToastProvider position="top-right">
+      <App />
+    </ToastProvider>
   </React.StrictMode>
 )

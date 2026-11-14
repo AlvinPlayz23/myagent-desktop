@@ -8,7 +8,7 @@ import Composer from './Composer'
 import { Button } from './ui/button'
 import { cn, relTime } from '../util'
 import type { CommandName } from '../commands'
-import type { EffortSelectorVariant, ModelSelectorVariant } from '../preferences'
+import type { ComposerVariant, EffortSelectorVariant, ModelSelectorVariant } from '../preferences'
 import { BLOOM_FAST, EASE_OUT } from '../motion'
 
 interface Props {
@@ -28,6 +28,7 @@ interface Props {
   sendOnEnter?: boolean
   modelSelectorVariant?: ModelSelectorVariant
   effortSelectorVariant?: EffortSelectorVariant
+  composerVariant?: ComposerVariant
   onCommand(name: CommandName, argument: string): void
   /** Recent sessions across all projects, newest first (drives the Recents row). */
   recentSessions?: SessionMeta[]
@@ -40,7 +41,7 @@ function Home(props: Props): JSX.Element {
     loading, fatal, projects, selected, appName,
     onSelect, onAddProject, onSend, onRetry,
     providers, onDiscoverModels, notice, onDismissNotice,
-    sendOnEnter, modelSelectorVariant, effortSelectorVariant, onCommand,
+    sendOnEnter, modelSelectorVariant, effortSelectorVariant, composerVariant, onCommand,
     recentSessions = [], onOpenSession
   } = props
   const [open, setOpen] = useState(false)
@@ -111,6 +112,9 @@ function Home(props: Props): JSX.Element {
               <h1 className="m-0 min-w-0 max-w-full text-balance text-center text-ui-xl font-medium text-foreground">
                 Where should we begin?
               </h1>
+              {/* The footer composer owns the project control, so this header
+                  picker steps aside instead of duplicating it. */}
+              {composerVariant !== 'footer' && (
               <div className="relative shrink-0" ref={pop} aria-label={appName}>
                 <button
                   className="flex h-7 max-w-[280px] items-center gap-2 rounded-md px-2 text-muted-foreground outline-none transition-colors duration-[var(--duration-instant)] hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
@@ -173,6 +177,7 @@ function Home(props: Props): JSX.Element {
                   )}
                 </AnimatePresence>
               </div>
+              )}
             </div>
 
             <div className="relative z-20">
@@ -209,6 +214,10 @@ function Home(props: Props): JSX.Element {
                 sendOnEnter={sendOnEnter}
                 modelSelectorVariant={modelSelectorVariant}
                 effortSelectorVariant={effortSelectorVariant}
+                composerVariant={composerVariant}
+                projects={projects}
+                onSelectProject={onSelect}
+                onAddProject={onAddProject}
                 onCommand={onCommand}
               />
             </div>
